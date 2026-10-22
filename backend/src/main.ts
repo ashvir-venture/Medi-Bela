@@ -54,6 +54,6 @@ async function bootstrap() {
   const port = config.get<number>('PORT', 3001);
   await app.listen(port, '0.0.0.0');
   // eslint-disable-next-line no-console
-  console.log(`CareBridge backend listening on port ${port}`);
+  console.log(`Medi-bela backend listening on port ${port}`);
 }
 bootstrap();
