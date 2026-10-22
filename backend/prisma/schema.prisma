@@ -1,0 +1,533 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+  PHARMACIST
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum Language {
+  EN
+  BN
+}
+
+enum FamilyRole {
+  OWNER
+  MEMBER
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+enum PrescriptionStatus {
+  PENDING
+  COMPLETED
+  REJECTED
+}
+
+enum DoseStatus {
+  PENDING
+  TAKEN
+  MISSED
+  SKIPPED
+}
+
+enum HealthReminderStatus {
+  PENDING
+  COMPLETED
+  DISMISSED
+}
+
+enum HealthRecordType {
+  BLOOD_PRESSURE
+  BLOOD_SUGAR
+  WEIGHT
+  TEMPERATURE
+  HEART_RATE
+  OTHER
+}
+
+enum SuggestionStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum NoticeStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum NoticeAudience {
+  ALL
+  USER
+  ADMIN
+}
+
+enum NotificationType {
+  MEDICINE_REMINDER
+  MISSED_DOSE_FAMILY_ALERT
+  PRESCRIPTION_UPDATE
+  NOTICE
+  SYSTEM
+}
+
+enum PushStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum DevicePlatform {
+  ANDROID
+  IOS
+}
+
+enum AssistantConversationStatus {
+  OPEN
+  CLOSED
+}
+
+enum AssistantMessageRole {
+  USER
+  ASSISTANT
+}
+
+model User {
+  id                     String        @id @default(uuid()) @db.Uuid
+  phone                  String        @unique
+  name                   String
+  address                String?
+  passwordHash           String
+  role                   Role          @default(USER)
+  accountStatus          AccountStatus @default(ACTIVE)
+  languagePreference     Language      @default(EN)
+  notificationsEnabled   Boolean       @default(true)
+  profileVisibleToFamily Boolean       @default(true)
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+  // Set when the password is RESET (forgot-password): access tokens issued
+  // before this moment are rejected, so a stolen session cannot outlive a reset.
+  passwordChangedAt      DateTime?
+
+  familyMemberships      FamilyMember[]
+  sentInvitations        FamilyInvitation[]      @relation("InvitationSender")
+  prescriptions          Prescription[]          @relation("PrescriptionOwner")
+  reviewedPrescriptions  Prescription[]          @relation("PrescriptionReviewer")
+  verifiedMedicines      PrescriptionMedicine[]  @relation("MedicineVerifier")
+  medicineRoutines       MedicineRoutine[]
+  medicineDoses          MedicineDose[]
+  healthReminders        HealthReminder[]
+  healthRecords          HealthRecord[]
+  createdSuggestionRules HealthSuggestionRule[]  @relation("RuleCreator")
+  healthSuggestions      HealthSuggestion[]      @relation("SuggestionSubject")
+  publishedSuggestions   HealthSuggestion[]      @relation("SuggestionPublisher")
+  createdNotices         Notice[]                @relation("NoticeCreator")
+  notifications          Notification[]
+  deviceTokens           DeviceToken[]
+  assistantConversations AssistantConversation[]
+  passwordResetCode      PasswordResetCode?
+
+  @@index([role])
+  @@map("users")
+}
+
+model Family {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members     FamilyMember[]
+  invitations FamilyInvitation[]
+
+  @@map("families")
+}
+
+model FamilyMember {
+  id       String     @id @default(uuid()) @db.Uuid
+  familyId String     @db.Uuid
+  userId   String     @db.Uuid
+  role     FamilyRole @default(MEMBER)
+  joinedAt DateTime   @default(now())
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([familyId, userId])
+  // A user belongs to at most ONE family. Enforced here (not just in
+  // service code) so concurrent create/accept requests cannot race past it.
+  @@unique([userId])
+  @@map("family_members")
+}
+
+model FamilyInvitation {
+  id           String           @id @default(uuid()) @db.Uuid
+  familyId     String           @db.Uuid
+  invitedPhone String
+  invitedById  String           @db.Uuid
+  status       InvitationStatus @default(PENDING)
+  respondedAt  DateTime?
+  expiresAt    DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  family    Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  invitedBy User   @relation("InvitationSender", fields: [invitedById], references: [id], onDelete: Restrict)
+
+  @@index([invitedPhone])
+  @@index([familyId, status])
+  @@map("family_invitations")
+}
+
+model Prescription {
+  id              String              @id @default(uuid()) @db.Uuid
+  userId          String              @db.Uuid
+  imageUrl        String
+  status          PrescriptionStatus  @default(PENDING)
+  reviewedById    String?             @db.Uuid
+  reviewedAt      DateTime?
+  rejectionReason String?
+  processingNote  String?
+  // Client-generated id sent by the mobile app on upload (see
+  // PrescriptionApi.uploadDraft's `clientId`). Used purely as an
+  // idempotency key so a retried offline sync can't create a duplicate
+  // prescription server-side; never exposed as the canonical id.
+  clientUploadId  String?             @unique
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  user       User                    @relation("PrescriptionOwner", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy User?                   @relation("PrescriptionReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  medicines  PrescriptionMedicine[]
+
+  @@index([userId, status])
+  @@index([status])
+  @@map("prescriptions")
+}
+
+model PrescriptionMedicine {
+  id             String    @id @default(uuid()) @db.Uuid
+  prescriptionId String    @db.Uuid
+  medicineName   String
+  dosage         String
+  // Human-readable frequency as written by the admin/pharmacist (e.g.
+  // "twice daily"). Kept alongside the structured fields below because
+  // it's what gets displayed to the user; the structured fields are what
+  // routine generation actually consumes.
+  frequency      String
+  duration       String
+  instructions   String?
+  // --- Structured fields consumed by deterministic routine generation ---
+  // Number of doses per day. Required (and validated) before a
+  // prescription can be completed — never inferred from `frequency`.
+  timesPerDay    Int?
+  // Explicit clock times ("HH:mm", 24h) for each dose, stored as a JSON
+  // array string, e.g. ["08:00","20:00"]. Length must equal `timesPerDay`.
+  scheduleTimes  String?
+  // Whole-number treatment length in days, entered explicitly by the
+  // admin — never parsed/guessed from the free-text `duration` field.
+  durationDays   Int?
+  // Optional explicit start date for the routine; if omitted, routine
+  // generation defaults it to the date the prescription is completed
+  // (an administrative default, not a clinical one).
+  startDate      DateTime?
+  verified       Boolean   @default(false)
+  verifiedById   String?   @db.Uuid
+  verifiedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  prescription Prescription      @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  verifiedBy   User?             @relation("MedicineVerifier", fields: [verifiedById], references: [id], onDelete: SetNull)
+  routines     MedicineRoutine[]
+
+  @@index([prescriptionId])
+  @@map("prescription_medicines")
+}
+
+model MedicineRoutine {
+  id                     String    @id @default(uuid()) @db.Uuid
+  userId                 String    @db.Uuid
+  prescriptionMedicineId String?   @db.Uuid
+  medicineName           String
+  dosage                 String
+  frequency              String
+  startDate              DateTime
+  endDate                DateTime?
+  active                 Boolean   @default(true)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prescriptionMedicine PrescriptionMedicine? @relation(fields: [prescriptionMedicineId], references: [id], onDelete: SetNull)
+  doses                MedicineDose[]
+  healthSuggestions    HealthSuggestion[]
+
+  @@index([userId, active])
+  @@map("medicine_routines")
+}
+
+model MedicineDose {
+  id          String     @id @default(uuid()) @db.Uuid
+  routineId   String     @db.Uuid
+  userId      String     @db.Uuid
+  scheduledAt DateTime
+  status      DoseStatus @default(PENDING)
+  takenAt     DateTime?
+  // Set exactly once, atomically, when the missed-dose pipeline has handled
+  // this dose (alert created, or deliberately skipped). Guarantees one
+  // family alert per missed dose even with overlapping job runs.
+  familyAlertProcessedAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  routine MedicineRoutine @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, scheduledAt])
+  @@index([routineId, scheduledAt])
+  @@index([status, scheduledAt])
+  @@map("medicine_doses")
+}
+
+model HealthReminder {
+  id           String                @id @default(uuid()) @db.Uuid
+  userId       String                @db.Uuid
+  sourceRuleId String?               @db.Uuid
+  title        String
+  description  String?
+  scheduledAt  DateTime
+  status       HealthReminderStatus  @default(PENDING)
+  completedAt  DateTime?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  user       User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceRule HealthSuggestionRule? @relation(fields: [sourceRuleId], references: [id], onDelete: SetNull)
+
+  @@index([userId, scheduledAt])
+  @@index([userId, status])
+  @@map("health_reminders")
+}
+
+model HealthRecord {
+  id         String           @id @default(uuid()) @db.Uuid
+  userId     String           @db.Uuid
+  type       HealthRecordType
+  value      String
+  unit       String?
+  notes      String?
+  recordedAt DateTime         @default(now())
+  // Client-generated id of the offline draft; idempotency key so a retried
+  // sync (response lost, app killed) can never create the record twice.
+  clientId   String?          @db.Uuid
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clientId])
+  @@index([userId, type, recordedAt])
+  @@map("health_records")
+}
+
+model HealthSuggestionRule {
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String
+  description     String?
+  conditionType   String
+  conditionValue  String
+  suggestedAction String
+  enabled         Boolean  @default(true)
+  createdById     String?  @db.Uuid
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  createdBy User?            @relation("RuleCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  reminders HealthReminder[]
+
+  @@index([enabled])
+  @@map("health_suggestion_rules")
+}
+
+// AI-generated, per-user health suggestions -- distinct from
+// `HealthSuggestionRule` (admin-authored, deterministic rules). Each row
+// is one AI generation run for one user, covering their current
+// verified medicines at generation time. `items*` is a JSON array of
+// {category, text} objects; the shape is intentionally open-ended (not
+// a fixed food/test schema) so any relevant suggestion category can be
+// generated. Never shown to the user until an admin reviews and
+// publishes it.
+model HealthSuggestion {
+  id              String            @id @default(uuid()) @db.Uuid
+  userId          String            @db.Uuid
+  // The routine this suggestion was requested for (admin-initiated, one
+  // medicine). Null only for older, per-user auto-generated rows.
+  routineId       String?           @db.Uuid
+  itemsEn         Json
+  itemsBn         Json
+  // Snapshot of the medicine names sent to the model for this
+  // generation, kept for admin context/audit -- not re-derived later.
+  sourceMedicines String
+  status          SuggestionStatus  @default(DRAFT)
+  publishedById   String?           @db.Uuid
+  publishedAt     DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  user        User  @relation("SuggestionSubject", fields: [userId], references: [id], onDelete: Cascade)
+  publishedBy User? @relation("SuggestionPublisher", fields: [publishedById], references: [id], onDelete: SetNull)
+  routine     MedicineRoutine? @relation(fields: [routineId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([routineId, createdAt])
+  @@map("health_suggestions")
+}
+
+model Notice {
+  id          String         @id @default(uuid()) @db.Uuid
+  title       String
+  content     String
+  status      NoticeStatus   @default(DRAFT)
+  audience    NoticeAudience @default(ALL)
+  publishedAt DateTime?
+  expiresAt   DateTime?
+  createdById String?        @db.Uuid
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  createdBy User? @relation("NoticeCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([status, publishedAt])
+  @@map("notices")
+}
+
+model Notification {
+  id              String           @id @default(uuid()) @db.Uuid
+  userId          String           @db.Uuid
+  type            NotificationType
+  title           String
+  body            String
+  // Id of the thing this notification is about (dose, prescription, notice,
+  // invitation). Together with (userId, type) it is the idempotency key:
+  // the same event can never produce two rows for the same recipient.
+  relatedEntityId String?
+  // Minimal, non-sensitive routing data for deep links (e.g. the family
+  // member's user id). Never medicine names or doses.
+  data            Json?
+  isRead          Boolean          @default(false)
+  readAt          DateTime?
+  pushStatus      PushStatus       @default(PENDING)
+  pushAttempts    Int              @default(0)
+  pushedAt        DateTime?
+  createdAt       DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type, relatedEntityId])
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@index([pushStatus, createdAt])
+  @@map("notifications")
+}
+
+// One row per app install. The raw FCM token is only ever stored encrypted
+// (AES-256-GCM); `tokenHash` (SHA-256) is what we look up / de-duplicate by.
+model DeviceToken {
+  id         String         @id @default(uuid()) @db.Uuid
+  userId     String         @db.Uuid
+  tokenHash  String         @unique
+  tokenEnc   String
+  platform   DevicePlatform
+  appVersion String?
+  lastSeenAt DateTime       @default(now())
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+// One AI-assistant chat. Owned by exactly one user; deleting the user or the
+// conversation cascades to its messages. After the 10th user message has been
+// answered the status becomes CLOSED and the conversation is read-only.
+// `userMessageCount` is only ever changed while holding this row's lock (see
+// AssistantService), and a CHECK constraint in the migration keeps it 0..10.
+model AssistantConversation {
+  id               String                      @id @default(uuid()) @db.Uuid
+  userId           String                      @db.Uuid
+  status           AssistantConversationStatus @default(OPEN)
+  userMessageCount Int                         @default(0)
+  closedAt         DateTime?
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
+
+  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages AssistantMessage[]
+
+  @@index([userId, updatedAt])
+  @@map("assistant_conversations")
+}
+
+// One row per user message and per assistant reply. `seq` is the position in
+// the conversation (1, 2, 3, ...): user messages are odd, replies even. The
+// unique (conversationId, seq) both orders messages and makes a duplicate
+// reply impossible; (conversationId, clientMessageId) makes a retried send
+// idempotent (the key is set on user messages only).
+model AssistantMessage {
+  id              String               @id @default(uuid()) @db.Uuid
+  conversationId  String               @db.Uuid
+  seq             Int
+  role            AssistantMessageRole
+  content         String
+  // Assistant rows only: ANSWER | EMERGENCY | REFUSAL, and the language the
+  // reply was written in (selects the server-side disclaimer on reload).
+  kind            String?
+  language        Language?
+  // User rows only: client-generated idempotency key.
+  clientMessageId String?              @db.Uuid
+  createdAt       DateTime             @default(now())
+
+  conversation AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, seq])
+  @@unique([conversationId, clientMessageId])
+  @@map("assistant_messages")
+}
+
+// One-time code (SMS) for the forgot-password flow. At most one live code per
+// user (re-requesting replaces it). Only an HMAC of the code is stored; it
+// expires quickly and locks after a few wrong guesses.
+model PasswordResetCode {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @db.Uuid
+  codeHash  String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_codes")
+}

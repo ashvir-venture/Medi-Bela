@@ -1,0 +1,113 @@
+# ======================================================================
+# CareBridge monorepo: backend/ (NestJS) + frontend/ (Next.js) + mobile/ (Flutter)
+# ======================================================================
+
+# ---- Secrets: never commit ------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+key.properties
+# Firebase Admin / service-account keys (the backend's push credentials)
+service-account*.json
+*firebase-adminsdk*.json
+# Uncomment to also keep the Firebase client config out of the repo
+# (it is not secret, but secret scanners flag the API key):
+# mobile/android/app/google-services.json
+# mobile/ios/Runner/GoogleService-Info.plist
+# mobile/lib/firebase_options.dart
+
+# ---- Dependencies and build output ----------------------------------
+node_modules/
+dist/
+build/
+out/
+coverage/
+.next/
+.vercel/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+
+# ---- Stray compiled TypeScript (tsc output written next to the sources)
+backend/src/**/*.js
+backend/src/**/*.js.map
+backend/src/**/*.d.ts
+backend/test/**/*.js
+backend/test/**/*.d.ts
+backend/jest.config.js
+backend/jest.config.d.ts
+backend/prisma/**/*.js
+backend/prisma/**/*.d.ts
+backend/scripts/**/*.js
+backend/scripts/**/*.d.ts
+frontend/src/**/*.js
+frontend/src/**/*.d.ts
+
+# ---- Flutter / Dart -------------------------------------------------
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+**/*.g.dart.bak
+mobile/pubspec.lock.bak
+*.log
+
+# Android
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/app/debug/
+mobile/android/app/profile/
+mobile/android/app/release/
+mobile/android/captures/
+mobile/android/gradle-wrapper.jar
+mobile/android/**/GeneratedPluginRegistrant.*
+.cxx/
+.externalNativeBuild/
+
+# iOS / macOS
+mobile/ios/Pods/
+mobile/ios/.symlinks/
+mobile/ios/Flutter/Generated.xcconfig
+mobile/ios/Flutter/flutter_export_environment.sh
+mobile/ios/Flutter/ephemeral/
+mobile/ios/**/xcuserdata/
+mobile/ios/**/DerivedData/
+mobile/macos/Pods/
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.pbxuser
+xcuserdata/
+
+# ---- Databases and uploads (local only) -----------------------------
+*.sqlite
+*.sqlite3
+*.db
+uploads/
+
+# ---- Editors and OS -------------------------------------------------
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# ---- Logs and temp --------------------------------------------------
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.tmp
+.cache/
