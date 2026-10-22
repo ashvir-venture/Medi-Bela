@@ -2,7 +2,7 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "rootDir": "./src",
-    "types": ["node", "express", "multer"]
+    "types": ["node"]
   },
   "include": ["src/**/*.ts"],
   "exclude": [
