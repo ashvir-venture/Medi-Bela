@@ -4,11 +4,11 @@ import { Public } from './common/decorators/public.decorator';
 @Controller()
 export class AppController {
   @Public()
-  @Get()
+  @Get('health')
   getHealth() {
     return {
       status: 'ok',
-      service: 'carebridge-backend',
+      service: 'medi-bela backend',
       timestamp: new Date().toISOString(),
     };
   }
