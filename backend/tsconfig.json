@@ -15,6 +15,6 @@
     "strict": false,
     "strictNullChecks": false,
     "noImplicitAny": false,
-    "types": ["node", "jest"]
+    "types": ["node", "jest", "express", "multer"]
   }
 }

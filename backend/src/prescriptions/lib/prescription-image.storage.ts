@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { memoryStorage } from 'multer';
+import 'multer';
 
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic']);
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15MB

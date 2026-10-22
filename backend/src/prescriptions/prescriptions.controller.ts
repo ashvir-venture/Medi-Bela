@@ -22,6 +22,7 @@ import { CreatePrescriptionDto } from './dto/create-prescription.dto';
 import { SaveMedicinesDto } from './dto/save-medicines.dto';
 import { RejectPrescriptionDto } from './dto/reject-prescription.dto';
 import { prescriptionImageMulterOptions } from './lib/prescription-image.storage';
+import 'multer';
 
 @Controller('prescriptions')
 export class PrescriptionsController {
