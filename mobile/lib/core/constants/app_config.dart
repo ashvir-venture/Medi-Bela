@@ -11,9 +11,9 @@ class AppConfig {
   AppConfig._();
 
   static const String apiBaseUrl = String.fromEnvironment(
-  'API_BASE_URL',
-  defaultValue: 'https://medi-bela.onrender.com/api',
-);
+    'API_BASE_URL',
+    defaultValue: 'http://10.0.2.2:3001/api',
+  );
 
   static const Duration connectTimeout = Duration(seconds: 15);
   static const Duration receiveTimeout = Duration(seconds: 15);
