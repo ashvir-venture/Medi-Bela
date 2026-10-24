@@ -1,4 +1,4 @@
-package com.carebridge.mobile
+package com.carebridge.app
 
 import io.flutter.embedding.android.FlutterActivity
 

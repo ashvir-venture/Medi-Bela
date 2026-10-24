@@ -4,7 +4,7 @@
 /// the `/api` prefix (see backend `main.ts`: `app.setGlobalPrefix`).
 ///
 /// For local development:
-/// - Android emulator: `http://10.0.2.2:3001/api`
+/// - Android emulator: `https://medi-bela.onrender.com/api`
 /// - iOS simulator / desktop: `http://localhost:3001/api`
 /// - Physical device: `http://<your-machine-lan-ip>:3001/api`
 class AppConfig {
@@ -12,11 +12,11 @@ class AppConfig {
 
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:3001/api',
+    defaultValue: 'https://medi-bela.onrender.com/api',
   );
 
-  static const Duration connectTimeout = Duration(seconds: 15);
-  static const Duration receiveTimeout = Duration(seconds: 15);
+  static const Duration connectTimeout = Duration(seconds: 60);
+  static const Duration receiveTimeout = Duration(seconds: 60);
 
   /// How often the sync engine retries the outbox when the app is in the
   /// foreground and online (in addition to connectivity-change triggers).

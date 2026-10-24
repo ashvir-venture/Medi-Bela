@@ -138,7 +138,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                       ),
                       validator: (v) {
                         if (v == null || v.isEmpty) return strings.requiredField;
-                        if (v.length < 8) return strings.passwordTooShort;
+                        if (v.length < 6) return strings.passwordTooShort;
                         return null;
                       },
                     ),

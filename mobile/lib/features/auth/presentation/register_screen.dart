@@ -129,7 +129,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         labelText: strings.password,
                         prefixIcon: const Icon(Icons.lock_outline),
                       ),
-                      validator: (v) => (v == null || v.length < 8)
+                      validator: (v) => (v == null || v.length < 6)
                           ? strings.passwordTooShort
                           : null,
                     ),

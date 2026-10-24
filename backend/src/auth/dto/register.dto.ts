@@ -30,13 +30,10 @@ export class RegisterDto {
   address?: string;
 
   @IsString()
-  @MinLength(8, { message: 'password must be at least 8 characters long' })
+  @MinLength(6, { message: 'password must be at least 6 characters long' })
   @MaxLength(72) // bcrypt/argon2 practical input limit
-  @Matches(/(?=.*[A-Za-z])(?=.*\d)/, {
-    message: 'password must contain at least one letter and one number',
-  })
   password!: string;
-
+  
   @IsOptional()
   @IsEnum(Language)
   languagePreference?: Language;
