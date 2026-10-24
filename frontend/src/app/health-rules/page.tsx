@@ -1,102 +1,112 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { ApiError, SuggestionRule, listSuggestionRules } from '@/lib/api-client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  ApiError,
+  CONDITION_TYPE_MEDICINE_NAME_CONTAINS,
+  createSuggestionRule,
+} from '@/lib/api-client';
 import { useRequireAuth } from '@/lib/use-require-auth';
 import { Topbar } from '@/components/topbar';
 
-export default function HealthRulesPage() {
+export default function NewHealthRulePage() {
   const ready = useRequireAuth();
-  const [rules, setRules] = useState<SuggestionRule[]>([]);
+  const router = useRouter();
+
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [conditionType, setConditionType] = useState(CONDITION_TYPE_MEDICINE_NAME_CONTAINS);
+  const [conditionValue, setConditionValue] = useState('');
+  const [suggestedAction, setSuggestedAction] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
-
-  useEffect(() => {
-    if (!ready) return;
-    load();
-  }, [ready]);
-
-  async function load() {
-    setIsLoading(true);
-    setError(null);
-    try {
-      setRules(await listSuggestionRules());
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to load rules');
-    } finally {
-      setIsLoading(false);
-    }
-  }
+  const [isSaving, setIsSaving] = useState(false);
 
   if (!ready) return null;
 
-  const activeCount = rules.filter((r) => r.enabled).length;
-  const visible = rules.filter((r) =>
-    filter === 'ALL' ? true : filter === 'ACTIVE' ? r.enabled : !r.enabled,
-  );
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setIsSaving(true);
+    try {
+      const rule = await createSuggestionRule({
+        name: name.trim(),
+        description: description.trim() || undefined,
+        conditionType,
+        conditionValue: conditionValue.trim(),
+        suggestedAction: suggestedAction.trim(),
+      });
+      router.push(`/health-rules/${rule.id}`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to create rule');
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   return (
     <>
-      <Topbar title="Health Suggestion Rules" />
+      <Topbar title="New Health Suggestion Rule" />
       <div className="page">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <p className="muted" style={{ margin: 0 }}>
-            A rule only creates reminders for users while it is Active. New rules start Inactive until you activate them.
-          </p>
-          <Link href="/health-rules/new" className="btn btn-primary">
-            + New rule
-          </Link>
-        </div>
-
-        <div className="tabs">
-          {([
-            ['ALL', `All (${rules.length})`],
-            ['ACTIVE', `Active (${activeCount})`],
-            ['INACTIVE', `Inactive (${rules.length - activeCount})`],
-          ] as const).map(([key, label]) => (
-            <button
-              key={key}
-              className={`tab ${filter === key ? 'active' : ''}`}
-              onClick={() => setFilter(key)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {error && (
-          <div className="error-banner">
-            {error}{' '}
-            <button className="btn" onClick={load} style={{ marginLeft: 8 }}>
-              Retry
-            </button>
+        <p className="muted" style={{ marginBottom: 16 }}>
+          This creates an <strong>inactive</strong> rule. It won&rsquo;t suggest anything to users until you
+          open it and press Activate.
+        </p>
+        {error && <div className="error-banner">{error}</div>}
+        <form onSubmit={handleSubmit} className="card">
+          <div className="field">
+            <label>Rule name</label>
+            <input
+              className="input"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Metformin → blood sugar check"
+              required
+            />
           </div>
-        )}
+          <div className="field">
+            <label>Description (optional, for other admins)</label>
+            <textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
+          </div>
 
-        {isLoading ? (
-          <p className="muted">Loading…</p>
-        ) : rules.length === 0 ? (
-          <p className="muted">No rules yet. Create one to get started.</p>
-        ) : visible.length === 0 ? (
-          <p className="muted">No {filter === 'ACTIVE' ? 'active' : 'inactive'} rules.</p>
-        ) : (
-          visible.map((rule) => (
-            <Link key={rule.id} href={`/health-rules/${rule.id}`} className="list-item">
-              <div>
-                <div style={{ fontWeight: 600 }}>{rule.name}</div>
-                <div className="muted">
-                  IF medicine name contains{' '}
-                  &ldquo;{rule.conditionValue}&rdquo; → health reminder: &ldquo;{rule.suggestedAction}&rdquo;
-                </div>
-              </div>
-              <span className={`badge ${rule.enabled ? 'badge-completed' : 'badge-draft'}`}>
-                {rule.enabled ? 'Active' : 'Inactive'}
-              </span>
-            </Link>
-          ))
-        )}
+          <div className="field">
+            <label>Condition type</label>
+            <select value={conditionType} onChange={(e) => setConditionType(e.target.value)}>
+              <option value={CONDITION_TYPE_MEDICINE_NAME_CONTAINS}>
+                Medicine name contains (exact, instant)
+              </option>
+            </select>
+            <p className="muted" style={{ marginTop: 4 }}>
+              Custom rules are fully deterministic and admin-authored. For open-ended,
+              AI-generated suggestions per user, see the Health Suggestions page instead.
+            </p>
+          </div>
+
+          <div className="field">
+            <label>Medicine name or category keywords, comma-separated (e.g. &quot;metformin, glipizide&quot;) — case-insensitive</label>
+            <input
+              className="input"
+              value={conditionValue}
+              onChange={(e) => setConditionValue(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="field">
+            <label>Reminder text shown to the user</label>
+            <input
+              className="input"
+              value={suggestedAction}
+              onChange={(e) => setSuggestedAction(e.target.value)}
+              placeholder="e.g. Blood sugar check"
+              required
+            />
+          </div>
+
+          <button type="submit" className="btn btn-primary" disabled={isSaving}>
+            {isSaving ? 'Creating…' : 'Create draft'}
+          </button>
+        </form>
       </div>
     </>
   );

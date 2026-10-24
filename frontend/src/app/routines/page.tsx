@@ -1,110 +1,196 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ApiError, RoutineListItem, listRoutines } from '@/lib/api-client';
+import { useParams, useRouter } from 'next/navigation';
+import {
+  ApiError,
+  RoutineDetail,
+  RoutineSuggestion,
+  SuggestionItem,
+  getRoutine,
+  publishHealthSuggestion,
+  requestRoutineSuggestion,
+  unpublishHealthSuggestion,
+} from '@/lib/api-client';
 import { useRequireAuth } from '@/lib/use-require-auth';
 import { Topbar } from '@/components/topbar';
 
-type Filter = 'active' | 'all';
+function Items({ label, items }: { label: string; items: SuggestionItem[] }) {
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div className="muted">{label}</div>
+      {items.length === 0 ? (
+        <p className="muted">No items.</p>
+      ) : (
+        <ul style={{ margin: '4px 0 0 18px' }}>
+          {items.map((it, i) => (
+            <li key={i}>
+              <strong>{it.category}:</strong> {it.text}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+const fmt = (iso: string) => new Date(iso).toLocaleDateString();
 
 /**
- * Every routine generated from a verified prescription, with the status of
- * its AI suggestion. Suggestions are never created automatically: open a
- * routine and request one.
+ * One routine + its AI suggestions. The suggestion is only ever created when
+ * the admin clicks "Request", and is only visible to the patient after an
+ * explicit "Publish".
  */
-export default function RoutinesPage() {
+export default function RoutineDetailPage() {
   const ready = useRequireAuth();
-  const [routines, setRoutines] = useState<RoutineListItem[]>([]);
-  const [filter, setFilter] = useState<Filter>('active');
-  const [search, setSearch] = useState('');
+  const router = useRouter();
+  const { id } = useParams<{ id: string }>();
+
+  const [routine, setRoutine] = useState<RoutineDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [busy, setBusy] = useState<null | 'request' | string>(null);
 
   useEffect(() => {
     if (!ready) return;
     load();
-  }, [ready, filter]);
+  }, [ready, id]);
 
   async function load() {
     setIsLoading(true);
     setError(null);
     try {
-      setRoutines(await listRoutines(filter === 'active' ? { active: true } : {}));
+      setRoutine(await getRoutine(id));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to load routines');
+      setError(err instanceof ApiError ? err.message : 'Failed to load routine');
     } finally {
       setIsLoading(false);
     }
   }
 
-  const visible = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return routines;
-    return routines.filter(
-      (r) =>
-        r.medicineName.toLowerCase().includes(q) ||
-        r.user.name.toLowerCase().includes(q) ||
-        r.user.phone.includes(q),
-    );
-  }, [routines, search]);
+  async function run(key: string, action: () => Promise<unknown>, failMsg: string) {
+    setBusy(key);
+    setError(null);
+    try {
+      await action();
+      setRoutine(await getRoutine(id));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : failMsg);
+    } finally {
+      setBusy(null);
+    }
+  }
 
   if (!ready) return null;
+  if (isLoading) {
+    return (
+      <>
+        <Topbar title="Routine" />
+        <div className="page">
+          <p className="muted">Loading…</p>
+        </div>
+      </>
+    );
+  }
+  if (!routine) {
+    return (
+      <>
+        <Topbar title="Routine" />
+        <div className="page">{error && <div className="error-banner">{error}</div>}</div>
+      </>
+    );
+  }
+
+  const hasDraft = routine.healthSuggestions.some((s) => s.status === 'DRAFT');
 
   return (
     <>
-      <Topbar title="Routines" />
+      <Topbar title={`Routine — ${routine.medicineName}`} />
       <div className="page">
-        <p className="muted" style={{ marginBottom: 16 }}>
-          Routines created from verified prescriptions. Open one to request an AI health
-          suggestion for it; nothing is generated or shown to users until you publish it.
-        </p>
-
-        <div className="row" style={{ marginBottom: 16, alignItems: 'flex-end' }}>
-          <div className="field">
-            <label>Search (medicine, patient name or phone)</label>
-            <input className="input" value={search} onChange={(e) => setSearch(e.target.value)} />
-          </div>
-          <div className="field" style={{ flex: '0 0 160px' }}>
-            <label>Show</label>
-            <select className="input" value={filter} onChange={(e) => setFilter(e.target.value as Filter)}>
-              <option value="active">Active routines</option>
-              <option value="all">All routines</option>
-            </select>
-          </div>
-        </div>
+        <button className="btn" style={{ marginBottom: 16 }} onClick={() => router.push('/routines')}>
+          ← Back
+        </button>
 
         {error && <div className="error-banner">{error}</div>}
 
-        {isLoading ? (
-          <p className="muted">Loading…</p>
-        ) : visible.length === 0 ? (
-          <p className="muted">No routines found.</p>
-        ) : (
-          visible.map((r) => {
-            const latest = r.healthSuggestions[0];
-            return (
-              <Link key={r.id} href={`/routines/${r.id}`} className="list-item">
-                <div>
-                  <div style={{ fontWeight: 600 }}>
-                    {r.medicineName} <span className="muted">{r.dosage}</span>
-                  </div>
-                  <div className="muted">
-                    {r.user.name} ({r.user.phone}) · {r.frequency}
-                    {r.active ? '' : ' · inactive'}
-                  </div>
-                </div>
-                <span
-                  className={`badge ${
-                    latest ? (latest.status === 'PUBLISHED' ? 'badge-completed' : 'badge-draft') : 'badge-pending'
-                  }`}
-                >
-                  {latest ? (latest.status === 'PUBLISHED' ? 'Suggestion published' : 'Suggestion draft') : 'No suggestion'}
+        <div className="card">
+          <h2>
+            {routine.medicineName} <span className="muted">{routine.dosage}</span>
+          </h2>
+          <div>
+            {routine.user.name} ({routine.user.phone})
+          </div>
+          <div className="muted" style={{ marginTop: 8 }}>
+            {routine.frequency} · from {fmt(routine.startDate)}
+            {routine.endDate ? ` to ${fmt(routine.endDate)}` : ''} · {routine.active ? 'Active' : 'Inactive'}
+          </div>
+          {routine.prescriptionMedicine?.instructions && (
+            <div className="muted" style={{ marginTop: 8 }}>
+              Instructions: {routine.prescriptionMedicine.instructions}
+            </div>
+          )}
+        </div>
+
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+            <div>
+              <h2 style={{ margin: 0 }}>AI health suggestion</h2>
+              <div className="muted">
+                Only this medicine&apos;s name and dosage are sent to the AI. Nothing is shown to the patient until you publish.
+              </div>
+            </div>
+            <button
+              className="btn btn-primary"
+              disabled={busy !== null}
+              onClick={() => run('request', () => requestRoutineSuggestion(id), 'Failed to get a suggestion')}
+            >
+              {busy === 'request' ? 'Asking AI…' : hasDraft ? 'Regenerate draft' : 'Request AI suggestion'}
+            </button>
+          </div>
+        </div>
+
+        {routine.healthSuggestions.length === 0 && <p className="muted">No suggestion requested for this routine yet.</p>}
+
+        {routine.healthSuggestions.map((s: RoutineSuggestion) => (
+          <div key={s.id} className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <span className={`badge ${s.status === 'PUBLISHED' ? 'badge-completed' : 'badge-draft'}`}>
+                  {s.status === 'PUBLISHED' ? 'Published' : 'Draft (not visible to patient)'}
                 </span>
-              </Link>
-            );
-          })
-        )}
+                <span className="muted" style={{ marginLeft: 8 }}>
+                  {fmt(s.createdAt)}
+                  {s.publishedBy ? ` · published by ${s.publishedBy.name}` : ''}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Link href={`/health-suggestions/${s.id}`} className="btn">
+                  Review &amp; edit
+                </Link>
+                {s.status === 'PUBLISHED' ? (
+                  <button
+                    className="btn"
+                    disabled={busy !== null}
+                    onClick={() => run(s.id, () => unpublishHealthSuggestion(s.id), 'Failed to unpublish')}
+                  >
+                    {busy === s.id ? '…' : 'Unpublish'}
+                  </button>
+                ) : (
+                  <button
+                    className="btn btn-primary"
+                    disabled={busy !== null}
+                    onClick={() => run(s.id, () => publishHealthSuggestion(s.id), 'Failed to publish')}
+                  >
+                    {busy === s.id ? '…' : 'Publish'}
+                  </button>
+                )}
+              </div>
+            </div>
+            <Items label="English" items={s.itemsEn} />
+            <Items label="বাংলা (Bengali)" items={s.itemsBn} />
+          </div>
+        ))}
       </div>
     </>
   );

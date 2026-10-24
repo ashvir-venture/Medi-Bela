@@ -16,6 +16,7 @@ import '../../../features/notices/presentation/notices_controller.dart';
 import '../../../router/app_router.dart';
 import '../../../widgets/app_logo.dart';
 import '../../../widgets/sponsored_ad_banner.dart';
+import '../../diabetes/presentation/diabetes_strings.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -99,12 +100,24 @@ class HomeScreen extends ConsumerWidget {
                     onTap: () => context.go(AppRoutes.prescription),
                   ),
                 ),
-                const SizedBox(width: 12),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
                 Expanded(
                   child: _QuickAction(
                     icon: Icons.smart_toy_outlined,
                     label: strings.aiAssistant,
                     onTap: () => context.push(AppRoutes.assistant),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _QuickAction(
+                    icon: Icons.bloodtype_outlined,
+                    label: ref.watch(diabetesStringsProvider).title,
+                    onTap: () => context.push(AppRoutes.diabetes),
                   ),
                 ),
               ],

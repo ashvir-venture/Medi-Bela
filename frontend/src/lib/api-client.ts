@@ -55,10 +55,12 @@ async function request<T>(
     },
   });
 
-  if (response.status === 401) {
-    // Access token expired/invalid. This MVP doesn't implement silent
-    // refresh on the admin side (low traffic, short sessions) — send the
-    // user back to login rather than building a second refresh flow.
+  // A 401 from login means the credentials were rejected, not that an
+  // existing session expired. Let the normal error handler read its message.
+  const isLoginRequest = path === '/auth/login';
+
+  if (response.status === 401 && !isLoginRequest) {
+    // Protected endpoint: the access token is expired or invalid.
     clearTokens();
     if (typeof window !== 'undefined') {
       window.location.href = '/login';

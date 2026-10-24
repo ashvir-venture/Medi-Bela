@@ -9,6 +9,7 @@ import '../features/auth/presentation/register_screen.dart';
 import '../features/auth/presentation/session_notifier.dart';
 import '../features/assistant/presentation/assistant_conversations_screen.dart';
 import '../features/assistant/presentation/assistant_screen.dart';
+import '../features/diabetes/presentation/diabetes_tracker_screen.dart';
 import '../features/family/presentation/family_screen.dart';
 import '../features/family/presentation/member_status_screen.dart';
 import '../features/inbox/presentation/inbox_screen.dart';
@@ -45,6 +46,7 @@ class AppRoutes {
   static const healthRecords = '/health/records';
   static const healthSuggestions = '/health/suggestions';
   static const notices = '/notices';
+  static const diabetes = '/diabetes';
   static const profile = '/profile';
 }
 
@@ -157,6 +159,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.notices,
             builder: (context, state) => const NoticesScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.diabetes,
+            builder: (context, state) => const DiabetesTrackerScreen(),
           ),
           GoRoute(
             path: AppRoutes.profile,
