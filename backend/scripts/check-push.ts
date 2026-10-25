@@ -62,7 +62,7 @@ async function main() {
     return;
   }
   try {
-    await getMessaging(app).send({ token: fcmToken, notification: { title: 'CareBridge', body: 'dry run' } }, true);
+    await getMessaging(app).send({ token: fcmToken, notification: { title: 'Medi-Bela', body: 'dry run' } }, true);
     ok('FCM accepted the message for this token (dry run, nothing delivered)');
   } catch (e) {
     fail(`FCM rejected it: ${(e as { code?: string }).code ?? ''} ${(e as Error).message}`);

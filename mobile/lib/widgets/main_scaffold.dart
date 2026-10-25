@@ -30,7 +30,16 @@ class MainScaffold extends ConsumerWidget {
     final location = GoRouterState.of(context).matchedLocation;
     final currentIndex = _indexForLocation(location);
 
-    return Scaffold(
+    // Back from Family / Prescription / Health / Profile goes to Home first;
+    // only Home (and sub-pages, which pop normally) leaves the app.
+    final isOtherTab = _tabs.skip(1).contains(location);
+
+    return PopScope(
+      canPop: !isOtherTab,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) context.go(AppRoutes.home);
+      },
+      child: Scaffold(
       body: SafeArea(
         child: Column(
           children: [
@@ -70,6 +79,6 @@ class MainScaffold extends ConsumerWidget {
           ),
         ],
       ),
-    );
+    ));
   }
 }

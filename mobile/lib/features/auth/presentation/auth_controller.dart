@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/result.dart';
@@ -85,12 +86,31 @@ class AuthController extends StateNotifier<AsyncValue<UserModel?>> {
   Future<void> logout() async {
     // Order matters. Push de-registration needs the access token, and local
     // reminders are tracked in tables the repository is about to wipe.
-    await _ref.read(pushServiceProvider).onLogout();
-    await _ref.read(notificationSchedulerProvider).cancelAll();
-    await _ref.read(noticesCacheProvider).clear();
-    await _repository.logout();
-    state = const AsyncValue.data(null);
+    //
+    // Every cleanup step is best-effort and time-limited: a slow or offline
+    // network, or a failing plugin, must never block or abort the logout.
+    Future<void> bestEffort(String name, Future<void> Function() step) async {
+      try {
+        await step().timeout(const Duration(seconds: 5));
+      } catch (e, st) {
+        debugPrint('LOGOUT step "$name" failed: $e\n$st');
+      }
+    }
+
+    await bestEffort('push', () => _ref.read(pushServiceProvider).onLogout());
+    await bestEffort(
+        'notifications', () => _ref.read(notificationSchedulerProvider).cancelAll());
+    await bestEffort('notices', () => _ref.read(noticesCacheProvider).clear());
+    try {
+      await _repository.logout();
+    } catch (e, st) {
+      debugPrint('LOGOUT local wipe failed: $e\n$st');
+    }
+    debugPrint('LOGOUT finished, ending session');
+    // End the session first so the router moves to the login screen at once,
+    // then drop the in-memory user.
     _ref.read(sessionNotifierProvider.notifier).setLoggedIn(false);
+    state = const AsyncValue.data(null);
   }
 
   Future<Result<void>> changePassword({

@@ -7,6 +7,7 @@ import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/reset_password_screen.dart';
 import '../features/auth/presentation/register_screen.dart';
 import '../features/auth/presentation/session_notifier.dart';
+import '../features/auth/presentation/splash_screen.dart';
 import '../features/assistant/presentation/assistant_conversations_screen.dart';
 import '../features/assistant/presentation/assistant_screen.dart';
 import '../features/diabetes/presentation/diabetes_tracker_screen.dart';
@@ -27,6 +28,7 @@ import '../widgets/main_scaffold.dart';
 class AppRoutes {
   AppRoutes._();
 
+  static const splash = '/splash';
   static const login = '/login';
   static const register = '/register';
   static const forgotPassword = '/forgot-password';
@@ -63,7 +65,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.onDispose(refreshNotifier.dispose);
 
   return GoRouter(
-    initialLocation: AppRoutes.home,
+    initialLocation: AppRoutes.splash,
     refreshListenable: refreshNotifier,
     redirect: (context, state) {
       final loggedIn = ref.read(sessionNotifierProvider);
@@ -72,15 +74,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           state.matchedLocation == AppRoutes.forgotPassword ||
           state.matchedLocation == AppRoutes.resetPassword;
 
-      // Session not yet determined (app just launched) — stay put; the
-      // splash content is handled inside the shell/home screen itself.
-      if (loggedIn == null) return null;
+      // Session not yet determined (app just launched): hold on the splash
+      // screen so Home is never flashed before the login screen.
+      final atSplash = state.matchedLocation == AppRoutes.splash;
+      if (loggedIn == null) return atSplash ? null : AppRoutes.splash;
+      if (atSplash) return loggedIn ? AppRoutes.home : AppRoutes.login;
 
       if (!loggedIn && !goingToAuth) return AppRoutes.login;
       if (loggedIn && goingToAuth) return AppRoutes.home;
       return null;
     },
     routes: [
+      GoRoute(
+        path: AppRoutes.splash,
+        builder: (context, state) => const SplashScreen(),
+      ),
       GoRoute(
         path: AppRoutes.login,
         builder: (context, state) => const LoginScreen(),

@@ -68,7 +68,8 @@ class AuthRepository {
 
   Future<void> logout() async {
     try {
-      await _api.logout();
+      // Don't wait on a slow server: after 5s just forget the session locally.
+      await _api.logout().timeout(const Duration(seconds: 5));
     } catch (_) {
       // Best-effort: even if the server call fails (e.g. offline), the
       // device must still forget the session.

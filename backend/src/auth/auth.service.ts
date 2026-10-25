@@ -179,7 +179,7 @@ export class AuthService {
     const data = { codeHash: this.hashResetCode(user.id, code), attempts: 0, expiresAt: new Date(Date.now() + RESET_CODE_TTL_MS) };
     // One live code per user: a new request replaces the old one.
     await this.prisma.passwordResetCode.upsert({ where: { userId: user.id }, create: { userId: user.id, ...data }, update: data });
-    await this.sms.send(phone, `CareBridge: your password reset code is ${code}. It expires in 10 minutes. Never share it.`);
+    await this.sms.send(phone, `Medi-Bela: your password reset code is ${code}. It expires in 10 minutes. Never share it.`);
   }
 
   /**
