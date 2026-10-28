@@ -11,6 +11,13 @@ Placement: the limiter runs after the JWT guard, skips /health, and is off under
 Deploy requirement: set TRUST_PROXY=1 if the API sits behind a proxy. If you don’t, all public traffic shares a single bucket.
 Mobile risk I found: the sync queue gives up after 5 failures and reverts the local “taken” state, and it polls every 30 seconds. Without a fix, a 429 could silently lose dose-taken events. The fix treats 429 as “pause and retry later”, not as a failure.
 Limits: the counter lives in memory, so it works for a single server only. Redis comes later if you add instances. Bad-token requests that return 401 aren’t counted, so a host-level limit would cover them.
+Database changes (pending SQL for Neon)
+Workflow: during development only backend/prisma/schema.prisma changes (no migration files). At the end of development, run the SQL below in the Neon SQL editor, in order, then `npx prisma generate`.
+1. Round 3 (2026-10-29): reminder and notice switches
+   ALTER TABLE "users" ADD COLUMN "medicineRemindersEnabled" BOOLEAN NOT NULL DEFAULT true,
+   ADD COLUMN "noticesEnabled" BOOLEAN NOT NULL DEFAULT true;
+Until this runs, the deployed API's queries on these columns fail, so don't deploy Round 3 backend code before the SQL is applied.
+
 Rounds
 Round 1: Reminder delivery (top priority) - CODE DONE 2026-10-28, device testing pending
 Done in code: POST_NOTIFICATIONS / RECEIVE_BOOT_COMPLETED / SCHEDULE_EXACT_ALARM, plugin boot + scheduled receivers, exact alarms when allowed with inexactAllowWhileIdle fallback, re-register all reminders once per process and on permission change, res/raw/keep.xml for the notification icon (Gson keep rules ship with the plugin since v19), Reminder check screen (notifications, alarms & reminders, battery optimization, vendor Autostart tip; EN + BN), banner on Home and Today's medicine, scheduler unit tests.
@@ -34,7 +41,7 @@ Alarm for about 2 minutes, then a repeat at 30 minutes.
 The family alert fires only after the second reminder goes unanswered, with the server missed timing cut from 120 to about 32 minutes. A backstop push goes out at the second-reminder time.
 Separate notice and reminder toggles, an alarm sound for reminders, and a Personal tab.
 Done when: every behavior in your plan works on the test phones.
-Built: grouped alarm-style reminders (ring 2 min, silent copy, repeat +30), Done/Later with the app closed (Later 30 min, max twice; snoozes survive restarts), neutral lock-screen text, medicine-reminders and notices switches (users.medicineRemindersEnabled / noticesEnabled, migration 20261029120000), notice push respects its switch (moved here from Round 7), backstop push at +30 (data-only, dropped by the app if taken locally), family alert at +62 and none when reminders are off, inbox tabs Personal / Family / General.
+Built: grouped alarm-style reminders (ring 2 min, silent copy, repeat +30), Done/Later with the app closed (Later 30 min, max twice; snoozes survive restarts), neutral lock-screen text, medicine-reminders and notices switches (users.medicineRemindersEnabled / noticesEnabled; SQL in "Database changes" above), notice push respects its switch (moved here from Round 7), backstop push at +30 (data-only, dropped by the app if taken locally), family alert at +62 and none when reminders are off, inbox tabs Personal / Family / General.
 Not as decided / still open:
 - Lock screen: the notification plugin (19.5) has no public version, so reminders always show neutral text ("2 medicines are due at 8:00 AM") and names only in the app, never after unlock. A native public version would need a plugin patch or fork.
 - Full-screen alert vs distinct-sound channel: only the distinct-sound channel (medicine_alarm) is built; compare on the test phones before deciding on USE_FULL_SCREEN_INTENT.

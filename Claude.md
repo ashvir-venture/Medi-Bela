@@ -130,7 +130,7 @@ Backend: Nest file naming kebab-case.type.ts (*.module|controller|service|dto.ts
 Backend tests: colocated __tests__/ or *.spec.ts beside the file; DB-backed ones use makeTestPrisma() and skip without TEST_DATABASE_URL.
 Admin: App Router, one page.tsx per route, shared pieces in components/, all HTTP through lib/api-client.ts, auth gate via use-require-auth.ts.
 Mobile: feature-first data/domain/presentation layers; Riverpod providers (providers/core_providers.dart), go_router (router/app_router.dart), Dio for HTTP, Drift for local data. UI strings live in core/localization/app_strings.dart; add both English and Bengali for every string.
-Database: schema changes only via a new Prisma migration; never edit an applied migration.
+Database: during development change only backend/prisma/schema.prisma (no new migration files) and add the matching SQL to "Database changes (pending SQL for Neon)" in plan.md; the owner runs it in the Neon SQL editor at the end of development. Never edit an existing applied migration.
 Medical privacy: never log prescriptions, readings, phone numbers, tokens, or passwords. Passwords use Argon2. Notifications that name medicines or readings need a neutral public (lock-screen) version; details appear only after unlock (shared phones are common).
 AI safety: never bypass the safety filter, auto-publish AI output, or add diagnosis/prescribing behavior.
 Secrets: .env only; keep .env.example current; never commit real keys.
