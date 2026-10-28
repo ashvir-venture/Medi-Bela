@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/localization/locale_controller.dart';
+import '../features/auth/domain/user_model.dart';
 import '../features/auth/presentation/auth_controller.dart';
 import '../providers/core_providers.dart';
 
@@ -24,6 +25,7 @@ class SessionServices with WidgetsBindingObserver {
   bool _running = false;
   bool _refreshing = false;
   StreamSubscription<bool>? _connectivitySub;
+  ProviderSubscription<AsyncValue<UserModel?>>? _userSub;
 
   Future<void> start() async {
     if (_running) return;
@@ -33,6 +35,16 @@ class SessionServices with WidgetsBindingObserver {
         _ref.read(connectivityServiceProvider).onStatusChange.listen((online) {
       if (online) unawaited(refresh());
     });
+    // The account owns the medicine-reminders switch; mirror it locally and
+    // reschedule (or cancel) reminders as soon as it changes.
+    _userSub = _ref.listen<AsyncValue<UserModel?>>(
+      authControllerProvider,
+      (_, next) {
+        final user = next.valueOrNull;
+        if (user != null) unawaited(_applyReminderSwitch(user.medicineRemindersEnabled));
+      },
+      fireImmediately: true,
+    );
     try {
       await _ref.read(pushServiceProvider).start();
     } catch (_) {/* push is optional */}
@@ -45,6 +57,15 @@ class SessionServices with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     await _connectivitySub?.cancel();
     _connectivitySub = null;
+    _userSub?.close();
+    _userSub = null;
+  }
+
+  Future<void> _applyReminderSwitch(bool enabled) async {
+    final changed = await _ref.read(reminderPreferenceProvider).set(enabled);
+    if (changed) {
+      await _ref.read(medicineScheduleRepositoryProvider).reconcileLocalNotifications();
+    }
   }
 
   @override

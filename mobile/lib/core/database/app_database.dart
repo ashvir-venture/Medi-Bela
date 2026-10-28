@@ -220,7 +220,13 @@ class HealthRecordDrafts extends Table {
   ],
 )
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(driftDatabase(name: 'carebridge'));
+  // Shared across isolates: Done / Later on a reminder and the reminder
+  // backstop push can run in a background isolate while the app is open.
+  AppDatabase()
+      : super(driftDatabase(
+          name: 'carebridge',
+          native: const DriftNativeOptions(shareAcrossIsolates: true),
+        ));
 
   /// Used by tests to inject an in-memory executor.
   AppDatabase.forTesting(super.executor);

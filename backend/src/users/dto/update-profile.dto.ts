@@ -27,4 +27,14 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsBoolean()
   profileVisibleToFamily?: boolean;
+
+  /** Off: no medicine reminders on the phone, no backstop push, and no missed-dose family alerts. */
+  @IsOptional()
+  @IsBoolean()
+  medicineRemindersEnabled?: boolean;
+
+  /** Off: notices still appear in the app, but are not pushed. */
+  @IsOptional()
+  @IsBoolean()
+  noticesEnabled?: boolean;
 }

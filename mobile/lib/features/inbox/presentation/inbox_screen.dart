@@ -17,32 +17,35 @@ class InboxScreen extends ConsumerWidget {
     final state = ref.watch(inboxControllerProvider);
     final controller = ref.read(inboxControllerProvider.notifier);
 
-    Widget body;
-    if (state.isLoading && state.items.isEmpty) {
-      body = const LoadingView();
-    } else if (state.error != null && state.items.isEmpty) {
-      body = ListView(children: [
-        ErrorView(
-          message: state.error!,
-          retryLabel: strings.retry,
-          onRetry: controller.load,
-        ),
-      ]);
-    } else if (state.items.isEmpty) {
-      body = ListView(children: [
-        const SizedBox(height: 60),
-        EmptyView(
-          message: strings.noNotificationsYet,
-          icon: Icons.notifications_none,
-        ),
-      ]);
-    } else {
-      body = ListView.separated(
+    Widget listFor(InboxTab tab) {
+      final items = state.items.where((i) => inboxTabFor(i) == tab).toList();
+      if (state.isLoading && state.items.isEmpty) return const LoadingView();
+      if (state.error != null && state.items.isEmpty) {
+        return ListView(children: [
+          ErrorView(
+            message: state.error!,
+            retryLabel: strings.retry,
+            onRetry: controller.load,
+          ),
+        ]);
+      }
+      // Tabs filter the pages loaded so far, so "Load more" stays available
+      // even when this tab is still empty.
+      return ListView.separated(
         padding: const EdgeInsets.all(12),
-        itemCount: state.items.length + (state.hasMore ? 1 : 0),
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        itemCount: (items.isEmpty ? 1 : items.length) + (state.hasMore ? 1 : 0),
+        separatorBuilder: (_, _) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
-          if (index == state.items.length) {
+          if (items.isEmpty && index == 0) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 48),
+              child: EmptyView(
+                message: strings.noNotificationsYet,
+                icon: Icons.notifications_none,
+              ),
+            );
+          }
+          if (index == (items.isEmpty ? 1 : items.length)) {
             return Center(
               child: state.isLoadingMore
                   ? const Padding(
@@ -55,7 +58,7 @@ class InboxScreen extends ConsumerWidget {
                     ),
             );
           }
-          final item = state.items[index];
+          final item = items[index];
           return _InboxTile(
             item: item,
             onTap: () {
@@ -67,18 +70,33 @@ class InboxScreen extends ConsumerWidget {
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(strings.notifications),
-        actions: [
-          if (state.unreadCount > 0)
-            TextButton(
-              onPressed: controller.markAllRead,
-              child: Text(strings.markAllRead),
-            ),
-        ],
+    return DefaultTabController(
+      length: InboxTab.values.length,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(strings.notifications),
+          actions: [
+            if (state.unreadCount > 0)
+              TextButton(
+                onPressed: controller.markAllRead,
+                child: Text(strings.markAllRead),
+              ),
+          ],
+          bottom: TabBar(
+            tabs: [
+              Tab(text: strings.inboxPersonalTab),
+              Tab(text: strings.inboxFamilyTab),
+              Tab(text: strings.inboxGeneralTab),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            for (final tab in InboxTab.values)
+              RefreshIndicator(onRefresh: controller.load, child: listFor(tab)),
+          ],
+        ),
       ),
-      body: RefreshIndicator(onRefresh: controller.load, child: body),
     );
   }
 }
@@ -97,6 +115,8 @@ class _InboxTile extends StatelessWidget {
         return Icons.description_outlined;
       case 'NOTICE':
         return Icons.campaign_outlined;
+      case 'MEDICINE_REMINDER':
+        return Icons.alarm_outlined;
       default:
         return Icons.notifications_outlined;
     }

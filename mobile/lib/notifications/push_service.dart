@@ -11,6 +11,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../core/constants/api_endpoints.dart';
 import '../core/storage/secure_storage_service.dart';
+import 'reminder_actions.dart' show backstopTime;
 
 /// Android channel used for every server-generated (FCM) notification. Must
 /// match `ANDROID_CHANNEL_ID` in the backend's push.service.ts.
@@ -40,6 +41,9 @@ String routeForNotificationData(Map<String, dynamic> data) {
       return '/prescription';
     case 'NOTICE':
       return '/notices';
+    case 'MEDICINE_REMINDER':
+      // Local reminders and the server's backstop: names are only in the app.
+      return '/prescription/today';
     case 'SYSTEM':
       return data['kind'] == 'family_invitation' ? '/family' : '/inbox';
     default:
@@ -66,15 +70,18 @@ class PushService {
     required SecureStorageService secureStorage,
     required FlutterLocalNotificationsPlugin localPlugin,
     required void Function(String route) navigate,
+    Future<void> Function(DateTime scheduledAt)? onReminderBackstop,
   }) : _dio = dio,
        _storage = secureStorage,
        _local = localPlugin,
-       _navigate = navigate;
+       _navigate = navigate,
+       _onReminderBackstop = onReminderBackstop;
 
   final Dio _dio;
   final SecureStorageService _storage;
   final FlutterLocalNotificationsPlugin _local;
   final void Function(String route) _navigate;
+  final Future<void> Function(DateTime scheduledAt)? _onReminderBackstop;
 
   final List<StreamSubscription<dynamic>> _subs = [];
   bool _firebaseReady = false;
@@ -190,6 +197,13 @@ class PushService {
   }
 
   Future<void> _showForeground(RemoteMessage message) async {
+    // Data-only reminder backstop: shown only if those doses are still
+    // untaken in the local database (see NotificationScheduler.showBackstop).
+    final backstopAt = backstopTime(message.data);
+    if (backstopAt != null) {
+      await _onReminderBackstop?.call(backstopAt);
+      return;
+    }
     final n = message.notification;
     if (n == null) return;
     try {

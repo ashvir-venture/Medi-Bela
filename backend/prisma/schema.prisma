@@ -121,6 +121,10 @@ model User {
   accountStatus          AccountStatus @default(ACTIVE)
   languagePreference     Language      @default(EN)
   notificationsEnabled   Boolean       @default(true)
+  // Off: no medicine reminders, backstop pushes or missed-dose family alerts.
+  medicineRemindersEnabled Boolean     @default(true)
+  // Off: notices are not pushed (still listed in the app).
+  noticesEnabled         Boolean       @default(true)
   profileVisibleToFamily Boolean       @default(true)
   createdAt              DateTime      @default(now())
   updatedAt              DateTime      @updatedAt

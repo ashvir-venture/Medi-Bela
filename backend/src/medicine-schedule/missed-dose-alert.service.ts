@@ -8,6 +8,9 @@ import { missedCutoff } from './lib/dose-status.util';
 
 const BATCH_SIZE = 200;
 
+/** The app's own second reminder fires this long after the scheduled time; the backstop push goes out then too. */
+export const BACKSTOP_AFTER_MINUTES = 30;
+
 /** Doses that went missed longer ago than this are closed WITHOUT alerting (stale / backlog after downtime). */
 function alertMaxAgeMs(): number {
   const raw = Number(process.env.MISSED_ALERT_MAX_AGE_MINUTES);
@@ -56,7 +59,7 @@ export class MissedDoseAlertService {
   }
 
   /** One pass. Public so it can be unit-tested and triggered manually. */
-  async run(now: Date = new Date()): Promise<{ swept: number; alerted: number }> {
+  async run(now: Date = new Date()): Promise<{ swept: number; alerted: number; backstops: number }> {
     // 1. Detect: any PENDING dose past the grace window is MISSED (idempotent).
     const sweep = await this.prisma.medicineDose.updateMany({
       where: { status: DoseStatus.PENDING, scheduledAt: { lt: missedCutoff(now) } },
@@ -86,7 +89,14 @@ export class MissedDoseAlertService {
       select: {
         id: true,
         userId: true,
-        user: { select: { name: true, accountStatus: true, profileVisibleToFamily: true } },
+        user: {
+          select: {
+            name: true,
+            accountStatus: true,
+            profileVisibleToFamily: true,
+            medicineRemindersEnabled: true,
+          },
+        },
       },
     });
 
@@ -101,25 +111,85 @@ export class MissedDoseAlertService {
       }
     }
 
-    if (sweep.count > 0 || alerted > 0) {
-      this.logger.log(`Missed-dose run: ${sweep.count} newly missed, ${alerted} family alerts created`);
+    const backstops = await this.sendBackstops(now);
+
+    if (sweep.count > 0 || alerted > 0 || backstops > 0) {
+      this.logger.log(
+        `Missed-dose run: ${sweep.count} newly missed, ${alerted} family alerts, ${backstops} reminder backstops`,
+      );
     }
-    return { swept: sweep.count, alerted };
+    return { swept: sweep.count, alerted, backstops };
+  }
+
+  /**
+   * Backstop for the phone's own reminders (which a force-stop or a vendor
+   * battery saver can wipe): at the second-reminder time, push the patient
+   * once per scheduled time that still has untaken doses. Patient only, and
+   * only with medicine reminders on. Sent data-only: the app drops it if its
+   * local database already shows the doses taken (marked offline, not synced).
+   * Exactly once via the (user, type, relatedEntityId) unique key.
+   */
+  async sendBackstops(now: Date = new Date()): Promise<number> {
+    const dueBefore = new Date(now.getTime() - BACKSTOP_AFTER_MINUTES * 60_000);
+    const doses = await this.prisma.medicineDose.findMany({
+      where: {
+        status: DoseStatus.PENDING,
+        scheduledAt: { gte: missedCutoff(now), lte: dueBefore },
+        user: { accountStatus: AccountStatus.ACTIVE, medicineRemindersEnabled: true },
+      },
+      orderBy: { scheduledAt: 'asc' },
+      take: BATCH_SIZE,
+      select: { id: true, userId: true, scheduledAt: true, user: { select: { languagePreference: true } } },
+    });
+
+    const groups = new Map<string, typeof doses>();
+    for (const dose of doses) {
+      const key = `${dose.userId}|${dose.scheduledAt.toISOString()}`;
+      groups.set(key, [...(groups.get(key) ?? []), dose]);
+    }
+
+    const rows: NewNotification[] = [...groups.values()].map((group) => {
+      const first = group[0];
+      const copy = messages.medicineReminderBackstop(first.user.languagePreference);
+      const scheduledAt = first.scheduledAt.toISOString();
+      return {
+        userId: first.userId,
+        type: NotificationType.MEDICINE_REMINDER,
+        title: copy.title,
+        body: copy.body,
+        relatedEntityId: `backstop:${scheduledAt}`,
+        // Ids only: the app checks them against its own database.
+        data: { kind: 'backstop', scheduledAt, doseIds: group.map((d) => d.id).join(',') },
+      };
+    });
+    const ids = await this.notifications.createMany(rows);
+    await this.notifications.dispatch(ids);
+    return ids.length;
   }
 
   private async alertFamily(
     dose: {
       id: string;
       userId: string;
-      user: { name: string; accountStatus: AccountStatus; profileVisibleToFamily: boolean };
+      user: {
+        name: string;
+        accountStatus: AccountStatus;
+        profileVisibleToFamily: boolean;
+        medicineRemindersEnabled: boolean;
+      };
     },
     now: Date,
   ): Promise<number> {
     // Resolve recipients: the OTHER members of the subject's own family only,
-    // and only if the subject shares with family. Subject opted out => the
-    // dose is still claimed (so it is not re-evaluated) but nobody is told.
+    // and only if the subject shares with family and has medicine reminders
+    // on (reminders off means no family alerts either). Otherwise the dose is
+    // still claimed (so it is not re-evaluated) but nobody is told.
     let recipients: Array<{ id: string; languagePreference: 'EN' | 'BN' }> = [];
-    if (dose.user.profileVisibleToFamily && dose.user.accountStatus === AccountStatus.ACTIVE) {
+    if (
+      dose.user.profileVisibleToFamily &&
+      dose.user.medicineRemindersEnabled &&
+      dose.user.accountStatus === AccountStatus.ACTIVE
+    ) {
       const membership = await this.prisma.familyMember.findUnique({
         where: { userId: dose.userId },
         select: { familyId: true },

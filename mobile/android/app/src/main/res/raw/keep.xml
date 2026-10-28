@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Release builds shrink unused resources. Notification icons are looked up
+     by name at runtime, so R8 can't see them: keep them or reminders may
+     silently fail to show (see flutter_local_notifications README). -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@mipmap/ic_launcher,@drawable/*" />

@@ -32,6 +32,19 @@ export const messages = {
         };
   },
 
+  /** Backstop for the app's own second reminder. Neutral: shared phones and lock screens. */
+  medicineReminderBackstop(lang: Language): MessageCopy {
+    return lang === Language.BN
+      ? {
+          title: 'ওষুধ খাওয়ার সময়',
+          body: 'আপনার একটি ওষুধ খাওয়ার সময় হয়েছে। নেওয়া হলে অ্যাপে চিহ্নিত করুন।',
+        }
+      : {
+          title: 'Time for your medicine',
+          body: 'A medicine is due. Open the app to mark it taken.',
+        };
+  },
+
   prescriptionCompleted(lang: Language): MessageCopy {
     return lang === Language.BN
       ? {

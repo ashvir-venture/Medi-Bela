@@ -137,20 +137,30 @@ export class NotificationsService {
       return;
     }
 
-    // 3. Recipients who turned notifications off, or whose account is inactive.
+    // 3. Recipients who turned notifications off (all push, or this kind via
+    //    its own switch), or whose account is inactive.
     const userIds = [...new Set(claimed.map((c) => c.userId))];
     const users = await this.prisma.user.findMany({
       where: { id: { in: userIds } },
-      select: { id: true, notificationsEnabled: true, accountStatus: true },
+      select: {
+        id: true,
+        notificationsEnabled: true,
+        medicineRemindersEnabled: true,
+        noticesEnabled: true,
+        accountStatus: true,
+      },
     });
-    const allowed = new Set(
-      users
-        .filter((u) => u.notificationsEnabled && u.accountStatus === AccountStatus.ACTIVE)
-        .map((u) => u.id),
-    );
-    const blocked = claimed.filter((c) => !allowed.has(c.userId));
+    const usersById = new Map(users.map((u) => [u.id, u]));
+    const isAllowed = (n: (typeof claimed)[number]) => {
+      const u = usersById.get(n.userId);
+      if (!u || !u.notificationsEnabled || u.accountStatus !== AccountStatus.ACTIVE) return false;
+      if (n.type === NotificationType.NOTICE) return u.noticesEnabled !== false;
+      if (n.type === NotificationType.MEDICINE_REMINDER) return u.medicineRemindersEnabled !== false;
+      return true;
+    };
+    const blocked = claimed.filter((c) => !isAllowed(c));
     await this.setStatus(blocked.map((c) => c.id), PushStatus.SKIPPED);
-    const sendable = claimed.filter((c) => allowed.has(c.userId));
+    const sendable = claimed.filter(isAllowed);
 
     // 4. Send, with bounded concurrency.
     const tokensByUser = await this.devices.tokensForUsers([...new Set(sendable.map((c) => c.userId))]);
@@ -176,6 +186,8 @@ export class NotificationsService {
           title: n.title,
           body: n.body,
           collapseKey: n.id,
+          // Reminder backstops: the app shows them only if the doses are still untaken locally.
+          dataOnly: n.type === NotificationType.MEDICINE_REMINDER,
           data: {
             ...((n.data as Record<string, string> | null) ?? {}),
             notificationId: n.id,

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_strings.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../widgets/state_views.dart';
+import '../../reminders/presentation/reminder_status_banner.dart';
 import '../domain/dose_display_status.dart';
 import '../domain/medicine_schedule_models.dart';
 import 'medicine_schedule_controller.dart';
@@ -66,8 +67,10 @@ class _TodaysMedicineScreenState extends ConsumerState<TodaysMedicineScreen> {
               return ListView(
                 // Wrapped in a scrollable so pull-to-refresh still works
                 // on an empty state.
+                padding: const EdgeInsets.all(16),
                 children: [
-                  const SizedBox(height: 80),
+                  const ReminderStatusBanner(),
+                  const SizedBox(height: 64),
                   EmptyView(
                     message: strings.noMedicineToday,
                     icon: Icons.medication_outlined,
@@ -79,6 +82,7 @@ class _TodaysMedicineScreenState extends ConsumerState<TodaysMedicineScreen> {
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                const ReminderStatusBanner(),
                 if (doses.isEmpty)
                   EmptyView(message: strings.noMedicineToday, icon: Icons.today_outlined)
                 else

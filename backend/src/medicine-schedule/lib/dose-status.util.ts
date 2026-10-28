@@ -12,15 +12,18 @@ export type DoseDisplayStatus = 'UPCOMING' | 'DUE' | 'TAKEN' | 'MISSED' | 'SKIPP
 
 /**
  * How long after the scheduled time a still-untaken dose keeps showing
- * as DUE before the missed-sweep converts it to MISSED. Configurable via
- * env so ops can tune it without a code change; defaults to a generous
- * 2 hours so a dose isn't marked missed just because the sync/notification
- * fired a few minutes late.
+ * as DUE before the missed-sweep converts it to MISSED (which is also when
+ * the family is alerted). Configurable via env so ops can tune it without a
+ * code change. Defaults to 62 minutes: the app reminds at the scheduled time,
+ * again at +30 and, after two "Later" snoozes, at +60 with a 2-minute ring,
+ * so the family is never alerted while a snooze is still running.
  */
+export const DEFAULT_MISSED_GRACE_MINUTES = 62;
+
 export function missedGraceMinutes(): number {
   const raw = process.env.DOSE_MISSED_GRACE_MINUTES;
   const parsed = raw ? Number(raw) : NaN;
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 120;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_MISSED_GRACE_MINUTES;
 }
 
 export function missedCutoff(reference: Date = new Date()): Date {

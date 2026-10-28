@@ -17,6 +17,7 @@ import '../../../router/app_router.dart';
 import '../../../widgets/app_logo.dart';
 import '../../../widgets/sponsored_ad_banner.dart';
 import '../../diabetes/presentation/diabetes_strings.dart';
+import '../../reminders/presentation/reminder_status_banner.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -70,6 +71,7 @@ class HomeScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            const ReminderStatusBanner(),
             const _TodaysMedicineSection(),
             const SizedBox(height: 20),
             const _HealthRemindersSection(),

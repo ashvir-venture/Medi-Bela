@@ -43,8 +43,9 @@ export class NoticesController {
     return this.notices.update(id, dto);
   }
 
+  // Admin only: pharmacists can draft notices but not send them to users.
   @Post('admin/notices/:id/publish')
-  @Roles(Role.ADMIN, Role.PHARMACIST)
+  @Roles(Role.ADMIN)
   publish(@Param('id', ParseUUIDPipe) id: string) {
     return this.notices.publish(id);
   }

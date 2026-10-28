@@ -10,6 +10,12 @@ export interface PushMessage {
   data: Record<string, string>;
   /** Same value => the OS replaces rather than stacks a re-delivered message. */
   collapseKey: string;
+  /**
+   * Send without a `notification` block, so the OS never shows it by itself:
+   * the app decides (e.g. drops a medicine-reminder backstop when its local
+   * database already shows the dose taken). title/body travel in `data`.
+   */
+  dataOnly?: boolean;
 }
 
 export interface PushSendResult {
@@ -68,20 +74,33 @@ export class PushService implements OnModuleInit {
   async send(tokens: string[], message: PushMessage): Promise<PushSendResult[]> {
     if (!this.messaging || tokens.length === 0) return [];
 
-    const response = await this.messaging.sendEachForMulticast({
-      tokens,
-      notification: { title: message.title, body: message.body },
-      data: message.data,
-      android: {
-        priority: 'high',
-        collapseKey: message.collapseKey,
-        notification: { channelId: ANDROID_CHANNEL_ID, tag: message.collapseKey },
-      },
-      apns: {
-        headers: { 'apns-collapse-id': message.collapseKey.slice(0, 64) },
-        payload: { aps: { sound: 'default' } },
-      },
-    });
+    const response = await this.messaging.sendEachForMulticast(
+      message.dataOnly
+        ? {
+            tokens,
+            data: { ...message.data, title: message.title, body: message.body },
+            android: { priority: 'high', collapseKey: message.collapseKey },
+            // Background (content-available) delivery so the app can decide.
+            apns: {
+              headers: { 'apns-priority': '5', 'apns-push-type': 'background' },
+              payload: { aps: { contentAvailable: true } },
+            },
+          }
+        : {
+            tokens,
+            notification: { title: message.title, body: message.body },
+            data: message.data,
+            android: {
+              priority: 'high',
+              collapseKey: message.collapseKey,
+              notification: { channelId: ANDROID_CHANNEL_ID, tag: message.collapseKey },
+            },
+            apns: {
+              headers: { 'apns-collapse-id': message.collapseKey.slice(0, 64) },
+              payload: { aps: { sound: 'default' } },
+            },
+          },
+    );
 
     return response.responses.map((r, i) => ({
       token: tokens[i],

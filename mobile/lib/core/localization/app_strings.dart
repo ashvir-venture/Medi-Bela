@@ -172,6 +172,37 @@ class AppStrings {
     required this.syncingBadge,
     required this.syncFailedBadge,
     required this.syncedBadge,
+    required this.reminderCheckTitle,
+    required this.reminderCheckHelp,
+    required this.remindersBlockedBanner,
+    required this.remindersMayBeLateBanner,
+    required this.notificationsPermissionLabel,
+    required this.notificationsAllowed,
+    required this.notificationsBlocked,
+    required this.exactAlarmLabel,
+    required this.exactAlarmAllowed,
+    required this.exactAlarmDenied,
+    required this.batteryLabel,
+    required this.batteryUnrestricted,
+    required this.batteryRestricted,
+    required this.allowAction,
+    required this.openSettingsAction,
+    required this.reminderVendorTip,
+    required this.reminderTitle,
+    required this.reminderBodyOne,
+    required this.reminderBodyMany,
+    required this.reminderDoneAction,
+    required this.reminderLaterAction,
+    required this.medicineRemindersLabel,
+    required this.medicineRemindersHelp,
+    required this.medicineRemindersOffTitle,
+    required this.medicineRemindersOffWarning,
+    required this.turnOffAction,
+    required this.noticesLabel,
+    required this.noticesHelp,
+    required this.inboxPersonalTab,
+    required this.inboxFamilyTab,
+    required this.inboxGeneralTab,
   });
 
   final String appName;
@@ -340,6 +371,37 @@ class AppStrings {
   final String syncingBadge;
   final String syncFailedBadge;
   final String syncedBadge;
+  final String reminderCheckTitle;
+  final String reminderCheckHelp;
+  final String remindersBlockedBanner;
+  final String remindersMayBeLateBanner;
+  final String notificationsPermissionLabel;
+  final String notificationsAllowed;
+  final String notificationsBlocked;
+  final String exactAlarmLabel;
+  final String exactAlarmAllowed;
+  final String exactAlarmDenied;
+  final String batteryLabel;
+  final String batteryUnrestricted;
+  final String batteryRestricted;
+  final String allowAction;
+  final String openSettingsAction;
+  final String reminderVendorTip;
+  final String reminderTitle;
+  final String reminderBodyOne;
+  final String reminderBodyMany;
+  final String reminderDoneAction;
+  final String reminderLaterAction;
+  final String medicineRemindersLabel;
+  final String medicineRemindersHelp;
+  final String medicineRemindersOffTitle;
+  final String medicineRemindersOffWarning;
+  final String turnOffAction;
+  final String noticesLabel;
+  final String noticesHelp;
+  final String inboxPersonalTab;
+  final String inboxFamilyTab;
+  final String inboxGeneralTab;
 }
 
 const AppStrings enStrings = AppStrings(
@@ -353,7 +415,7 @@ const AppStrings enStrings = AppStrings(
   waitingToUpload: 'Waiting to upload',
   notificationSettings: 'Notification settings',
   pushNotificationsLabel: 'Push notifications',
-  pushNotificationsHelp: 'Family alerts, prescription updates and notices. Medicine reminders on this phone always work, even offline.',
+  pushNotificationsHelp: 'Family alerts, prescription updates and notices sent from Medi-Bela.',
   privacySettings: 'Privacy',
   privacyHelp: 'When on, family members can see your name, address and whether you took or missed today\'s medicines. When off, they see none of this and get no missed-dose alerts about you.',
   syncStatusTitle: 'Sync',
@@ -512,6 +574,37 @@ const AppStrings enStrings = AppStrings(
   syncingBadge: 'Syncing…',
   syncFailedBadge: 'Sync failed',
   syncedBadge: 'Synced',
+  reminderCheckTitle: 'Reminder check',
+  reminderCheckHelp: 'Make sure medicine reminders reach you on time, even when the app is closed.',
+  remindersBlockedBanner: 'Reminders are off: notifications are blocked. Tap to fix.',
+  remindersMayBeLateBanner: 'Reminders may be a few minutes late. Tap to fix.',
+  notificationsPermissionLabel: 'Notifications',
+  notificationsAllowed: 'Allowed',
+  notificationsBlocked: 'Blocked: reminders will not show',
+  exactAlarmLabel: 'Alarms & reminders',
+  exactAlarmAllowed: 'Allowed: reminders arrive on time',
+  exactAlarmDenied: 'Not allowed: reminders may be a few minutes late',
+  batteryLabel: 'Battery optimization',
+  batteryUnrestricted: 'Not restricted',
+  batteryRestricted: 'Restricted: the phone may delay reminders. Set Medi-Bela to "Don\'t optimize" or "No restrictions".',
+  allowAction: 'Allow',
+  openSettingsAction: 'Open settings',
+  reminderVendorTip: 'On Xiaomi, realme, OPPO and vivo phones, also turn on Autostart for Medi-Bela and lock it in the recent apps list.',
+  reminderTitle: 'Time for your medicine',
+  reminderBodyOne: 'A medicine is due at {time}. Open the app to see which.',
+  reminderBodyMany: '{count} medicines are due at {time}. Open the app to see which.',
+  reminderDoneAction: 'Done',
+  reminderLaterAction: 'Later (30 min)',
+  medicineRemindersLabel: 'Medicine reminders',
+  medicineRemindersHelp: 'Rings at each medicine time, even offline. Your family is alerted if a dose is missed.',
+  medicineRemindersOffTitle: 'Turn off medicine reminders?',
+  medicineRemindersOffWarning: 'You will get no medicine reminders, and your family will not be alerted when you miss a dose.',
+  turnOffAction: 'Turn off',
+  noticesLabel: 'Notices',
+  noticesHelp: 'Health notices from Medi-Bela. When off, you can still read them in the app.',
+  inboxPersonalTab: 'Personal',
+  inboxFamilyTab: 'Family',
+  inboxGeneralTab: 'General',
 );
 
 const AppStrings bnStrings = AppStrings(
@@ -525,7 +618,7 @@ const AppStrings bnStrings = AppStrings(
   waitingToUpload: 'আপলোডের অপেক্ষায়',
   notificationSettings: 'বিজ্ঞপ্তি সেটিংস',
   pushNotificationsLabel: 'পুশ নোটিফিকেশন',
-  pushNotificationsHelp: 'পরিবারের সতর্কতা, প্রেসক্রিপশনের হালনাগাদ ও বিজ্ঞপ্তি। এই ফোনে ওষুধের রিমাইন্ডার অফলাইনেও সবসময় কাজ করে।',
+  pushNotificationsHelp: 'Medi-Bela থেকে পাঠানো পরিবারের সতর্কতা, প্রেসক্রিপশনের হালনাগাদ ও বিজ্ঞপ্তি।',
   privacySettings: 'গোপনীয়তা',
   privacyHelp: 'চালু থাকলে পরিবারের সদস্যরা আপনার নাম, ঠিকানা এবং আজ ওষুধ খেয়েছেন কি না দেখতে পারেন। বন্ধ থাকলে তারা কিছুই দেখতে পারেন না এবং আপনার ওষুধ মিস হলে সতর্কতাও পান না।',
   syncStatusTitle: 'সিঙ্ক',
@@ -684,4 +777,35 @@ const AppStrings bnStrings = AppStrings(
   syncingBadge: 'সিঙ্ক হচ্ছে…',
   syncFailedBadge: 'সিঙ্ক ব্যর্থ হয়েছে',
   syncedBadge: 'সিঙ্ক হয়েছে',
+  reminderCheckTitle: 'রিমাইন্ডার পরীক্ষা',
+  reminderCheckHelp: 'অ্যাপ বন্ধ থাকলেও ওষুধের রিমাইন্ডার যেন সময়মতো পৌঁছায়, তা নিশ্চিত করুন।',
+  remindersBlockedBanner: 'রিমাইন্ডার বন্ধ: বিজ্ঞপ্তি বন্ধ করা আছে। ঠিক করতে চাপুন।',
+  remindersMayBeLateBanner: 'রিমাইন্ডার কয়েক মিনিট দেরিতে আসতে পারে। ঠিক করতে চাপুন।',
+  notificationsPermissionLabel: 'বিজ্ঞপ্তি',
+  notificationsAllowed: 'অনুমতি আছে',
+  notificationsBlocked: 'বন্ধ: রিমাইন্ডার দেখাবে না',
+  exactAlarmLabel: 'অ্যালার্ম ও রিমাইন্ডার',
+  exactAlarmAllowed: 'অনুমতি আছে: রিমাইন্ডার সময়মতো আসবে',
+  exactAlarmDenied: 'অনুমতি নেই: রিমাইন্ডার কয়েক মিনিট দেরিতে আসতে পারে',
+  batteryLabel: 'ব্যাটারি অপ্টিমাইজেশন',
+  batteryUnrestricted: 'সীমাবদ্ধ নয়',
+  batteryRestricted: 'সীমাবদ্ধ: ফোন রিমাইন্ডার দেরি করাতে পারে। Medi-Bela-কে "অপ্টিমাইজ করবেন না" বা "কোনো সীমাবদ্ধতা নেই" করুন।',
+  allowAction: 'অনুমতি দিন',
+  openSettingsAction: 'সেটিংস খুলুন',
+  reminderVendorTip: 'শাওমি, রিয়েলমি, অপো ও ভিভো ফোনে Medi-Bela-র জন্য Autostart চালু করুন এবং সাম্প্রতিক অ্যাপের তালিকায় এটি লক করে রাখুন।',
+  reminderTitle: 'ওষুধ খাওয়ার সময়',
+  reminderBodyOne: '{time}-এ একটি ওষুধ খাওয়ার সময়। কোনটি দেখতে অ্যাপ খুলুন।',
+  reminderBodyMany: '{time}-এ {count}টি ওষুধ খাওয়ার সময়। কোনগুলো দেখতে অ্যাপ খুলুন।',
+  reminderDoneAction: 'নিয়েছি',
+  reminderLaterAction: 'পরে (৩০ মিনিট)',
+  medicineRemindersLabel: 'ওষুধের রিমাইন্ডার',
+  medicineRemindersHelp: 'প্রতিটি ওষুধের সময়ে বাজবে, অফলাইনেও। কোনো ডোজ মিস হলে আপনার পরিবারকে জানানো হবে।',
+  medicineRemindersOffTitle: 'ওষুধের রিমাইন্ডার বন্ধ করবেন?',
+  medicineRemindersOffWarning: 'আপনি কোনো ওষুধের রিমাইন্ডার পাবেন না, এবং ডোজ মিস হলে আপনার পরিবারকে জানানো হবে না।',
+  turnOffAction: 'বন্ধ করুন',
+  noticesLabel: 'বিজ্ঞপ্তি বোর্ড',
+  noticesHelp: 'Medi-Bela-র স্বাস্থ্য বিজ্ঞপ্তি। বন্ধ থাকলেও অ্যাপে পড়তে পারবেন।',
+  inboxPersonalTab: 'ব্যক্তিগত',
+  inboxFamilyTab: 'পরিবার',
+  inboxGeneralTab: 'সাধারণ',
 );

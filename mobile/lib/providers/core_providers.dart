@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/database/app_database.dart';
+import '../core/localization/locale_controller.dart';
 import '../core/network/connectivity_service.dart';
 import '../core/network/dio_client.dart';
 import '../core/storage/secure_storage_service.dart';
@@ -21,10 +22,12 @@ import '../features/notices/data/notices_api.dart';
 import '../features/prescription/data/prescription_api.dart';
 import '../features/prescription/data/prescription_local_repository.dart';
 import '../features/prescription/data/prescription_sync_handler.dart';
+import '../features/reminders/data/reminder_status_service.dart';
 import '../main.dart' show flutterLocalNotificationsPlugin;
 import '../notifications/local_notifications_gateway.dart';
 import '../notifications/notification_scheduler.dart';
 import '../notifications/push_service.dart';
+import '../notifications/reminder_preference.dart';
 import '../router/app_router.dart';
 import '../sync/sync_handler.dart';
 import '../sync/sync_service.dart';
@@ -109,11 +112,20 @@ final localNotificationsGatewayProvider = Provider<LocalNotificationsGateway>((r
   return FlutterLocalNotificationsGateway(flutterLocalNotificationsPlugin);
 });
 
+/// Overridden with a loaded instance in main() and in background isolates.
+final reminderPreferenceProvider = Provider<ReminderPreference>((ref) => ReminderPreference());
+
 final notificationSchedulerProvider = Provider<NotificationScheduler>((ref) {
   return NotificationScheduler(
     gateway: ref.watch(localNotificationsGatewayProvider),
     database: ref.watch(appDatabaseProvider),
+    strings: () => ref.read(stringsProvider),
+    remindersEnabled: () => ref.read(reminderPreferenceProvider).enabled,
   );
+});
+
+final reminderStatusServiceProvider = Provider<ReminderStatusService>((ref) {
+  return ReminderStatusService(flutterLocalNotificationsPlugin);
 });
 
 final pushServiceProvider = Provider<PushService>((ref) {
@@ -122,6 +134,7 @@ final pushServiceProvider = Provider<PushService>((ref) {
     secureStorage: ref.watch(secureStorageProvider),
     localPlugin: flutterLocalNotificationsPlugin,
     navigate: (route) => ref.read(appRouterProvider).go(route),
+    onReminderBackstop: (at) => ref.read(notificationSchedulerProvider).showBackstop(at),
   );
 });
 

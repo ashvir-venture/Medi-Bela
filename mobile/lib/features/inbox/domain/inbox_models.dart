@@ -62,3 +62,20 @@ class InboxPage {
     );
   }
 }
+
+/// Inbox tabs: the user's own updates, their family's, and general notices.
+enum InboxTab { personal, family, general }
+
+InboxTab inboxTabFor(InboxItem item) {
+  switch (item.type) {
+    case 'NOTICE':
+      return InboxTab.general;
+    case 'MISSED_DOSE_FAMILY_ALERT':
+      return InboxTab.family;
+    case 'SYSTEM':
+      return item.data['kind'] == 'family_invitation' ? InboxTab.family : InboxTab.personal;
+    default:
+      // MEDICINE_REMINDER, PRESCRIPTION_UPDATE, anything new.
+      return InboxTab.personal;
+  }
+}

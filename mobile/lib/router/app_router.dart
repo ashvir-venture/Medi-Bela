@@ -23,6 +23,7 @@ import '../features/medicine_schedule/presentation/today_medicine_screen.dart';
 import '../features/notices/presentation/notices_screen.dart';
 import '../features/prescription/presentation/prescription_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
+import '../features/reminders/presentation/reminder_check_screen.dart';
 import '../widgets/main_scaffold.dart';
 
 class AppRoutes {
@@ -50,6 +51,7 @@ class AppRoutes {
   static const notices = '/notices';
   static const diabetes = '/diabetes';
   static const profile = '/profile';
+  static const reminderCheck = '/profile/reminders';
 }
 
 /// Bridges Riverpod's [sessionNotifierProvider] to GoRouter's
@@ -175,6 +177,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.profile,
             builder: (context, state) => const ProfileScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.reminderCheck,
+            builder: (context, state) => const ReminderCheckScreen(),
           ),
         ],
       ),

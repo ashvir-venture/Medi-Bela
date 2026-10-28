@@ -30,10 +30,10 @@ describe('missedCutoff', () => {
     process.env.DOSE_MISSED_GRACE_MINUTES = originalEnv;
   });
 
-  it('defaults to 120 minutes before the reference time', () => {
+  it('defaults to 62 minutes before the reference time', () => {
     delete process.env.DOSE_MISSED_GRACE_MINUTES;
     const reference = new Date('2026-03-01T12:00:00.000Z');
-    expect(missedCutoff(reference).toISOString()).toBe('2026-03-01T10:00:00.000Z');
+    expect(missedCutoff(reference).toISOString()).toBe('2026-03-01T10:58:00.000Z');
   });
 
   it('respects a configured grace period', () => {
@@ -45,6 +45,6 @@ describe('missedCutoff', () => {
   it('ignores invalid configuration and falls back to the default', () => {
     process.env.DOSE_MISSED_GRACE_MINUTES = 'not-a-number';
     const reference = new Date('2026-03-01T12:00:00.000Z');
-    expect(missedCutoff(reference).toISOString()).toBe('2026-03-01T10:00:00.000Z');
+    expect(missedCutoff(reference).toISOString()).toBe('2026-03-01T10:58:00.000Z');
   });
 });

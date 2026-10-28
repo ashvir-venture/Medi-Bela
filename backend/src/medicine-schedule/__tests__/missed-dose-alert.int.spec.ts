@@ -101,12 +101,36 @@ d('Missed-dose pipeline (real Postgres)', () => {
 
   it('does not alert for doses within grace, already taken, or stale backlog', async () => {
     const { subject, routine, dose } = await scenario();
-    await dose(subject.id, routine.id, 0.5);                                   // inside 2h grace
+    await dose(subject.id, routine.id, 0.25);                                  // inside grace, before the backstop
     await dose(subject.id, routine.id, 3, { status: 'TAKEN', takenAt: new Date() });
     const stale = await dose(subject.id, routine.id, 30);                      // older than alert window
     await svc.run();
     expect(await prisma.notification.count()).toBe(0);
     expect((await prisma.medicineDose.findUnique({ where: { id: stale.id } })).familyAlertProcessedAt).not.toBeNull();
+  });
+
+  it('does not alert the family when the subject turned medicine reminders off', async () => {
+    const { subject, routine, dose } = await scenario();
+    await prisma.user.update({ where: { id: subject.id }, data: { medicineRemindersEnabled: false } });
+    const missed = await dose(subject.id, routine.id, 3);
+    await svc.run();
+    expect(await prisma.notification.count()).toBe(0);
+    expect((await prisma.medicineDose.findUnique({ where: { id: missed.id } })).familyAlertProcessedAt).not.toBeNull();
+  });
+
+  it('sends the patient one backstop per scheduled time at the second-reminder time, once', async () => {
+    const { subject, routine, dose } = await scenario();
+    const at = new Date(Date.now() - 40 * 60_000);
+    await prisma.medicineDose.create({ data: { routineId: routine.id, userId: subject.id, scheduledAt: at } });
+    await prisma.medicineDose.create({ data: { routineId: routine.id, userId: subject.id, scheduledAt: at } });
+    await dose(subject.id, routine.id, 0.25);                                  // not yet at the second reminder
+
+    await svc.run(); await svc.run();
+
+    const rows = await prisma.notification.findMany();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ userId: subject.id, type: NotificationType.MEDICINE_REMINDER });
+    expect((rows[0].data as any).doseIds.split(',')).toHaveLength(2);
   });
 
   it('a user with no family causes no alerts and no errors', async () => {

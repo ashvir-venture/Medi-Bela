@@ -54,6 +54,7 @@ d('MVP end-to-end flow', () => {
       .overrideProvider(PushService).useValue(fakePush)
       .overrideProvider(CloudinaryService).useValue({
         uploadPrescriptionImage: async (_b: Buffer, name: string) => `https://img.test/${name}`,
+        signedImageUrl: (url: string) => url,
       })
       .compile();
     app = mod.createNestApplication();

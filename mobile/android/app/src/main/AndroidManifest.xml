@@ -2,6 +2,15 @@
     <!-- Required at runtime (not just for dev tooling): the app talks to
          the CareBridge backend via Dio in every build mode. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Medicine reminders (flutter_local_notifications):
+         POST_NOTIFICATIONS is the Android 13+ runtime permission;
+         RECEIVE_BOOT_COMPLETED lets the plugin re-register reminders after a
+         reboot or app update; SCHEDULE_EXACT_ALARM is granted by the user from
+         the Reminder check screen (denied by default on Android 14+). Without
+         it reminders fall back to inexact alarms and may be late. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <application
         android:label="Medi-Bela"
         android:name="${applicationName}"
@@ -28,6 +37,19 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Required for scheduled reminders to fire while the app is closed
+             and to survive a reboot; the plugin does not declare these itself. -->
+        <!-- Done / Later buttons on medicine reminders, with the app closed. -->
+        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />
+        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

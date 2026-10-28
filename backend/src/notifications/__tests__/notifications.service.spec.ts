@@ -89,3 +89,44 @@ describe('push dispatch', () => {
     expect(rows[0].pushStatus).toBe('SKIPPED');
   });
 });
+
+describe('per-kind push switches', () => {
+  const user = (overrides: Record<string, unknown>) => ({
+    id: 'u1',
+    notificationsEnabled: true,
+    medicineRemindersEnabled: true,
+    noticesEnabled: true,
+    accountStatus: 'ACTIVE',
+    ...overrides,
+  });
+
+  it('skips notice pushes when the notice switch is off', async () => {
+    const { service, rows, push } = setup({ user: user({ noticesEnabled: false }) });
+    rows[0].type = 'NOTICE';
+    await service.dispatch(['n1']);
+    expect(rows[0].pushStatus).toBe('SKIPPED');
+    expect(push.send).not.toHaveBeenCalled();
+  });
+
+  it('skips reminder backstops when medicine reminders are off', async () => {
+    const { service, rows, push } = setup({ user: user({ medicineRemindersEnabled: false }) });
+    rows[0].type = 'MEDICINE_REMINDER';
+    await service.dispatch(['n1']);
+    expect(rows[0].pushStatus).toBe('SKIPPED');
+    expect(push.send).not.toHaveBeenCalled();
+  });
+
+  it('sends reminder backstops data-only, so the app can drop ones already taken', async () => {
+    const { service, rows, push } = setup({ user: user({}) });
+    rows[0].type = 'MEDICINE_REMINDER';
+    await service.dispatch(['n1']);
+    expect(push.send.mock.calls[0][1]).toMatchObject({ dataOnly: true, data: { type: 'MEDICINE_REMINDER' } });
+  });
+
+  it('other kinds are not data-only and ignore the per-kind switches', async () => {
+    const { service, rows, push } = setup({ user: user({ noticesEnabled: false, medicineRemindersEnabled: false }) });
+    await service.dispatch(['n1']);
+    expect(rows[0].pushStatus).toBe('SENT');
+    expect(push.send.mock.calls[0][1].dataOnly).toBe(false);
+  });
+});
