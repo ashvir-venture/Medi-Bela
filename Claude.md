@@ -148,7 +148,7 @@ Don't run destructive DB commands (migrate reset, drops, TRUNCATE-based tests) a
 Don't run more than one API instance.
 9. Known issues / open questions (do not fix without asking)
 [ASK] API prefix mismatch: main.ts uses prefix api, but src/app.e2e.int.spec.ts sets api/v1 and calls /api/v1/auth/register; controllers have no versioning. Admin default base URL is /api.
-[ASK] Stray files committed: backend/backend.zip, mobile/lib.zip, mobile/body.json, backend/src/.env.example, backend/src/package.json.txt, backend/src/schema.txt. Possibly leftovers.
+[ASK] Stray files committed: mobile/body.json, backend/src/.env.example, backend/src/package.json.txt, backend/src/schema.txt. Possibly leftovers.
 [ASK] Version numbers differ across parts (see section 2).
 Mobile has a diabetes feature folder with only presentation/, not listed in the README.
 Admin has no tests. Mobile tests cover the reminder scheduler, sync queue and inbox tabs, not widgets or background isolates.
