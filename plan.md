@@ -11,6 +11,8 @@ Placement: the limiter runs after the JWT guard, skips /health, and is off under
 Deploy requirement: set TRUST_PROXY=1 if the API sits behind a proxy. If you don’t, all public traffic shares a single bucket.
 Mobile risk I found: the sync queue gives up after 5 failures and reverts the local “taken” state, and it polls every 30 seconds. Without a fix, a 429 could silently lose dose-taken events. The fix treats 429 as “pause and retry later”, not as a failure.
 Limits: the counter lives in memory, so it works for a single server only. Redis comes later if you add instances. Bad-token requests that return 401 aren’t counted, so a host-level limit would cover them.
+Testing: device testing (the three-phone matrix in Round 1 and the Round 3 behaviors) is deferred until all rounds are developed; each round is "code done" until then.
+
 Database changes (pending SQL for Neon)
 Workflow: during development only backend/prisma/schema.prisma changes (no migration files). At the end of development, run the SQL below in the Neon SQL editor, in order, then `npx prisma generate`.
 1. Round 3 (2026-10-29): reminder and notice switches
