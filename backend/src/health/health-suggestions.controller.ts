@@ -19,31 +19,31 @@ export class HealthSuggestionsController {
   // --- Admin -----------------------------------------------------------
 
   @Get('admin/health-suggestions')
-  @Roles(Role.ADMIN, Role.PHARMACIST)
+  @Roles(Role.ADMIN)
   list() {
     return this.suggestions.listForAdmin();
   }
 
   @Get('admin/health-suggestions/:id')
-  @Roles(Role.ADMIN, Role.PHARMACIST)
+  @Roles(Role.ADMIN)
   getDetail(@Param('id', ParseUUIDPipe) id: string) {
     return this.suggestions.getDetail(id);
   }
 
   @Patch('admin/health-suggestions/:id')
-  @Roles(Role.ADMIN, Role.PHARMACIST)
+  @Roles(Role.ADMIN)
   update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateHealthSuggestionDto) {
     return this.suggestions.update(id, dto);
   }
 
   @Post('admin/health-suggestions/:id/publish')
-  @Roles(Role.ADMIN, Role.PHARMACIST)
+  @Roles(Role.ADMIN)
   publish(@CurrentUser('id') adminId: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.suggestions.publish(adminId, id);
   }
 
   @Post('admin/health-suggestions/:id/unpublish')
-  @Roles(Role.ADMIN, Role.PHARMACIST)
+  @Roles(Role.ADMIN)
   unpublish(@Param('id', ParseUUIDPipe) id: string) {
     return this.suggestions.unpublish(id);
   }

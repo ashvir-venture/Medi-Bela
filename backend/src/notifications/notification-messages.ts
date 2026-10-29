@@ -57,6 +57,19 @@ export const messages = {
         };
   },
 
+  /** The pharmacist prepared the routine; reminders start once the user confirms it. */
+  prescriptionReadyToConfirm(lang: Language): MessageCopy {
+    return lang === Language.BN
+      ? {
+          title: 'প্রেসক্রিপশন প্রস্তুত',
+          body: 'ফার্মাসিস্ট আপনার ওষুধের রুটিন তৈরি করেছেন। রিমাইন্ডার শুরু করতে অ্যাপে নিশ্চিত করুন।',
+        }
+      : {
+          title: 'Prescription ready',
+          body: 'Your pharmacist prepared your medicine routine. Open the app to confirm it and start reminders.',
+        };
+  },
+
   prescriptionRejected(lang: Language): MessageCopy {
     return lang === Language.BN
       ? {

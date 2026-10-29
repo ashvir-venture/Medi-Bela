@@ -11,11 +11,20 @@ final prescriptionDraftsProvider =
   return ref.watch(prescriptionLocalRepositoryProvider).watchDrafts();
 });
 
-final createPrescriptionDraftProvider =
-    Provider<Future<String> Function({String? note, String? imageLocalPath})>(
+typedef CreatePrescriptionDraft = Future<String> Function({
+  String? note,
+  String? imageLocalPath,
+  String? previousPrescriptionId,
+});
+
+final createPrescriptionDraftProvider = Provider<CreatePrescriptionDraft>(
   (ref) {
     final repo = ref.watch(prescriptionLocalRepositoryProvider);
-    return ({String? note, String? imageLocalPath}) =>
-        repo.createAndQueue(note: note, imageLocalPath: imageLocalPath);
+    return ({String? note, String? imageLocalPath, String? previousPrescriptionId}) =>
+        repo.createAndQueue(
+          note: note,
+          imageLocalPath: imageLocalPath,
+          previousPrescriptionId: previousPrescriptionId,
+        );
   },
 );

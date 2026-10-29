@@ -43,7 +43,8 @@ export class AdminDashboardService {
       this.prisma.user.count({ where: { role: Role.USER, accountStatus: { not: AccountStatus.DELETED } } }),
       this.prisma.family.count(),
       this.prisma.prescription.count({ where: { status: PrescriptionStatus.PENDING } }),
-      this.prisma.prescription.count({ where: { status: PrescriptionStatus.COMPLETED } }),
+      // "completed" = reviewed and running (ACTIVE) or finished (ENDED).
+      this.prisma.prescription.count({ where: { status: { in: [PrescriptionStatus.ACTIVE, PrescriptionStatus.ENDED] } } }),
       this.prisma.prescription.count({ where: { status: PrescriptionStatus.REJECTED } }),
       this.prisma.prescription.findMany({
         orderBy: { createdAt: 'desc' },

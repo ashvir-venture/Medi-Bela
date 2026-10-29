@@ -36,10 +36,20 @@ enum InvitationStatus {
   EXPIRED
 }
 
+// PENDING (uploaded) -> REJECTED (with feedback; the user may re-upload)
+//                   -> AWAITING_CONFIRMATION (pharmacist prepared it)
+//                   -> ACTIVE (confirmed; reminders run) -> ENDED (course over)
 enum PrescriptionStatus {
   PENDING
-  COMPLETED
   REJECTED
+  AWAITING_CONFIRMATION
+  ACTIVE
+  ENDED
+}
+
+enum RoutineSource {
+  PRESCRIPTION
+  SELF_ADDED
 }
 
 enum DoseStatus {
@@ -71,6 +81,8 @@ enum SuggestionStatus {
 
 enum NoticeStatus {
   DRAFT
+  // Drafted by a pharmacist, waiting for an admin.
+  PENDING_APPROVAL
   PUBLISHED
   ARCHIVED
 }
@@ -125,7 +137,16 @@ model User {
   medicineRemindersEnabled Boolean     @default(true)
   // Off: notices are not pushed (still listed in the app).
   noticesEnabled         Boolean       @default(true)
+  // The privacy flag, stored inverted: false = "Hide from family" switched
+  // on, which hides this user from every family member, the owner included.
   profileVisibleToFamily Boolean       @default(true)
+  dateOfBirth            DateTime?     @db.Date
+  genderId               Int?
+  // Address: each level must belong to the one above it, enforced by the
+  // composite foreign keys below (a district of another division is rejected).
+  divisionId             Int?
+  districtId             Int?
+  upazilaId              Int?
   createdAt              DateTime      @default(now())
   updatedAt              DateTime      @updatedAt
   // Set when the password is RESET (forgot-password): access tokens issued
@@ -149,6 +170,16 @@ model User {
   deviceTokens           DeviceToken[]
   assistantConversations AssistantConversation[]
   passwordResetCode      PasswordResetCode?
+  gender                 Gender?                 @relation(fields: [genderId], references: [id], onDelete: Restrict)
+  division               Division?               @relation(fields: [divisionId], references: [id], onDelete: Restrict)
+  district               District?               @relation(fields: [districtId, divisionId], references: [id, divisionId], onDelete: Restrict)
+  upazila                Upazila?                @relation(fields: [upazilaId, districtId], references: [id, districtId], onDelete: Restrict)
+  createdDoctors         Doctor[]                @relation("DoctorCreator")
+  createdMedicines       Medicine[]              @relation("MedicineCreator")
+  editedRoutines         MedicineRoutine[]       @relation("RoutineEditor")
+  approvedNotices        Notice[]                @relation("NoticeApprover")
+  auditActions           AuditLog[]              @relation("AuditActor")
+  auditSubjectOf         AuditLog[]              @relation("AuditSubject")
 
   @@index([role])
   @@map("users")
@@ -216,15 +247,33 @@ model Prescription {
   // idempotency key so a retried offline sync can't create a duplicate
   // prescription server-side; never exposed as the canonical id.
   clientUploadId  String?             @unique
+  // Filled in by the pharmacist.
+  doctorId        String?             @db.Uuid
+  visitDate       DateTime?           @db.Date
+  diagnosis       String?
+  nextVisitDate   DateTime?           @db.Date
+  // A re-upload after a rejection points at the rejected prescription.
+  previousPrescriptionId String?      @db.Uuid
+  // Medicine lines belong to a revision. A pharmacist edit after activation
+  // is a new pendingRevision; the current one keeps running until the user
+  // confirms (or edits) it.
+  currentRevision Int                 @default(1)
+  pendingRevision Int?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
   user       User                    @relation("PrescriptionOwner", fields: [userId], references: [id], onDelete: Cascade)
   reviewedBy User?                   @relation("PrescriptionReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  doctor     Doctor?                 @relation(fields: [doctorId], references: [id], onDelete: SetNull)
+  previous   Prescription?           @relation("Reupload", fields: [previousPrescriptionId], references: [id], onDelete: SetNull)
+  reuploads  Prescription[]          @relation("Reupload")
   medicines  PrescriptionMedicine[]
+  tests      PrescriptionTest[]
 
   @@index([userId, status])
-  @@index([status])
+  // Admin queues: filter by status, newest first, cursor-paginated.
+  @@index([status, createdAt])
+  @@index([doctorId])
   @@map("prescriptions")
 }
 
@@ -254,6 +303,16 @@ model PrescriptionMedicine {
   // generation defaults it to the date the prescription is completed
   // (an administrative default, not a clinical one).
   startDate      DateTime?
+  // --- Structured line (Round 4) ---
+  revision       Int       @default(1)
+  medicineId     String?   @db.Uuid
+  // Strength lives on the line, not on Medicine (e.g. "500 mg").
+  strength       String?
+  // Amount per dose, e.g. "1 tablet", "2 tsp".
+  doseAmount     String?
+  mealTimingId   Int?
+  // No end date: doses keep being generated (rolling) until stopped.
+  continuous     Boolean   @default(false)
   verified       Boolean   @default(false)
   verifiedById   String?   @db.Uuid
   verifiedAt     DateTime?
@@ -262,9 +321,12 @@ model PrescriptionMedicine {
 
   prescription Prescription      @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
   verifiedBy   User?             @relation("MedicineVerifier", fields: [verifiedById], references: [id], onDelete: SetNull)
+  medicine     Medicine?         @relation(fields: [medicineId], references: [id], onDelete: SetNull)
+  mealTiming   MealTiming?       @relation(fields: [mealTimingId], references: [id], onDelete: Restrict)
   routines     MedicineRoutine[]
 
-  @@index([prescriptionId])
+  @@index([prescriptionId, revision])
+  @@index([medicineId])
   @@map("prescription_medicines")
 }
 
@@ -278,11 +340,26 @@ model MedicineRoutine {
   startDate              DateTime
   endDate                DateTime?
   active                 Boolean   @default(true)
+  source                 RoutineSource @default(PRESCRIPTION)
+  strength               String?
+  doseAmount             String?
+  mealTimingId           Int?
+  // "HH:mm" JSON array, e.g. ["08:00","20:00"]. Set => the rolling job keeps
+  // doses generated ahead (up to endDate, or with no end when endDate is
+  // null). Null on routines created before Round 4: all their doses exist.
+  scheduleTimes          String?
+  // Doses exist up to (excluding) this instant; the rolling job continues here.
+  generatedUntil         DateTime?
+  // Set when someone other than the pharmacist changed it ("edited by you").
+  lastEditedById         String?   @db.Uuid
+  lastEditedAt           DateTime?
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 
   user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   prescriptionMedicine PrescriptionMedicine? @relation(fields: [prescriptionMedicineId], references: [id], onDelete: SetNull)
+  mealTiming           MealTiming?           @relation(fields: [mealTimingId], references: [id], onDelete: Restrict)
+  lastEditedBy         User?                 @relation("RoutineEditor", fields: [lastEditedById], references: [id], onDelete: SetNull)
   doses                MedicineDose[]
   healthSuggestions    HealthSuggestion[]
 
@@ -415,11 +492,21 @@ model Notice {
   audience    NoticeAudience @default(ALL)
   publishedAt DateTime?
   expiresAt   DateTime?
+  // Where the information comes from, shown with the notice (e.g. "DGHS").
+  source      String?
+  sourceUrl   String?
+  // Scheduled publishing: not shown before this time.
+  startsAt    DateTime?
+  approvedById String?       @db.Uuid
+  approvedAt  DateTime?
   createdById String?        @db.Uuid
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
-  createdBy User? @relation("NoticeCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy  User?            @relation("NoticeCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  approvedBy User?            @relation("NoticeApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  // No rows = every division.
+  divisions  NoticeDivision[]
 
   @@index([status, publishedAt])
   @@map("notices")
@@ -534,4 +621,206 @@ model PasswordResetCode {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("password_reset_codes")
+}
+
+// ---------------------------------------------------------------------------
+// Lookup tables (Round 4). Every dropdown reads one of these; the owner adds
+// or edits rows directly in the database. English only.
+// ---------------------------------------------------------------------------
+
+model Gender {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  users User[]
+
+  @@map("genders")
+}
+
+model Division {
+  id        Int              @id @default(autoincrement())
+  name      String           @unique
+  districts District[]
+  users     User[]
+  notices   NoticeDivision[]
+
+  @@map("divisions")
+}
+
+model District {
+  id         Int       @id @default(autoincrement())
+  divisionId Int
+  name       String
+  division   Division  @relation(fields: [divisionId], references: [id], onDelete: Restrict)
+  upazilas   Upazila[]
+  users      User[]
+  doctors    Doctor[]
+
+  @@unique([divisionId, name])
+  // Target of composite foreign keys that keep a district inside its division.
+  @@unique([id, divisionId])
+  @@map("districts")
+}
+
+model Upazila {
+  id         Int      @id @default(autoincrement())
+  districtId Int
+  name       String
+  district   District @relation(fields: [districtId], references: [id], onDelete: Restrict)
+  users      User[]
+
+  @@unique([districtId, name])
+  // Target of composite foreign keys that keep an upazila inside its district.
+  @@unique([id, districtId])
+  @@map("upazilas")
+}
+
+/// The doctor "genre" list.
+model DoctorSpecialty {
+  id      Int      @id @default(autoincrement())
+  name    String   @unique
+  doctors Doctor[]
+
+  @@map("doctor_specialties")
+}
+
+/// Tablet, Capsule, Syrup...
+model MedicineForm {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+  medicines Medicine[]
+
+  @@map("medicine_forms")
+}
+
+/// The medicine "genre" list (therapeutic category).
+model MedicineCategory {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+  medicines Medicine[]
+
+  @@map("medicine_categories")
+}
+
+model MealTiming {
+  id                Int                    @id @default(autoincrement())
+  name              String                 @unique
+  prescriptionLines PrescriptionMedicine[]
+  routines          MedicineRoutine[]
+
+  @@map("meal_timings")
+}
+
+model TestCategory {
+  id    Int              @id @default(autoincrement())
+  name  String           @unique
+  tests DiagnosticTest[]
+
+  @@map("test_categories")
+}
+
+// ---------------------------------------------------------------------------
+// Reference data completed by pharmacists (admin is read-only)
+// ---------------------------------------------------------------------------
+
+/// A record missing specialty, chamber or district counts as incomplete.
+model Doctor {
+  id          String           @id @default(uuid()) @db.Uuid
+  name        String
+  // BMDC registration number; unique when known (duplicate check).
+  bmdcNumber  String?          @unique
+  specialtyId Int?
+  chamber     String?
+  phone       String?
+  districtId  Int?
+  createdById String?          @db.Uuid
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  specialty     DoctorSpecialty? @relation(fields: [specialtyId], references: [id], onDelete: Restrict)
+  district      District?        @relation(fields: [districtId], references: [id], onDelete: Restrict)
+  createdBy     User?            @relation("DoctorCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  prescriptions Prescription[]
+
+  @@index([name])
+  @@map("doctors")
+}
+
+/// Strength is not stored here: it lives on the prescription/routine line.
+model Medicine {
+  id           String   @id @default(uuid()) @db.Uuid
+  brandName    String
+  genericName  String?
+  formId       Int?
+  categoryId   Int?
+  manufacturer String?
+  createdById  String?  @db.Uuid
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  form      MedicineForm?          @relation(fields: [formId], references: [id], onDelete: Restrict)
+  category  MedicineCategory?      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  createdBy User?                  @relation("MedicineCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  lines     PrescriptionMedicine[]
+
+  @@unique([brandName, formId])
+  @@index([genericName])
+  @@map("medicines")
+}
+
+model DiagnosticTest {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String   @unique
+  categoryId Int?
+  createdAt  DateTime @default(now())
+
+  category      TestCategory?      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  prescriptions PrescriptionTest[]
+
+  @@map("diagnostic_tests")
+}
+
+model PrescriptionTest {
+  prescriptionId String @db.Uuid
+  testId         String @db.Uuid
+
+  prescription Prescription   @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  test         DiagnosticTest @relation(fields: [testId], references: [id], onDelete: Restrict)
+
+  @@id([prescriptionId, testId])
+  @@map("prescription_tests")
+}
+
+model NoticeDivision {
+  noticeId   String @db.Uuid
+  divisionId Int
+
+  notice   Notice   @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+  division Division @relation(fields: [divisionId], references: [id], onDelete: Restrict)
+
+  @@id([noticeId, divisionId])
+  @@index([divisionId])
+  @@map("notice_divisions")
+}
+
+/// Who changed what for whom: caregiver actions on a member's routines, and
+/// pharmacist/admin prescription actions. Append-only, kept indefinitely.
+/// Never put passwords, tokens or phone numbers in before/after.
+model AuditLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  actorId       String?  @db.Uuid
+  subjectUserId String?  @db.Uuid
+  // e.g. "routine.update", "prescription.reject"
+  action        String
+  entityType    String
+  entityId      String?
+  before        Json?
+  after         Json?
+  createdAt     DateTime @default(now())
+
+  actor       User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  subjectUser User? @relation("AuditSubject", fields: [subjectUserId], references: [id], onDelete: SetNull)
+
+  @@index([subjectUserId, createdAt])
+  @@index([actorId, createdAt])
+  @@map("audit_logs")
 }

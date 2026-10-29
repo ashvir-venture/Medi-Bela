@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ApiError, login, saveTokens } from '@/lib/api-client';
+import { ApiError, login, rememberMe, saveTokens } from '@/lib/api-client';
+import { homeFor, isStaffRole } from '@/lib/paths';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,43 +13,42 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
-  e.preventDefault();
-  setError(null);
-  setIsSubmitting(true);
+    e.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
 
-  try {
-    const result = await login(phone, password);
-
-    console.log('LOGIN RESULT:', result);
-    console.log('USER:', result.user);
-    console.log('TOKENS:', result.tokens);
-
-    if (result.user.role !== 'ADMIN' && result.user.role !== 'PHARMACIST') {
-      setError('This account does not have admin/pharmacist access.');
-      return;
+    try {
+      const result = await login(phone, password);
+      const role = result.user.role;
+      if (!isStaffRole(role)) {
+        setError('This account does not have admin/pharmacist access.');
+        return;
+      }
+      saveTokens(result.tokens.accessToken);
+      rememberMe(result.user);
+      // Each role has its own area; the admin area is not linked from here.
+      router.push(homeFor(role));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Login failed');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    saveTokens(result.tokens.accessToken);
-
-    console.log(
-      'SAVED TOKEN:',
-      localStorage.getItem('carebridge_admin_access_token'),
-    );
-
-    router.push('/dashboard');
-  } catch (err) {
-    console.error('LOGIN ERROR:', err);
-    setError(err instanceof ApiError ? err.message : 'Login failed');
-  } finally {
-    setIsSubmitting(false);
   }
-}
 
   return (
     <div className="login-wrapper">
       <div className="card login-card">
-        <h2>Medi-Bela Admin</h2>
-        <p className="muted">Sign in with your admin or pharmacist account.</p>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logoEn.png"
+          alt=""
+          className="login-logo"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+        <h2>Medi-Bela</h2>
+        <p className="muted">Sign in with your pharmacist or admin account.</p>
         {error && <div className="error-banner">{error}</div>}
         <form onSubmit={handleSubmit} autoComplete="off">
           <div className="field">
@@ -59,6 +59,7 @@ export default function LoginPage() {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+8801XXXXXXXXX"
+              inputMode="tel"
               required
             />
           </div>
@@ -73,7 +74,7 @@ export default function LoginPage() {
               required
             />
           </div>
-          <button type="submit" className="btn btn-primary" disabled={isSubmitting} style={{ width: '100%' }}>
+          <button type="submit" className="btn btn-primary btn-block" disabled={isSubmitting}>
             {isSubmitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>

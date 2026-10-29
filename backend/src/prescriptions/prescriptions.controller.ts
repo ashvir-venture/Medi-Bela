@@ -10,16 +10,19 @@ import {
   ParseUUIDPipe,
   Post,
   Put,
+  Query,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import  { Role } from '@prisma/client';
+import { Role } from '@prisma/client';
 import { PrescriptionsService } from './prescriptions.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CreatePrescriptionDto } from './dto/create-prescription.dto';
 import { SaveMedicinesDto } from './dto/save-medicines.dto';
+import { SavePrescriptionDetailsDto } from './dto/save-details.dto';
+import { QueueQueryDto } from './dto/queue-query.dto';
 import { RejectPrescriptionDto } from './dto/reject-prescription.dto';
 import { prescriptionImageMulterOptions } from './lib/prescription-image.storage';
 import { PrescriptionImageUrlInterceptor } from './lib/prescription-image-url.interceptor';
@@ -43,7 +46,13 @@ export class PrescriptionsController {
     if (!image) {
       throw new BadRequestException('Prescription image is required');
     }
-    return this.prescriptions.create(userId, image.buffer, image.originalname, dto.clientId);
+    return this.prescriptions.create(
+      userId,
+      image.buffer,
+      image.originalname,
+      dto.clientId,
+      dto.previousPrescriptionId,
+    );
   }
 
   @Get('mine')
@@ -57,11 +66,19 @@ export class PrescriptionsController {
   }
 
   // --- Admin / Pharmacist --------------------------------------------
+  // Both staff roles can read; only pharmacists prepare or reject.
 
   @Get('admin/pending')
   @Roles(Role.ADMIN, Role.PHARMACIST)
   listPending() {
     return this.prescriptions.listPending();
+  }
+
+  /** Paginated queue: ?status=PENDING|AWAITING_CONFIRMATION|...|ALL&cursor= */
+  @Get('admin/queue')
+  @Roles(Role.ADMIN, Role.PHARMACIST)
+  listQueue(@Query() query: QueueQueryDto) {
+    return this.prescriptions.listQueue(query.status, query.cursor);
   }
 
   @Get('admin/:id')
@@ -70,18 +87,28 @@ export class PrescriptionsController {
     return this.prescriptions.getDetailForAdmin(id);
   }
 
+  @Put('admin/:id/details')
+  @Roles(Role.PHARMACIST)
+  saveDetails(
+    @CurrentUser('id') pharmacistId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SavePrescriptionDetailsDto,
+  ) {
+    return this.prescriptions.saveDetails(pharmacistId, id, dto);
+  }
+
   @Put('admin/:id/medicines')
-  @Roles(Role.ADMIN, Role.PHARMACIST)
+  @Roles(Role.PHARMACIST)
   saveMedicines(
-    @CurrentUser('id') adminId: string,
+    @CurrentUser('id') pharmacistId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: SaveMedicinesDto,
   ) {
-    return this.prescriptions.saveMedicines(adminId, id, dto);
+    return this.prescriptions.saveMedicines(pharmacistId, id, dto);
   }
 
   @Delete('admin/:id/medicines/:medicineId')
-  @Roles(Role.ADMIN, Role.PHARMACIST)
+  @Roles(Role.PHARMACIST)
   removeMedicine(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('medicineId', ParseUUIDPipe) medicineId: string,
@@ -89,19 +116,20 @@ export class PrescriptionsController {
     return this.prescriptions.removeMedicine(id, medicineId);
   }
 
+  /** Sends the prepared prescription to the user (AWAITING_CONFIRMATION). */
   @Post('admin/:id/complete')
-  @Roles(Role.ADMIN, Role.PHARMACIST)
-  complete(@CurrentUser('id') adminId: string, @Param('id', ParseUUIDPipe) id: string) {
-    return this.prescriptions.complete(adminId, id);
+  @Roles(Role.PHARMACIST)
+  complete(@CurrentUser('id') pharmacistId: string, @Param('id', ParseUUIDPipe) id: string) {
+    return this.prescriptions.complete(pharmacistId, id);
   }
 
   @Post('admin/:id/reject')
-  @Roles(Role.ADMIN, Role.PHARMACIST)
+  @Roles(Role.PHARMACIST)
   reject(
-    @CurrentUser('id') adminId: string,
+    @CurrentUser('id') pharmacistId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RejectPrescriptionDto,
   ) {
-    return this.prescriptions.reject(adminId, id, dto.rejectionReason);
+    return this.prescriptions.reject(pharmacistId, id, dto.rejectionReason);
   }
 }

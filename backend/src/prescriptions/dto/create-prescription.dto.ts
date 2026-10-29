@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
 /**
  * Body fields alongside the multipart `image` file. `clientId` mirrors
@@ -20,4 +20,9 @@ export class CreatePrescriptionDto {
   @IsString()
   @MaxLength(1000)
   note?: string;
+
+  /** Re-upload: the user's own REJECTED prescription this one replaces. */
+  @IsOptional()
+  @IsUUID()
+  previousPrescriptionId?: string;
 }

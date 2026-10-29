@@ -26,10 +26,13 @@ class PrescriptionApi {
     required String clientId,
     String? note,
     String? imageLocalPath,
+    String? previousPrescriptionId,
   }) async {
     final formData = FormData.fromMap({
       'clientId': clientId,
       if (note != null && note.isNotEmpty) 'note': note,
+      // Re-upload of a rejected prescription (the server checks it is ours).
+      if (previousPrescriptionId != null) 'previousPrescriptionId': previousPrescriptionId,
       if (imageLocalPath != null && File(imageLocalPath).existsSync())
         'image': await MultipartFile.fromFile(imageLocalPath),
     });

@@ -15,6 +15,9 @@ import { NoticesModule } from './notices/notices.module';
 import { AdminModule } from './admin/admin.module';
 import { AssistantModule } from './assistant/assistant.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { AuditModule } from './audit/audit.module';
+import { LookupsModule } from './lookups/lookups.module';
+import { CatalogModule } from './catalog/catalog.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -35,6 +38,7 @@ import { rateLimitOptions } from './common/rate-limit/rate-limit.config';
         }),
     }),
     PrismaModule,
+    AuditModule,
     NotificationsModule,
     AuthModule,
     UsersModule,
@@ -45,6 +49,8 @@ import { rateLimitOptions } from './common/rate-limit/rate-limit.config';
     NoticesModule,
     AdminModule,
     AssistantModule,
+    LookupsModule,
+    CatalogModule,
   ],
   controllers: [AppController],
   providers: [

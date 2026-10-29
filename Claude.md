@@ -4,7 +4,8 @@ Medi-Bela is a medicine-adherence and family-care platform for Bangladesh. Patie
 
 0.1.0 does:
 
-Prescription photo upload -> pharmacist verification -> auto-generated dose schedules
+Prescription photo upload -> pharmacist prepares it (doctor, visit, diagnosis, tests, structured medicine lines) or rejects it with feedback -> patient confirms -> auto-generated dose schedules (the Confirm screen is Round 6)
+Re-upload: a rejected prescription shows the pharmacist's note and a Re-upload button in the app; the new upload is linked to the rejected one
 Medicine reminders, dose status (taken / missed), health reminders from pharmacist-approved rules
 Reminder check (Android): exact alarms when "Alarms & reminders" is allowed, inexact fallback otherwise; warning banner on Home / Today's medicine; reminders survive reboot
 Alarm-style medicine reminders: one per scheduled time, rings with the alarm tone for 2 minutes (respects silent), silent copy after, repeat at +30; Done (marks the whole group taken) and Later (30 min, twice at most) work with the app closed; neutral lock-screen text (count + time, no names)
@@ -18,7 +19,7 @@ Notices, in-app inbox, push via Firebase
 Account tools: phone login, SMS-code password reset, change password, account deletion
 Global API rate limit (per user signed in, per IP on public routes); private prescription images served via expiring signed links
 Bilingual: English and Bengali
-Admin web panel: prescriptions, routines, health rules, suggestions, notices
+Staff web panel (left sidebar, responsive): pharmacists at / (dashboard, prescription queue + form, doctors, medicines, health rules, notice drafts); admin at /super-control-007 (dashboard, read-only prescriptions, routines, AI suggestions, notices with publish)
 2. Tech stack
 Part	Technology (from manifests)
 Backend backend/	NestJS ^11.2 (TypeScript ^6.0), Prisma ^6.19, Passport-JWT, Argon2, class-validator/class-transformer, @nestjs/schedule, @nestjs/throttler ^6.7, helmet, multer, Cloudinary, firebase-admin ^13. Tests: Jest ^30 + ts-jest + supertest. Lint: oxlint. Format: Prettier ^3.4
@@ -39,7 +40,7 @@ npm install
 cp .env.example .env              # fill in values (see section 7)
 npm run prisma:generate           # prisma generate
 npm run prisma:migrate            # prisma migrate dev (creates/applies migrations)
-npm run prisma:seed               # ts-node prisma/seed.ts
+npm run prisma:seed               # ts-node prisma/seed.ts (admin; plus a pharmacist when SEED_PHARMACIST_PHONE/PASSWORD are set)
 npm run start:dev                 # nest start --watch (default PORT 3001, prefix /api)
 npm run lint                      # oxlint src/ test/
 npm run format                    # prettier --write src/** test/**
@@ -85,23 +86,29 @@ Medi-Bela/
 │       ├── main.ts, app.module.ts
 │       ├── auth/ users/ prescriptions/ medicine-schedule/ family/
 │       │   health/ notifications/ notices/ assistant/ admin/
+│       │   catalog/ (doctors, medicines, tests) lookups/ (dropdown data) audit/ (AuditService)
 │       │   (each: *.module/controller/service.ts, dto/, __tests__/, sometimes lib/)
-│       ├── common/        constants/ decorators/ filters/ guards/ interfaces/ rate-limit/ utils/
+│       ├── common/        constants/ decorators/ filters/ guards/ interfaces/ rate-limit/ utils/ (cursor-pagination.ts)
 │       ├── prisma/        PrismaService
 │       ├── test-utils/    test-prisma.ts (real-DB helper)
 │       └── e2e/           mvp-flow.int.spec.ts
 ├── frontend/src/
-│   ├── app/               App Router pages: dashboard, login, prescriptions, routines,
-│   │                      health-rules, health-suggestions, notices (+ [id], new)
-│   ├── components/        medicine-form, status-badge, topbar
-│   └── lib/               api-client.ts, use-require-auth.ts
+│   ├── app/               login, page.tsx (redirect by role)
+│   │   ├── (pharmacist)/  layout (PHARMACIST gate + sidebar): dashboard, prescriptions[/id],
+│   │   │                  doctors[/id], medicines[/id], health-rules, notices
+│   │   └── super-control-007/  layout (ADMIN gate + sidebar): dashboard, prescriptions (read-only),
+│   │                      routines, health-suggestions, notices
+│   ├── components/        app-shell (sidebar), topbar (page header), autosuggest, pager,
+│   │                      catalog-list, medicine-form, status-badge, icons,
+│   │                      prescriptions/ (queue, workspace), notices/ (shared by both areas)
+│   └── lib/               api-client.ts, use-require-auth.ts (useRequireRole), paths.ts (ADMIN_BASE)
 └── mobile/lib/
     ├── core/              constants, database (Drift), localization, network, storage, theme, utils
     ├── features/<name>/   data/ domain/ presentation/
     │                      (assistant, auth, diabetes, family, health, home, inbox,
     │                       medicine_schedule, notices, prescription, profile, reminders)
     ├── notifications/  providers/  router/  sync/  widgets/
-    mobile/test/           notifications/, sync/, inbox/ (flutter_test, no extra deps)
+    mobile/test/           notifications/, sync/, inbox/, prescription/ (flutter_test, no extra deps)
 5. Architecture to preserve
 Flutter app ──┐                          ┌── Cloudinary
               ├── REST /api (JWT) ──► NestJS ──► PostgreSQL (Prisma)
@@ -117,6 +124,14 @@ Mobile sync queue treats 429 as "pause until Retry-After", never as a failed att
 Prescription images: new uploads are Cloudinary `authenticated` assets; the DB stores the unsigned URL as a reference and PrescriptionImageUrlInterceptor swaps it for a 1-hour signed download link in every PrescriptionsController response. Older `upload` (public) images pass through unchanged.
 Reminders: NotificationScheduler asks the gateway whether exact alarms are allowed on every reconcile and re-registers all reminders once per process and whenever that answer changes (force-stop or permission revoke wipes OS alarms). AndroidManifest declares the plugin's boot/scheduled receivers; MainActivity hosts the com.carebridge.app/reminder_status channel (channel blocked, battery optimization, open settings).
 Notices: pharmacists can draft/edit; only ADMIN can publish.
+Staff roles: pharmacists prepare/reject prescriptions and create/edit doctors, medicines and tests (PHARMACIST only); admins read them. Admin dashboard, routines panel and AI suggestions are ADMIN only; pharmacists have GET /pharmacist/dashboard. Health rules and notice drafts stay open to both. The panel's role layouts read the role from GET /users/me; the backend guards are the real check.
+Catalog: a medicine typed on a line without a catalog pick becomes a stub Medicine (brand name only, matched case-insensitively) for a pharmacist to complete; a typed doctor creates a Doctor row (same BMDC number = same doctor); "Not applicable" creates none. Autosuggest is prefix search via lower(col) LIKE 'x%' on the text_pattern_ops indexes in pending SQL 004 (not in schema.prisma).
+Prescription statuses: PENDING -> REJECTED or AWAITING_CONFIRMATION -> ACTIVE -> ENDED. Completing (pharmacist) sets AWAITING_CONFIRMATION and creates no routine; PrescriptionsService.activate() (AWAITING_CONFIRMATION -> ACTIVE, routines + doses + health rules) has no route until the Round 6 Confirm screen, so new prescriptions get no reminders until then. A re-upload carries previousPrescriptionId (only to the uploader's own REJECTED prescription). Medicine lines carry a revision; prescriptions have currentRevision / pendingRevision for a pharmacist edit made after activation.
+Rolling doses: routine generation creates doses only ROLLING_HORIZON_DAYS (14) ahead and stores scheduleTimes + generatedUntil on the routine; RollingDoseJob (hourly, ROLLING_DOSE_JOB_ENABLED) extends active routines with a compare-and-set on generatedUntil. Continuous lines have no endDate. Routines from before Round 4 have no scheduleTimes and are left alone.
+Address: users.divisionId/districtId/upazilaId with composite foreign keys (districts(id, divisionId), upazilas(id, districtId)) and CHECK constraints, so a level can't belong to another parent or skip the one above.
+Privacy flag ("Hide from family", off by default) is users.profileVisibleToFamily stored inverted; hidden users are hidden from every family member, owner included, and get no family missed-dose alerts.
+AuditLog: append-only (actor, subject user, action, entity, before/after JSON) via AuditService.record (pass the transaction client); never store secrets, phone numbers or rejection text in it. Written today: prescription.prepare/reject/confirm, doctor.create/update, medicine.create/update.
+Pagination: common/utils/cursor-pagination.ts (keyset on createdAt DESC, id DESC; ADMIN_PAGE_SIZE 20, USER_PAGE_SIZE 10).
 Medicine reminder groups (NotificationScheduler): doses due at the same time share one group; ScheduledMedicineNotifications rows are keyed `grp:<T ms>:<hash of dose ids>` (group), `snz:<group key>` (pending Later: notificationId = stage, scheduledAt = ring time) and `health:<id>`, so the Drift schema did not change. Stage 0 at T, stage 1 at T+30 or after the first Later, stage 2 only after a second Later (no Later button). Ringing uses channel `medicine_alarm` (alarm tone, FLAG_INSISTENT, timeoutAfter 2 min) and a silent copy on `medicine_reminders` at +2 min. Payload JSON {type: MEDICINE_REMINDER, at, stage}.
 Background work (notifications/reminder_actions.dart): Done/Later and the FCM backstop run in a background isolate when the app is closed, through a ProviderContainer opened by openBackgroundContainer(); main() owns the app's ProviderContainer (UncontrolledProviderScope) so foreground actions use the same services. AppDatabase opens with shareAcrossIsolates. Done tries to sync immediately.
 Reminder switch: the account owns medicineRemindersEnabled; SessionServices mirrors it into SharedPreferences (ReminderPreference) so the scheduler obeys it offline and in background isolates.
@@ -128,15 +143,16 @@ Match the surrounding file. Observed in the code:
 
 Backend: Nest file naming kebab-case.type.ts (*.module|controller|service|dto.ts); PascalCase classes, camelCase members. Global ValidationPipe with whitelist, forbidNonWhitelisted, transform: every request body needs a DTO with class-validator decorators, and unknown fields are rejected. Global prefix api. Errors use Nest HTTP exceptions, formatted by common/filters/http-exception.filter.ts. Prisma only through PrismaService. Config via @nestjs/config / .env.
 Backend tests: colocated __tests__/ or *.spec.ts beside the file; DB-backed ones use makeTestPrisma() and skip without TEST_DATABASE_URL.
-Admin: App Router, one page.tsx per route, shared pieces in components/, all HTTP through lib/api-client.ts, auth gate via use-require-auth.ts.
+Admin: App Router, one page.tsx per route, shared pieces in components/, all HTTP through lib/api-client.ts. Each area's layout gates by role (useRequireRole) and renders AppShell; pages render <Topbar title> as their heading. Admin links use ADMIN_BASE from lib/paths.ts. Plain CSS in app/globals.css (no UI library).
 Mobile: feature-first data/domain/presentation layers; Riverpod providers (providers/core_providers.dart), go_router (router/app_router.dart), Dio for HTTP, Drift for local data. UI strings live in core/localization/app_strings.dart; add both English and Bengali for every string.
-Database: during development change only backend/prisma/schema.prisma (no new migration files) and add the matching SQL to "Database changes (pending SQL for Neon)" in plan.md; the owner runs it in the Neon SQL editor at the end of development. Never edit an existing applied migration.
+Database: during development change only backend/prisma/schema.prisma (no new migration files) and add the matching SQL as the next numbered file in backend/prisma/pending-sql/ (listed under "Database changes (pending SQL for Neon)" in plan.md); the owner runs them in the Neon SQL editor at the end of development. Generate the SQL with `prisma migrate diff --from-schema-datamodel <previous schema> --to-schema-datamodel prisma/schema.prisma --script`, then hand-fix data conversions (enum value changes) and add what Prisma can't express (CHECK constraints). Verify on a disposable Postgres (all migrations + pending files, then diff against the schema). Never edit an existing applied migration.
+Dropdowns: every dropdown reads a lookup table (genders, divisions, districts, upazilas, doctor_specialties, medicine_forms, medicine_categories, meal_timings, test_categories), English only, edited by the owner in the database. No hard-coded option lists.
 Medical privacy: never log prescriptions, readings, phone numbers, tokens, or passwords. Passwords use Argon2. Notifications that name medicines or readings need a neutral public (lock-screen) version; details appear only after unlock (shared phones are common).
 AI safety: never bypass the safety filter, auto-publish AI output, or add diagnosis/prescribing behavior.
 Secrets: .env only; keep .env.example current; never commit real keys.
 7. Environment variables (backend/.env.example)
 
-DATABASE_URL, PORT, CORS_ORIGINS, CLOUDINARY_CLOUD_NAME|API_KEY|API_SECRET, LLM_API_BASE_URL|LLM_API_KEY|LLM_MODEL, JWT_ACCESS_SECRET (required, app won't start without it), JWT_ACCESS_EXPIRES_IN, PUSH_TOKEN_ENC_KEY (required, openssl rand -base64 32), one of FIREBASE_SERVICE_ACCOUNT_BASE64|JSON / GOOGLE_APPLICATION_CREDENTIALS (without one, push is disabled), APP_UTC_OFFSET_MINUTES, DOSE_MISSED_GRACE_MINUTES (default 62; a deployed value overrides it), MISSED_ALERT_MAX_AGE_MINUTES, MISSED_DOSE_JOB_ENABLED, PUSH_DISPATCH_JOB_ENABLED, TRUST_PROXY, RATE_LIMIT_ENABLED|RATE_LIMIT_USER_PER_MINUTE (120)|RATE_LIMIT_IP_PER_MINUTE (60), SMS_API_URL|SMS_API_KEY|SMS_SENDER_ID. Admin: NEXT_PUBLIC_API_BASE_URL.
+DATABASE_URL, PORT, CORS_ORIGINS, CLOUDINARY_CLOUD_NAME|API_KEY|API_SECRET, LLM_API_BASE_URL|LLM_API_KEY|LLM_MODEL, JWT_ACCESS_SECRET (required, app won't start without it), JWT_ACCESS_EXPIRES_IN, PUSH_TOKEN_ENC_KEY (required, openssl rand -base64 32), one of FIREBASE_SERVICE_ACCOUNT_BASE64|JSON / GOOGLE_APPLICATION_CREDENTIALS (without one, push is disabled), APP_UTC_OFFSET_MINUTES, DOSE_MISSED_GRACE_MINUTES (default 62; a deployed value overrides it), MISSED_ALERT_MAX_AGE_MINUTES, MISSED_DOSE_JOB_ENABLED, ROLLING_DOSE_JOB_ENABLED, PUSH_DISPATCH_JOB_ENABLED, TRUST_PROXY, RATE_LIMIT_ENABLED|RATE_LIMIT_USER_PER_MINUTE (120)|RATE_LIMIT_IP_PER_MINUTE (60), SMS_API_URL|SMS_API_KEY|SMS_SENDER_ID, SEED_ADMIN_PHONE|SEED_ADMIN_PASSWORD, SEED_PHARMACIST_PHONE|SEED_PHARMACIST_PASSWORD (seed only). Admin: NEXT_PUBLIC_API_BASE_URL.
 
 8. Rules and don'ts
 Never break existing things without asking first (API contracts, DB schema, Drift schema, existing behavior).
@@ -151,10 +167,11 @@ Don't run more than one API instance.
 [ASK] Stray files committed: mobile/body.json, backend/src/.env.example, backend/src/package.json.txt, backend/src/schema.txt. Possibly leftovers.
 [ASK] Version numbers differ across parts (see section 2).
 Mobile has a diabetes feature folder with only presentation/, not listed in the README.
-Admin has no tests. Mobile tests cover the reminder scheduler, sync queue and inbox tabs, not widgets or background isolates.
+Admin has no tests. Mobile tests cover the reminder scheduler, sync queue, inbox tabs and the re-upload link, not widgets or background isolates.
 flutter_local_notifications 19.5 has no notification public version, so medicine reminders always use neutral text (count + time) instead of names-after-unlock.
 mobile/.gitignore: the Xcode rules `profile` and `**/*sync/` are scoped to ios/ (unscoped, they hid lib/features/profile/, lib/sync/ and android/app/src/profile/ from git). Keep new Xcode-template rules under ios/.
 [ASK] Pre-existing failing unit tests: src/app.controller.spec.ts expects service name "carebridge-backend" (controller says "medi-bela backend"); src/health/__tests__/ai-suggestion.service.spec.ts prompt assertion.
+[ASK] Stale DB-backed integration tests (seen when run against a disposable Postgres): mvp-flow.int.spec's auth sweep and password-length check, and admin.int.spec's assistant endpoint (404).
 Stray tsc output (*.js/*.d.ts next to sources, backend/jest.config.js) is gitignored; if it reappears, delete it: a second jest config breaks `npm test`.
 Release build is signed with the debug key (android/app/build.gradle.kts); needs a real upload key before Play Store.
 10. Current work

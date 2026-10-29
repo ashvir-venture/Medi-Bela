@@ -40,7 +40,7 @@ class PrescriptionSummaryModel {
   });
 
   final String id;
-  final String status; // PENDING | COMPLETED | REJECTED
+  final String status; // PENDING | REJECTED | AWAITING_CONFIRMATION | ACTIVE | ENDED
   final String imageUrl;
   final String? rejectionReason;
   final DateTime createdAt;

@@ -263,10 +263,12 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
         _Header(strings.privacySettings),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: Text(strings.visibleToFamily),
+          // The privacy flag: off by default; on hides this user from the
+          // whole family, owner included (stored inverted on the account).
+          title: Text(strings.hideFromFamily),
           subtitle: Text(strings.privacyHelp),
-          value: widget.user.profileVisibleToFamily,
-          onChanged: (value) => _updateSetting({'profileVisibleToFamily': value}),
+          value: !widget.user.profileVisibleToFamily,
+          onChanged: (hide) => _updateSetting({'profileVisibleToFamily': !hide}),
         ),
 
         // ---- Sync status --------------------------------------------------
@@ -379,7 +381,7 @@ class _PrescriptionSummary extends ConsumerWidget {
         drafts.where((d) => test(d.serverStatus, d.status)).length;
     final waiting = count((s, status) => s == null && status != 'synced');
     final pending = count((s, status) => s == 'PENDING' || (s == null && status == 'synced'));
-    final completed = count((s, _) => s == 'COMPLETED');
+    final completed = count((s, _) => s == 'ACTIVE' || s == 'ENDED');
     final rejected = count((s, _) => s == 'REJECTED');
 
     Widget chip(String label, int n, Color color) => Semantics(

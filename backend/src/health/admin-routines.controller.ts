@@ -5,7 +5,7 @@ import { HealthSuggestionsService } from './health-suggestions.service';
 
 /** Admin routine panel: see generated routines, and ask for an AI suggestion per routine (never automatic). */
 @Controller('admin/routines')
-@Roles(Role.ADMIN, Role.PHARMACIST)
+@Roles(Role.ADMIN)
 export class AdminRoutinesController {
   constructor(private readonly suggestions: HealthSuggestionsService) {}
 

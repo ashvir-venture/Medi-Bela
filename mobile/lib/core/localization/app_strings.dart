@@ -128,7 +128,7 @@ class AppStrings {
     required this.newPassword,
     required this.language,
     required this.notifications,
-    required this.visibleToFamily,
+    required this.hideFromFamily,
     required this.newPrescriptionEntry,
     required this.prescriptionNote,
     required this.attachImage,
@@ -158,7 +158,12 @@ class AppStrings {
     required this.statusPending,
     required this.statusCompleted,
     required this.statusRejected,
+    required this.statusAwaitingConfirmation,
+    required this.statusActive,
+    required this.statusEnded,
     required this.rejectionReason,
+    required this.reuploadPrescription,
+    required this.reuploadHint,
     required this.viewTodaysMedicine,
     required this.noMedicineToday,
     required this.noActiveRoutines,
@@ -327,7 +332,7 @@ class AppStrings {
   final String newPassword;
   final String language;
   final String notifications;
-  final String visibleToFamily;
+  final String hideFromFamily;
   final String newPrescriptionEntry;
   final String prescriptionNote;
   final String attachImage;
@@ -357,7 +362,12 @@ class AppStrings {
   final String statusPending;
   final String statusCompleted;
   final String statusRejected;
+  final String statusAwaitingConfirmation;
+  final String statusActive;
+  final String statusEnded;
   final String rejectionReason;
+  final String reuploadPrescription;
+  final String reuploadHint;
   final String viewTodaysMedicine;
   final String noMedicineToday;
   final String noActiveRoutines;
@@ -417,7 +427,7 @@ const AppStrings enStrings = AppStrings(
   pushNotificationsLabel: 'Push notifications',
   pushNotificationsHelp: 'Family alerts, prescription updates and notices sent from Medi-Bela.',
   privacySettings: 'Privacy',
-  privacyHelp: 'When on, family members can see your name, address and whether you took or missed today\'s medicines. When off, they see none of this and get no missed-dose alerts about you.',
+  privacyHelp: 'When on, no one in your family, including the family owner, can see your address or whether you took today\'s medicines, and they get no missed-dose alerts about you.',
   syncStatusTitle: 'Sync',
   allChangesSynced: 'All changes are synced',
   changesWaitingToSync: 'changes waiting to sync',
@@ -528,7 +538,7 @@ const AppStrings enStrings = AppStrings(
   newPassword: 'New password',
   language: 'Language',
   notifications: 'Notifications',
-  visibleToFamily: 'Visible to family',
+  hideFromFamily: 'Hide from family',
   newPrescriptionEntry: 'New prescription entry',
   prescriptionNote: 'Note for the pharmacist',
   attachImage: 'Attach photo',
@@ -558,9 +568,15 @@ const AppStrings enStrings = AppStrings(
   deleteMyAccount: 'Delete my account',
   passwordsDoNotMatch: 'Passwords do not match',
   statusPending: 'Pending review',
-  statusCompleted: 'Completed',
+  statusCompleted: 'Reviewed',
   statusRejected: 'Rejected',
+  statusAwaitingConfirmation: 'Ready to confirm',
+  statusActive: 'Active',
+  statusEnded: 'Ended',
   rejectionReason: 'Reason',
+  reuploadPrescription: 'Re-upload',
+  reuploadHint:
+      'Upload a clearer photo of this prescription. The pharmacist will see it together with their note.',
   viewTodaysMedicine: "View today's medicine",
   noMedicineToday: 'No medicine scheduled for today',
   noActiveRoutines: 'No active medicine routines yet',
@@ -620,7 +636,7 @@ const AppStrings bnStrings = AppStrings(
   pushNotificationsLabel: 'পুশ নোটিফিকেশন',
   pushNotificationsHelp: 'Medi-Bela থেকে পাঠানো পরিবারের সতর্কতা, প্রেসক্রিপশনের হালনাগাদ ও বিজ্ঞপ্তি।',
   privacySettings: 'গোপনীয়তা',
-  privacyHelp: 'চালু থাকলে পরিবারের সদস্যরা আপনার নাম, ঠিকানা এবং আজ ওষুধ খেয়েছেন কি না দেখতে পারেন। বন্ধ থাকলে তারা কিছুই দেখতে পারেন না এবং আপনার ওষুধ মিস হলে সতর্কতাও পান না।',
+  privacyHelp: 'চালু থাকলে পরিবারের কেউ, পরিবারের মালিকসহ, আপনার ঠিকানা বা আজ ওষুধ খেয়েছেন কি না দেখতে পারবেন না, এবং আপনার ওষুধ মিস হলে সতর্কতাও পাবেন না।',
   syncStatusTitle: 'সিঙ্ক',
   allChangesSynced: 'সব পরিবর্তন সিঙ্ক হয়েছে',
   changesWaitingToSync: 'টি পরিবর্তন সিঙ্কের অপেক্ষায়',
@@ -731,7 +747,7 @@ const AppStrings bnStrings = AppStrings(
   newPassword: 'নতুন পাসওয়ার্ড',
   language: 'ভাষা',
   notifications: 'বিজ্ঞপ্তি',
-  visibleToFamily: 'পরিবারের কাছে দৃশ্যমান',
+  hideFromFamily: 'পরিবার থেকে লুকান',
   newPrescriptionEntry: 'নতুন প্রেসক্রিপশন এন্ট্রি',
   prescriptionNote: 'ফার্মাসিস্টের জন্য নোট',
   attachImage: 'ছবি সংযুক্ত করুন',
@@ -761,9 +777,15 @@ const AppStrings bnStrings = AppStrings(
   deleteMyAccount: 'আমার অ্যাকাউন্ট মুছুন',
   passwordsDoNotMatch: 'পাসওয়ার্ড দুটি মিলছে না',
   statusPending: 'পর্যালোচনার অপেক্ষায়',
-  statusCompleted: 'সম্পন্ন',
+  statusCompleted: 'পর্যালোচিত',
   statusRejected: 'প্রত্যাখ্যাত',
+  statusAwaitingConfirmation: 'নিশ্চিত করার অপেক্ষায়',
+  statusActive: 'চলমান',
+  statusEnded: 'শেষ',
   rejectionReason: 'কারণ',
+  reuploadPrescription: 'আবার আপলোড করুন',
+  reuploadHint:
+      'এই প্রেসক্রিপশনের আরও পরিষ্কার একটি ছবি আপলোড করুন। ফার্মাসিস্ট তাঁর আগের মন্তব্যসহ এটি দেখবেন।',
   viewTodaysMedicine: 'আজকের ওষুধ দেখুন',
   noMedicineToday: 'আজকের জন্য কোনো ওষুধ নির্ধারিত নেই',
   noActiveRoutines: 'এখনো কোনো সক্রিয় ওষুধের রুটিন নেই',

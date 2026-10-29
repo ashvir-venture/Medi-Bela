@@ -1,7 +1,7 @@
-// Talks to the same NestJS backend as the Flutter app (`/api/v1` prefix).
-// Deliberately minimal: no admin app existed to extend in this project,
-// so this mirrors the mobile app's own conventions (Bearer token, same
-// response shapes) rather than inventing a separate contract.
+// Talks to the same NestJS backend as the Flutter app (`/api` prefix).
+// Mirrors the mobile app's conventions (Bearer token, same response
+// shapes). The backend's role guards are the real authorization; the
+// panel only hides what a role can't use.
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001/api';
@@ -23,6 +23,28 @@ export function saveTokens(accessToken: string) {
 export function clearTokens() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_KEY);
+  mePromise = null;
+}
+
+// --- Session ---
+// The signed-in staff member, fetched once per page load from /users/me
+// (never read from localStorage, so editing storage can't change a role).
+
+let mePromise: Promise<AdminUser> | null = null;
+
+export function getMe(): Promise<AdminUser> {
+  if (!mePromise) {
+    mePromise = request<AdminUser>('/users/me').catch((err) => {
+      mePromise = null;
+      throw err;
+    });
+  }
+  return mePromise;
+}
+
+/** Seeds the cache right after login, so the first page skips a round trip. */
+export function rememberMe(user: AdminUser) {
+  mePromise = Promise.resolve(user);
 }
 
 export function getAccessToken(): string | null {
@@ -97,6 +119,157 @@ export async function login(
 
 // --- Prescriptions (admin) ---
 
+export interface LookupRow {
+  id: number;
+  name: string;
+}
+
+export interface Lookups {
+  genders: LookupRow[];
+  divisions: LookupRow[];
+  districts: (LookupRow & { divisionId: number })[];
+  doctorSpecialties: LookupRow[];
+  medicineForms: LookupRow[];
+  medicineCategories: LookupRow[];
+  mealTimings: LookupRow[];
+  testCategories: LookupRow[];
+}
+
+let lookupsPromise: Promise<Lookups> | null = null;
+
+/** Dropdown data from the lookup tables; cached for the page's lifetime. */
+export function getLookups(): Promise<Lookups> {
+  if (!lookupsPromise) {
+    lookupsPromise = request<Lookups>('/lookups').catch((err) => {
+      lookupsPromise = null;
+      throw err;
+    });
+  }
+  return lookupsPromise;
+}
+
+export interface CursorPage<T> {
+  items: T[];
+  nextCursor: string | null;
+}
+
+// --- Catalog: doctors, medicines, tests ---
+
+export interface Doctor {
+  id: string;
+  name: string;
+  bmdcNumber: string | null;
+  specialtyId: number | null;
+  chamber: string | null;
+  phone: string | null;
+  districtId: number | null;
+  createdAt: string;
+  specialty: LookupRow | null;
+  district: LookupRow | null;
+  _count?: { prescriptions: number };
+}
+
+export interface DoctorInput {
+  name: string;
+  bmdcNumber?: string;
+  specialtyId?: number;
+  chamber?: string;
+  phone?: string;
+  districtId?: number;
+}
+
+export interface CatalogMedicine {
+  id: string;
+  brandName: string;
+  genericName: string | null;
+  formId: number | null;
+  categoryId: number | null;
+  manufacturer: string | null;
+  createdAt: string;
+  form: LookupRow | null;
+  category?: LookupRow | null;
+  _count?: { lines: number };
+}
+
+export interface MedicineInput {
+  brandName: string;
+  genericName?: string;
+  formId?: number;
+  categoryId?: number;
+  manufacturer?: string;
+}
+
+export interface DiagnosticTest {
+  id: string;
+  name: string;
+  categoryId: number | null;
+  category?: LookupRow | null;
+}
+
+export interface CatalogListParams {
+  cursor?: string | null;
+  q?: string;
+  incomplete?: boolean;
+}
+
+function catalogQuery(params: CatalogListParams) {
+  const qs = new URLSearchParams();
+  if (params.cursor) qs.set('cursor', params.cursor);
+  if (params.q) qs.set('q', params.q);
+  if (params.incomplete) qs.set('incomplete', 'true');
+  const s = qs.toString();
+  return s ? `?${s}` : '';
+}
+
+export function searchDoctors(q: string) {
+  return request<Doctor[]>(`/catalog/doctors/search?q=${encodeURIComponent(q)}`);
+}
+
+export function searchMedicines(q: string) {
+  return request<CatalogMedicine[]>(`/catalog/medicines/search?q=${encodeURIComponent(q)}`);
+}
+
+export function searchTests(q: string) {
+  return request<DiagnosticTest[]>(`/catalog/tests/search?q=${encodeURIComponent(q)}`);
+}
+
+export function listDoctors(params: CatalogListParams) {
+  return request<CursorPage<Doctor>>(`/catalog/doctors${catalogQuery(params)}`);
+}
+
+export function getDoctor(id: string) {
+  return request<Doctor>(`/catalog/doctors/${id}`);
+}
+
+export function updateDoctor(id: string, input: Partial<DoctorInput>) {
+  return request<Doctor>(`/catalog/doctors/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+}
+
+export function listMedicines(params: CatalogListParams) {
+  return request<CursorPage<CatalogMedicine>>(`/catalog/medicines${catalogQuery(params)}`);
+}
+
+export function getMedicine(id: string) {
+  return request<CatalogMedicine>(`/catalog/medicines/${id}`);
+}
+
+export function createMedicine(input: MedicineInput) {
+  return request<CatalogMedicine>('/catalog/medicines', { method: 'POST', body: JSON.stringify(input) });
+}
+
+export function updateMedicine(id: string, input: Partial<MedicineInput>) {
+  return request<CatalogMedicine>(`/catalog/medicines/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function createTest(name: string) {
+  return request<DiagnosticTest>('/catalog/tests', { method: 'POST', body: JSON.stringify({ name }) });
+}
+
+// --- Prescriptions ---
+
 export interface PrescriptionMedicine {
   id: string;
   medicineName: string;
@@ -109,6 +282,13 @@ export interface PrescriptionMedicine {
   durationDays: number | null;
   startDate: string | null;
   verified: boolean;
+  medicineId: string | null;
+  strength: string | null;
+  doseAmount: string | null;
+  mealTimingId: number | null;
+  continuous: boolean;
+  medicine: CatalogMedicine | null;
+  mealTiming: LookupRow | null;
 }
 
 export interface PrescriptionUser {
@@ -118,23 +298,60 @@ export interface PrescriptionUser {
   address: string | null;
 }
 
+export type PrescriptionStatus = 'PENDING' | 'REJECTED' | 'AWAITING_CONFIRMATION' | 'ACTIVE' | 'ENDED';
+
 export interface PrescriptionListItem {
   id: string;
-  status: 'PENDING' | 'COMPLETED' | 'REJECTED';
+  status: PrescriptionStatus;
   imageUrl: string;
   createdAt: string;
+  reviewedAt: string | null;
+  previousPrescriptionId: string | null;
   user: PrescriptionUser;
+  reviewedBy: { id: string; name: string } | null;
 }
 
 export interface PrescriptionDetail extends PrescriptionListItem {
   rejectionReason: string | null;
   processingNote: string | null;
   medicines: PrescriptionMedicine[];
-  reviewedBy: { id: string; name: string } | null;
+  doctorId: string | null;
+  doctor: Doctor | null;
+  visitDate: string | null;
+  diagnosis: string | null;
+  nextVisitDate: string | null;
+  tests: { test: DiagnosticTest }[];
+  previous: {
+    id: string;
+    status: PrescriptionStatus;
+    rejectionReason: string | null;
+    createdAt: string;
+  } | null;
 }
 
-export function listPendingPrescriptions() {
-  return request<PrescriptionListItem[]>('/prescriptions/admin/pending');
+export type QueueStatus = PrescriptionStatus | 'ALL';
+
+export function listPrescriptionQueue(status: QueueStatus, cursor?: string | null) {
+  const qs = new URLSearchParams({ status });
+  if (cursor) qs.set('cursor', cursor);
+  return request<CursorPage<PrescriptionListItem>>(`/prescriptions/admin/queue?${qs}`);
+}
+
+export interface PrescriptionDetailsInput {
+  doctorId?: string;
+  doctor?: DoctorInput;
+  doctorNotApplicable?: boolean;
+  visitDate?: string | null;
+  diagnosis?: string | null;
+  nextVisitDate?: string | null;
+  testIds?: string[];
+}
+
+export function savePrescriptionDetails(prescriptionId: string, input: PrescriptionDetailsInput) {
+  return request<PrescriptionDetail>(`/prescriptions/admin/${prescriptionId}/details`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
 }
 
 export function getPrescription(id: string) {
@@ -152,6 +369,11 @@ export interface MedicineEntryInput {
   scheduleTimes?: string[];
   durationDays?: number;
   startDate?: string;
+  medicineId?: string;
+  strength?: string;
+  doseAmount?: string;
+  mealTimingId?: number;
+  continuous?: boolean;
 }
 
 export function saveMedicines(prescriptionId: string, medicines: MedicineEntryInput[]) {
@@ -337,7 +559,7 @@ export interface Notice {
   title: string;
   content: string;
   audience: 'ALL' | 'USER' | 'ADMIN';
-  status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+  status: 'DRAFT' | 'PENDING_APPROVAL' | 'PUBLISHED' | 'ARCHIVED';
   expiresAt: string | null;
   publishedAt: string | null;
   createdAt: string;
@@ -393,7 +615,7 @@ export interface DashboardData {
   };
   recentPrescriptions: {
     id: string;
-    status: 'PENDING' | 'COMPLETED' | 'REJECTED';
+    status: PrescriptionStatus;
     createdAt: string;
     user: { id: string; name: string };
   }[];
@@ -409,4 +631,21 @@ export interface DashboardData {
 
 export function getDashboard() {
   return request<DashboardData>('/admin/dashboard');
+}
+
+export interface PharmacistDashboardData {
+  generatedAt: string;
+  queue: { pending: number; reuploads: number; awaitingConfirmation: number };
+  today: { prepared: number; rejected: number };
+  catalog: { incompleteDoctors: number; incompleteMedicines: number };
+  oldestPending: {
+    id: string;
+    createdAt: string;
+    previousPrescriptionId: string | null;
+    user: { id: string; name: string };
+  }[];
+}
+
+export function getPharmacistDashboard() {
+  return request<PharmacistDashboardData>('/pharmacist/dashboard');
 }

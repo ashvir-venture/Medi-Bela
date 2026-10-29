@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from '../notifications/push.service';
 import { CloudinaryService } from '../prescriptions/lib/cloudinary.service';
 import { MissedDoseAlertService } from '../medicine-schedule/missed-dose-alert.service';
+import { PrescriptionsService } from '../prescriptions/prescriptions.service';
 import { makeTestPrisma, resetDb } from '../test-utils/test-prisma';
 
 const prisma = makeTestPrisma();
@@ -17,7 +18,8 @@ const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 
  * The whole MVP journey over real HTTP + real Postgres:
  *
  *  register -> upload prescription -> PENDING -> pharmacist reviews, enters
- *  medicines -> completes -> routine + doses generated -> user logs a dose ->
+ *  medicines -> sends it (AWAITING_CONFIRMATION) -> patient confirms ->
+ *  routine + doses generated -> user logs a dose ->
  *  a missed dose alerts the family (once, privately) -> an active health rule
  *  produced a reminder -> user completes it.
  *
@@ -116,10 +118,17 @@ d('MVP end-to-end flow', () => {
       medicines: [{ medicineName: 'Metformin 500mg', dosage: '1 tablet', frequency: 'twice daily', duration: '3 days',
         instructions: 'after meals', timesPerDay: 2, scheduleTimes: ['08:00', '20:00'], durationDays: 3 }],
     }).expect(200);
+    await http().post(`/api/v1/prescriptions/admin/${first.id}/complete`).set(auth(admin.token)).expect(403);      // admin is read-only
     const done = await http().post(`/api/v1/prescriptions/admin/${first.id}/complete`).set(auth(pharmacist.token)).expect(201);
-    expect(done.body.status).toBe('COMPLETED');
+    expect(done.body.status).toBe('AWAITING_CONFIRMATION');
+    expect(done.body.medicines[0].medicineId).toBeTruthy();                      // line linked to the medicine catalog
+    expect(await prisma.medicineRoutine.count({ where: { userId: patient.id } })).toBe(0);   // nothing runs before the patient confirms
     await http().post(`/api/v1/prescriptions/admin/${first.id}/complete`).set(auth(pharmacist.token)).expect(409);   // no double completion
     await http().post(`/api/v1/prescriptions/admin/${first.id}/reject`).set(auth(pharmacist.token)).send({ rejectionReason: 'late' }).expect(409);
+    expect(await prisma.auditLog.count({ where: { action: 'prescription.prepare', entityId: first.id, actorId: pharmacist.id } })).toBe(1);
+
+    // The patient confirms (the Confirm screen arrives in Round 6; the step already exists).
+    await app.get(PrescriptionsService).activate(patient.id, first.id);
 
     // --- 4. Routine + doses generated (3 days x 2) ------------------------------
     expect(await prisma.medicineRoutine.count({ where: { userId: patient.id } })).toBe(1);
@@ -129,11 +138,11 @@ d('MVP end-to-end flow', () => {
     expect(routines).toHaveLength(1);
     expect((await http().get('/api/v1/medicine-schedule/routines').set(auth(stranger.token)).expect(200)).body).toEqual([]);
 
-    // user is told, without medicine detail; pushed once to the patient's device only
-    const notice = await prisma.notification.findFirst({ where: { userId: patient.id, type: 'PRESCRIPTION_UPDATE' } });
-    expect(notice).not.toBeNull();
-    expect(JSON.stringify(notice)).not.toMatch(/Metformin/);
-    expect(sent.filter((s) => s.tokens[0].startsWith('fcm-patient'))).toHaveLength(1);
+    // user is told twice (ready to confirm, then active), without medicine detail; patient's device only
+    const updates = await prisma.notification.findMany({ where: { userId: patient.id, type: 'PRESCRIPTION_UPDATE' } });
+    expect(updates).toHaveLength(2);
+    expect(JSON.stringify(updates)).not.toMatch(/Metformin/);
+    expect(sent.filter((s) => s.tokens[0].startsWith('fcm-patient'))).toHaveLength(2);
 
     // --- 5. Optional health suggestion -> reminder, from the pharmacist's rule ----
     const reminders = (await http().get('/api/v1/health-reminders').set(auth(patient.token)).expect(200)).body;

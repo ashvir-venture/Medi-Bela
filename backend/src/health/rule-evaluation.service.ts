@@ -49,7 +49,7 @@ export class RuleEvaluationService {
    */
   async evaluateRuleAcrossExistingMedicines(rule: HealthSuggestionRule): Promise<number> {
     const verifiedMedicines = await this.prisma.prescriptionMedicine.findMany({
-      where: { verified: true, prescription: { status: 'COMPLETED' } },
+      where: { verified: true, prescription: { status: 'ACTIVE' } },
       include: { prescription: { select: { userId: true } } },
     });
 

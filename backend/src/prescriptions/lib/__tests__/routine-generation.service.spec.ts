@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { PrescriptionMedicine } from '@prisma/client';
-import { RoutineGenerationService } from '../routine-generation.service';
+import { ROLLING_HORIZON_DAYS, RoutineGenerationService, dosesForDays } from '../routine-generation.service';
 
 function makeMedicine(overrides: Partial<PrescriptionMedicine> = {}): PrescriptionMedicine {
   return {
@@ -99,5 +99,55 @@ describe('RoutineGenerationService', () => {
         completedAt,
       ),
     ).toThrow(BadRequestException);
+  });
+});
+
+describe('RoutineGenerationService - rolling generation (Round 4)', () => {
+  const service = new RoutineGenerationService();
+  const completedAt = new Date('2026-01-10T12:00:00.000Z'); // 10 Jan in Dhaka
+
+  it('creates only ROLLING_HORIZON_DAYS of doses for a long course and records where it stopped', () => {
+    const routine = service.generate(makeMedicine({ durationDays: 30 }), completedAt);
+    expect(routine.doses).toHaveLength(2 * ROLLING_HORIZON_DAYS);
+    expect(routine.endDate?.toISOString()).toBe('2026-02-07T18:00:00.000Z'); // 8 Feb, the 30th day
+    expect(routine.generatedUntil.toISOString()).toBe('2026-01-23T18:00:00.000Z'); // 24 Jan, horizon
+  });
+
+  it('a short course is generated in full and stops the day after it ends', () => {
+    const routine = service.generate(makeMedicine({ durationDays: 5 }), completedAt);
+    expect(routine.doses).toHaveLength(10);
+    expect(routine.generatedUntil.toISOString()).toBe('2026-01-14T18:00:00.000Z'); // 15 Jan
+  });
+
+  it('a continuous line has no end date and needs no durationDays', () => {
+    const routine = service.generate(makeMedicine({ durationDays: null, continuous: true } as any), completedAt);
+    expect(routine.endDate).toBeNull();
+    expect(routine.doses).toHaveLength(2 * ROLLING_HORIZON_DAYS);
+  });
+
+  it('a start beyond the horizon creates nothing yet; the job starts at the start date', () => {
+    const start = new Date('2026-03-01T00:00:00.000Z');
+    const routine = service.generate(makeMedicine({ startDate: start, durationDays: 5 }), completedAt);
+    expect(routine.doses).toHaveLength(0);
+    expect(routine.generatedUntil).toEqual(routine.startDate);
+  });
+
+  it('keeps what the job needs on the routine', () => {
+    const routine = service.generate(
+      makeMedicine({ strength: '500 mg', doseAmount: '1 tablet', mealTimingId: 2 } as any),
+      completedAt,
+    );
+    expect(routine).toMatchObject({
+      strength: '500 mg',
+      doseAmount: '1 tablet',
+      mealTimingId: 2,
+      scheduleTimes: JSON.stringify(['08:00', '20:00']),
+    });
+  });
+
+  it('dosesForDays covers [from, to) by app-timezone day', () => {
+    const from = new Date('2026-01-09T18:00:00.000Z');
+    expect(dosesForDays(['08:00'], from, from)).toEqual([]);
+    expect(dosesForDays(['08:00', '20:00'], from, new Date('2026-01-11T18:00:00.000Z'))).toHaveLength(4);
   });
 });

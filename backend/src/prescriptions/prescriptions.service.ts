@@ -1,18 +1,31 @@
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { NotificationType, PrescriptionMedicine, PrescriptionStatus } from '@prisma/client';
+import {
+  NotificationType,
+  PrescriptionMedicine,
+  PrescriptionStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SaveMedicinesDto } from './dto/save-medicines.dto';
+import { SavePrescriptionDetailsDto } from './dto/save-details.dto';
+import { QueueStatus } from './dto/queue-query.dto';
 import { RoutineGenerationService } from './lib/routine-generation.service';
 import { CloudinaryService } from './lib/cloudinary.service';
 import { RuleEvaluationService } from '../health/rule-evaluation.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { messages } from '../notifications/notification-messages';
+import { AuditService } from '../audit/audit.service';
+import { CatalogService } from '../catalog/catalog.service';
+import {
+  ADMIN_PAGE_SIZE,
+  CURSOR_ORDER,
+  cursorWhere,
+  toCursorPage,
+} from '../common/utils/cursor-pagination';
 
 const SAFE_USER_SELECT = {
   id: true,
@@ -22,10 +35,28 @@ const SAFE_USER_SELECT = {
 } as const;
 
 const PRESCRIPTION_INCLUDE = {
-  medicines: { orderBy: { createdAt: 'asc' as const } },
+  medicines: {
+    orderBy: { createdAt: 'asc' as const },
+    include: {
+      medicine: { include: { form: true } },
+      mealTiming: true,
+    },
+  },
   user: { select: SAFE_USER_SELECT },
   reviewedBy: { select: { id: true, name: true } },
+  doctor: { include: { specialty: true } },
+  tests: { include: { test: true } },
+  // A re-upload shows the pharmacist why the earlier one was rejected.
+  previous: { select: { id: true, status: true, rejectionReason: true, createdAt: true } },
 };
+
+type ReviewOutcome = 'READY_TO_CONFIRM' | 'ACTIVE' | 'REJECTED';
+
+/** YYYY-MM-DD (validated by the DTO) -> Date for a @db.Date column; null clears. */
+function toDateColumn(value: string | null | undefined): Date | null | undefined {
+  if (value === undefined) return undefined;
+  return value === null ? null : new Date(`${value}T00:00:00.000Z`);
+}
 
 @Injectable()
 export class PrescriptionsService {
@@ -35,6 +66,8 @@ export class PrescriptionsService {
     private readonly ruleEvaluation: RuleEvaluationService,
     private readonly cloudinary: CloudinaryService,
     private readonly notifications: NotificationsService,
+    private readonly audit: AuditService,
+    private readonly catalog: CatalogService,
   ) {}
 
   // ---------------------------------------------------------------------
@@ -46,8 +79,17 @@ export class PrescriptionsService {
    * already used for a previous (possibly retried) upload, returns the
    * existing prescription instead of creating a duplicate — this is what
    * makes the mobile app's offline-retry-on-reconnect flow safe.
+   *
+   * `previousPrescriptionId` links a re-upload to the user's own REJECTED
+   * prescription so the pharmacist sees the earlier feedback.
    */
-  async create(userId: string, imageBuffer: Buffer, originalFilename: string, clientId?: string) {
+  async create(
+    userId: string,
+    imageBuffer: Buffer,
+    originalFilename: string,
+    clientId?: string,
+    previousPrescriptionId?: string,
+  ) {
     if (clientId) {
       const existing = await this.prisma.prescription.findUnique({
         where: { clientUploadId: clientId },
@@ -62,6 +104,20 @@ export class PrescriptionsService {
       }
     }
 
+    if (previousPrescriptionId) {
+      const previous = await this.prisma.prescription.findUnique({
+        where: { id: previousPrescriptionId },
+        select: { userId: true, status: true },
+      });
+      // Same answer for "not yours" and "missing": nothing to probe.
+      if (!previous || previous.userId !== userId) {
+        throw new BadRequestException('previousPrescriptionId does not match one of your prescriptions');
+      }
+      if (previous.status !== PrescriptionStatus.REJECTED) {
+        throw new BadRequestException('Only a rejected prescription can be re-uploaded');
+      }
+    }
+
     // One file per request: uploaded to Cloudinary before the DB write
     // so a failed upload never creates a prescription row pointing at
     // nothing.
@@ -73,6 +129,7 @@ export class PrescriptionsService {
           userId,
           imageUrl,
           clientUploadId: clientId ?? null,
+          previousPrescriptionId: previousPrescriptionId ?? null,
         },
       });
     } catch (e) {
@@ -120,6 +177,29 @@ export class PrescriptionsService {
     });
   }
 
+  /** Paginated queue (20 per page, newest first) filtered by status. */
+  async listQueue(status: QueueStatus = PrescriptionStatus.PENDING, cursor?: string) {
+    const rows = await this.prisma.prescription.findMany({
+      where: {
+        ...(status === 'ALL' ? {} : { status }),
+        ...cursorWhere(cursor),
+      },
+      orderBy: CURSOR_ORDER,
+      take: ADMIN_PAGE_SIZE + 1,
+      select: {
+        id: true,
+        status: true,
+        imageUrl: true,
+        createdAt: true,
+        reviewedAt: true,
+        previousPrescriptionId: true,
+        user: { select: SAFE_USER_SELECT },
+        reviewedBy: { select: { id: true, name: true } },
+      },
+    });
+    return toCursorPage(rows, ADMIN_PAGE_SIZE);
+  }
+
   async getDetailForAdmin(id: string) {
     const prescription = await this.prisma.prescription.findUnique({
       where: { id },
@@ -132,22 +212,67 @@ export class PrescriptionsService {
   }
 
   /**
+   * Saves the prescription-level fields while PENDING: doctor block, visit
+   * date, diagnosis, next visit and tests. A typed doctor (not picked from
+   * the list) creates a Doctor row; Not applicable clears the doctor and
+   * creates nothing.
+   */
+  async saveDetails(actorId: string, prescriptionId: string, dto: SavePrescriptionDetailsDto) {
+    await this.assertPending(prescriptionId);
+    const doctorChoices = [dto.doctorId, dto.doctor, dto.doctorNotApplicable || undefined].filter(
+      (v) => v !== undefined,
+    );
+    if (doctorChoices.length > 1) {
+      throw new BadRequestException('Choose one of doctorId, doctor or doctorNotApplicable');
+    }
+    if (dto.doctorId) {
+      const exists = await this.prisma.doctor.findUnique({ where: { id: dto.doctorId }, select: { id: true } });
+      if (!exists) throw new BadRequestException('Doctor not found');
+    }
+    const testIds = dto.testIds ? [...new Set(dto.testIds)] : undefined;
+    if (testIds?.length) {
+      const found = await this.prisma.diagnosticTest.count({ where: { id: { in: testIds } } });
+      if (found !== testIds.length) throw new BadRequestException('Unknown test in testIds');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      let doctorId: string | null | undefined;
+      if (dto.doctorNotApplicable) doctorId = null;
+      else if (dto.doctorId) doctorId = dto.doctorId;
+      else if (dto.doctor) doctorId = (await this.catalog.createDoctor(actorId, dto.doctor, tx)).id;
+
+      await tx.prescription.update({
+        where: { id: prescriptionId },
+        data: {
+          doctorId,
+          visitDate: toDateColumn(dto.visitDate),
+          diagnosis: dto.diagnosis === undefined ? undefined : dto.diagnosis || null,
+          nextVisitDate: toDateColumn(dto.nextVisitDate),
+        },
+      });
+
+      if (testIds) {
+        await tx.prescriptionTest.deleteMany({ where: { prescriptionId } });
+        await tx.prescriptionTest.createMany({
+          data: testIds.map((testId) => ({ prescriptionId, testId })),
+        });
+      }
+    });
+
+    return this.getDetailForAdmin(prescriptionId);
+  }
+
+  /**
    * Adds/updates medicine line items while the prescription is still
-   * PENDING. Marks each saved row `verified` by the acting admin — full
-   * verification requires the structured schedule fields, checked at
-   * completion time, not here, so the admin can save progress
-   * incrementally.
+   * PENDING. Marks each saved row `verified` by the acting pharmacist —
+   * full verification requires the structured schedule fields, checked at
+   * completion time, not here, so the pharmacist can save progress
+   * incrementally. A line without `medicineId` is linked to the catalog by
+   * brand name (a stub Medicine is created when it is new), so every line
+   * ends up doctor -> prescription -> medicine.
    */
   async saveMedicines(adminId: string, prescriptionId: string, dto: SaveMedicinesDto) {
-    const prescription = await this.prisma.prescription.findUnique({
-      where: { id: prescriptionId },
-    });
-    if (!prescription) throw new NotFoundException('Prescription not found');
-    if (prescription.status !== PrescriptionStatus.PENDING) {
-      throw new ConflictException(
-        `Cannot edit medicines on a prescription that is already ${prescription.status}`,
-      );
-    }
+    await this.assertPending(prescriptionId);
 
     const existingIds = new Set(
       (
@@ -157,34 +282,18 @@ export class PrescriptionsService {
         })
       ).map((m) => m.id),
     );
+    for (const entry of dto.medicines) {
+      if (entry.id && !existingIds.has(entry.id)) {
+        throw new BadRequestException(`Medicine ${entry.id} does not belong to this prescription`);
+      }
+    }
 
     const now = new Date();
-    const ops = dto.medicines.map((entry) => {
-      if (entry.id) {
-        if (!existingIds.has(entry.id)) {
-          throw new BadRequestException(`Medicine ${entry.id} does not belong to this prescription`);
-        }
-        return this.prisma.prescriptionMedicine.update({
-          where: { id: entry.id },
-          data: {
-            medicineName: entry.medicineName,
-            dosage: entry.dosage,
-            frequency: entry.frequency,
-            duration: entry.duration,
-            instructions: entry.instructions ?? null,
-            timesPerDay: entry.timesPerDay ?? null,
-            scheduleTimes: entry.scheduleTimes ? JSON.stringify(entry.scheduleTimes) : null,
-            durationDays: entry.durationDays ?? null,
-            startDate: entry.startDate ?? null,
-            verified: true,
-            verifiedById: adminId,
-            verifiedAt: now,
-          },
-        });
-      }
-      return this.prisma.prescriptionMedicine.create({
-        data: {
-          prescriptionId,
+    await this.prisma.$transaction(async (tx) => {
+      for (const entry of dto.medicines) {
+        const medicineId =
+          entry.medicineId ?? (await this.catalog.findOrCreateMedicineStub(adminId, entry.medicineName, tx));
+        const data = {
           medicineName: entry.medicineName,
           dosage: entry.dosage,
           frequency: entry.frequency,
@@ -194,27 +303,28 @@ export class PrescriptionsService {
           scheduleTimes: entry.scheduleTimes ? JSON.stringify(entry.scheduleTimes) : null,
           durationDays: entry.durationDays ?? null,
           startDate: entry.startDate ?? null,
+          medicineId,
+          strength: entry.strength ?? null,
+          doseAmount: entry.doseAmount ?? null,
+          mealTimingId: entry.mealTimingId ?? null,
+          continuous: entry.continuous ?? false,
           verified: true,
           verifiedById: adminId,
           verifiedAt: now,
-        },
-      });
+        };
+        if (entry.id) {
+          await tx.prescriptionMedicine.update({ where: { id: entry.id }, data });
+        } else {
+          await tx.prescriptionMedicine.create({ data: { prescriptionId, ...data } });
+        }
+      }
     });
 
-    await this.prisma.$transaction(ops);
     return this.getDetailForAdmin(prescriptionId);
   }
 
   async removeMedicine(prescriptionId: string, medicineId: string) {
-    const prescription = await this.prisma.prescription.findUnique({
-      where: { id: prescriptionId },
-    });
-    if (!prescription) throw new NotFoundException('Prescription not found');
-    if (prescription.status !== PrescriptionStatus.PENDING) {
-      throw new ConflictException(
-        `Cannot edit medicines on a prescription that is already ${prescription.status}`,
-      );
-    }
+    await this.assertPending(prescriptionId);
     const medicine = await this.prisma.prescriptionMedicine.findUnique({
       where: { id: medicineId },
     });
@@ -226,10 +336,10 @@ export class PrescriptionsService {
   }
 
   /**
-   * Completes a prescription: validates every medicine has the
-   * structured schedule data routine generation needs, then
-   * deterministically generates a MedicineRoutine (+ its doses) per
-   * medicine, all in one transaction.
+   * The pharmacist finishes a prescription: validates that every medicine
+   * has the structured schedule data routine generation needs, then sends
+   * it to the user as AWAITING_CONFIRMATION. No routine or dose exists yet;
+   * they are created when the user confirms ([activate], Round 6 screen).
    */
   async complete(adminId: string, prescriptionId: string) {
     const prescription = await this.prisma.prescription.findUnique({
@@ -246,25 +356,70 @@ export class PrescriptionsService {
 
     this.assertMedicinesReadyForCompletion(prescription.medicines);
 
-    const completedAt = new Date();
-    const generatedRoutines = prescription.medicines.map((m) =>
-      this.routineGeneration.generate(m, completedAt),
-    );
-
     await this.prisma.$transaction(async (tx) => {
-      // Compare-and-set on status: the PENDING check above happens outside the
-      // transaction, so two admins (or a double click) could both pass it and
-      // generate every routine/dose twice. Only one can win this update.
+      // Compare-and-set on status: two pharmacists (or a double click) can
+      // both pass the PENDING check above; only one wins this update.
       const claimed = await tx.prescription.updateMany({
         where: { id: prescriptionId, status: PrescriptionStatus.PENDING },
         data: {
-          status: PrescriptionStatus.COMPLETED,
+          status: PrescriptionStatus.AWAITING_CONFIRMATION,
           reviewedById: adminId,
-          reviewedAt: completedAt,
+          reviewedAt: new Date(),
         },
       });
       if (claimed.count === 0) {
         throw new ConflictException('Prescription is no longer pending');
+      }
+      await this.audit.record(
+        {
+          actorId: adminId,
+          subjectUserId: prescription.userId,
+          action: 'prescription.prepare',
+          entityType: 'prescription',
+          entityId: prescriptionId,
+          before: { status: PrescriptionStatus.PENDING },
+          after: {
+            status: PrescriptionStatus.AWAITING_CONFIRMATION,
+            medicineLines: prescription.medicines.length,
+          },
+        },
+        tx,
+      );
+    });
+
+    await this.notifyOwner(prescription.userId, prescriptionId, 'READY_TO_CONFIRM');
+
+    return this.getDetailForAdmin(prescriptionId);
+  }
+
+  /**
+   * AWAITING_CONFIRMATION -> ACTIVE: deterministically generates a
+   * MedicineRoutine (+ its first doses) per medicine line, in one
+   * transaction, then runs the health rules. Called by the user's Confirm
+   * step (Round 6); no route reaches it yet.
+   */
+  async activate(actorId: string, prescriptionId: string) {
+    const prescription = await this.prisma.prescription.findUnique({
+      where: { id: prescriptionId },
+      include: { medicines: true },
+    });
+    if (!prescription) throw new NotFoundException('Prescription not found');
+    if (prescription.status !== PrescriptionStatus.AWAITING_CONFIRMATION) {
+      throw new ConflictException(`Prescription is ${prescription.status}, not awaiting confirmation`);
+    }
+    const lines = prescription.medicines.filter((m) => m.revision === prescription.currentRevision);
+    this.assertMedicinesReadyForCompletion(lines);
+
+    const activatedAt = new Date();
+    const generatedRoutines = lines.map((m) => this.routineGeneration.generate(m, activatedAt));
+
+    await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.prescription.updateMany({
+        where: { id: prescriptionId, status: PrescriptionStatus.AWAITING_CONFIRMATION },
+        data: { status: PrescriptionStatus.ACTIVE },
+      });
+      if (claimed.count === 0) {
+        throw new ConflictException('Prescription is no longer awaiting confirmation');
       }
 
       for (const routine of generatedRoutines) {
@@ -278,6 +433,11 @@ export class PrescriptionsService {
             startDate: routine.startDate,
             endDate: routine.endDate,
             active: true,
+            strength: routine.strength,
+            doseAmount: routine.doseAmount,
+            mealTimingId: routine.mealTimingId,
+            scheduleTimes: routine.scheduleTimes,
+            generatedUntil: routine.generatedUntil,
           },
         });
 
@@ -289,21 +449,34 @@ export class PrescriptionsService {
           })),
         });
       }
+
+      await this.audit.record(
+        {
+          actorId,
+          subjectUserId: prescription.userId,
+          action: 'prescription.confirm',
+          entityType: 'prescription',
+          entityId: prescriptionId,
+          before: { status: PrescriptionStatus.AWAITING_CONFIRMATION },
+          after: { status: PrescriptionStatus.ACTIVE, routines: generatedRoutines.length },
+        },
+        tx,
+      );
     });
 
-    // Health suggestion rules run against the now-verified medicines,
+    // Health suggestion rules run against the now-active medicines,
     // outside the transaction above: rule evaluation only ever creates
     // *additional* HealthReminder rows (see RuleEvaluationService's
     // dedup-by-rule policy), so it can't corrupt prescription/routine
-    // state, and completion must succeed even if this loop hits an issue.
-    for (const medicine of prescription.medicines) {
+    // state, and activation must succeed even if this loop hits an issue.
+    for (const medicine of lines) {
       await this.ruleEvaluation.evaluateForMedicine(prescription.userId, medicine);
     }
 
     // AI health suggestions are NOT generated here: an admin requests one per
     // routine from the routine panel (HealthSuggestionsService.requestForRoutine).
 
-    await this.notifyOwner(prescription.userId, prescriptionId, 'COMPLETED');
+    await this.notifyOwner(prescription.userId, prescriptionId, 'ACTIVE');
 
     return this.getDetailForAdmin(prescriptionId);
   }
@@ -317,18 +490,34 @@ export class PrescriptionsService {
       throw new ConflictException(`Prescription is already ${prescription.status}`);
     }
 
-    const claimed = await this.prisma.prescription.updateMany({
-      where: { id: prescriptionId, status: PrescriptionStatus.PENDING },
-      data: {
-        status: PrescriptionStatus.REJECTED,
-        reviewedById: adminId,
-        reviewedAt: new Date(),
-        rejectionReason,
-      },
+    await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.prescription.updateMany({
+        where: { id: prescriptionId, status: PrescriptionStatus.PENDING },
+        data: {
+          status: PrescriptionStatus.REJECTED,
+          reviewedById: adminId,
+          reviewedAt: new Date(),
+          rejectionReason,
+        },
+      });
+      if (claimed.count === 0) {
+        throw new ConflictException('Prescription is no longer pending');
+      }
+      // The feedback text stays on the prescription; the audit row only
+      // records the transition.
+      await this.audit.record(
+        {
+          actorId: adminId,
+          subjectUserId: prescription.userId,
+          action: 'prescription.reject',
+          entityType: 'prescription',
+          entityId: prescriptionId,
+          before: { status: PrescriptionStatus.PENDING },
+          after: { status: PrescriptionStatus.REJECTED },
+        },
+        tx,
+      );
     });
-    if (claimed.count === 0) {
-      throw new ConflictException('Prescription is no longer pending');
-    }
 
     await this.notifyOwner(prescription.userId, prescriptionId, 'REJECTED');
 
@@ -336,6 +525,19 @@ export class PrescriptionsService {
   }
 
   // ---------------------------------------------------------------------
+
+  private async assertPending(prescriptionId: string) {
+    const prescription = await this.prisma.prescription.findUnique({
+      where: { id: prescriptionId },
+      select: { status: true },
+    });
+    if (!prescription) throw new NotFoundException('Prescription not found');
+    if (prescription.status !== PrescriptionStatus.PENDING) {
+      throw new ConflictException(
+        `Cannot edit a prescription that is already ${prescription.status}`,
+      );
+    }
+  }
 
   /**
    * Enforces that routine generation never has to invent anything.
@@ -350,8 +552,8 @@ export class PrescriptionsService {
         problems.push(`"${m.medicineName}": timesPerDay is required`);
         continue;
       }
-      if (!m.durationDays) {
-        problems.push(`"${m.medicineName}": durationDays is required`);
+      if (!m.durationDays && !m.continuous) {
+        problems.push(`"${m.medicineName}": durationDays is required (or mark it continuous)`);
         continue;
       }
       let times: unknown = [];
@@ -380,7 +582,7 @@ export class PrescriptionsService {
    * transit); the app shows those after the user opens it. Idempotent per
    * (user, type, prescription) and never allowed to fail the review itself.
    */
-  private async notifyOwner(userId: string, prescriptionId: string, outcome: 'COMPLETED' | 'REJECTED') {
+  private async notifyOwner(userId: string, prescriptionId: string, outcome: ReviewOutcome) {
     try {
       const owner = await this.prisma.user.findUnique({
         where: { id: userId },
@@ -388,16 +590,20 @@ export class PrescriptionsService {
       });
       if (!owner) return;
       const copy =
-        outcome === 'COMPLETED'
+        outcome === 'ACTIVE'
           ? messages.prescriptionCompleted(owner.languagePreference)
-          : messages.prescriptionRejected(owner.languagePreference);
+          : outcome === 'READY_TO_CONFIRM'
+            ? messages.prescriptionReadyToConfirm(owner.languagePreference)
+            : messages.prescriptionRejected(owner.languagePreference);
       await this.notifications.notify([
         {
           userId,
           type: NotificationType.PRESCRIPTION_UPDATE,
           title: copy.title,
           body: copy.body,
-          relatedEntityId: prescriptionId,
+          // ACTIVE follows READY_TO_CONFIRM for the same prescription, so it
+          // needs its own key to get past the per-entity dedup.
+          relatedEntityId: outcome === 'ACTIVE' ? `active:${prescriptionId}` : prescriptionId,
           data: { prescriptionId },
         },
       ]);

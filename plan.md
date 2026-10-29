@@ -14,11 +14,12 @@ Limits: the counter lives in memory, so it works for a single server only. Redis
 Testing: device testing (the three-phone matrix in Round 1 and the Round 3 behaviors) is deferred until all rounds are developed; each round is "code done" until then.
 
 Database changes (pending SQL for Neon)
-Workflow: during development only backend/prisma/schema.prisma changes (no migration files). At the end of development, run the SQL below in the Neon SQL editor, in order, then `npx prisma generate`.
-1. Round 3 (2026-10-29): reminder and notice switches
-   ALTER TABLE "users" ADD COLUMN "medicineRemindersEnabled" BOOLEAN NOT NULL DEFAULT true,
-   ADD COLUMN "noticesEnabled" BOOLEAN NOT NULL DEFAULT true;
-Until this runs, the deployed API's queries on these columns fail, so don't deploy Round 3 backend code before the SQL is applied.
+Workflow: during development only backend/prisma/schema.prisma changes (no migration files). The matching SQL goes into ordered files in backend/prisma/pending-sql/. At the end of development, run them in the Neon SQL editor in order, then `npx prisma generate`. Each file was checked on a disposable Postgres replaying every existing migration, with the result diffed against schema.prisma (no differences).
+1. 001_round3_reminder_and_notice_toggles.sql - reminder and notice switches.
+2. 002_round4_schema.sql - Round 4 tables and columns. Converts existing COMPLETED prescriptions to ACTIVE in the same step.
+3. 003_round4_reference_data.sql - dropdown data (divisions/districts/upazilas from github.com/nuhil/bangladesh-geocode, genders, doctor specialties, medicine forms and categories, meal timings, test categories). Safe to re-run.
+4. 004_round5_search_indexes.sql - prefix-search indexes for doctor / medicine / test autosuggest (expression indexes, not in schema.prisma). Safe to re-run.
+Until these run, the deployed API's queries on the new columns fail, so don't deploy Round 3+ backend code before the SQL is applied.
 
 Rounds
 Round 1: Reminder delivery (top priority) - CODE DONE 2026-10-28, device testing pending
@@ -62,20 +63,44 @@ Decisions (2026-10-29):
 - Health reminders (e.g. check sugar) stay normal notifications.
 - Reminder toggle: if a user turns medicine reminders off, there are no reminders and no family missed-dose alerts either. The switch shows a warning.
 - Inbox tabs: Personal updates (own doses, prescription updates), Family (family members' alerts and info), General (notices; Round 7 adds scheduling and division filtering).
-Round 4: Data foundation
+Round 4: Data foundation - CODE DONE 2026-10-29
 User fields and geo tables, then Doctor, Medicine, DiagnosticTest and the doctor-genre list.
 New prescription statuses and structured medicine lines, routine columns and AuditLog.
 Notice fields and the privacy flag.
 Rolling dose generation, the cursor pagination helper, and the write-light indexes.
 Migrate existing prescriptions and routines to active, so no reminders stop.
 Done when: migrations pass on a copy of real data and the specs are green.
-Round 5: Pharmacist portal
+Decisions (2026-10-29): English only for lookup data; every dropdown reads a database table the owner edits (genders, divisions, districts, upazilas, doctor specialties, medicine forms, medicine categories, meal timings, test categories); address levels are enforced in the database (composite foreign keys plus CHECK constraints: a district must be in the chosen division, an upazila in the chosen district); the privacy flag is "Hide from family", off by default, and hides the user from everyone in the family including the owner (stored as users.profileVisibleToFamily, inverted).
+Built: user fields (dateOfBirth, gender, division/district/upazila), lookup tables, Doctor (BMDC number unique), Medicine (strength stays on lines), DiagnosticTest + prescription tests, prescription statuses PENDING / REJECTED / AWAITING_CONFIRMATION / ACTIVE / ENDED, prescription fields (doctor, visit date, diagnosis, next visit, re-upload link, current/pending revision), structured lines (medicine, strength, dose amount, meal timing, continuous, revision), routine columns (source, strength, dose amount, meal timing, schedule times, generatedUntil, last edited by), notice fields (source, source link, startsAt, approval, divisions, PENDING_APPROVAL), AuditLog, rolling dose generation (14 days ahead, hourly RollingDoseJob, ROLLING_DOSE_JOB_ENABLED), cursor pagination helper (20 admin / 10 user), prescriptions index (status, createdAt). Completing a prescription now sets ACTIVE (Round 6 switches it to AWAITING_CONFIRMATION). The app shows the Hide from family switch and the new status labels; the admin panel shows the new statuses.
+Not done / open:
+- Tested on a disposable database with fixture data, not a copy of the real Neon data. Make a Neon branch, run the three files there first.
+- AuditLog: pharmacist actions are written since Round 5; caregiver actions arrive in Round 6.
+- Cursor helper: the Round 5 prescription queue and doctor/medicine lists use it; the remaining screens switch over in Rounds 6-8.
+- Autosuggest indexes: done in Round 5 (prefix search, pending SQL 004).
+- Stale integration tests (fail with or without Round 4): mvp-flow.int.spec expects no public routes besides register/login (health, forgot-password and reset-password are public) and rejects 7-character passwords; admin.int.spec calls an assistant endpoint that now returns 404.
+Round 5: Pharmacist portal - CODE DONE 2026-10-29
 The prescription form from your plan: doctor block, medicine form, diagnosis form, next visit date, and “Add new” collapsing the previous entry to one line.
 Autosuggest for medicines and tests, and a portal where pharmacists complete doctor and medicine records.
 Reject with feedback and a linked re-upload, then send for confirmation. Queues are paginated at 20.
 Done when: a prescription goes from upload to AWAITING_CONFIRMATION and doctor-to-medicine rows are correct.
+Decisions (2026-10-29):
+- Completing sets AWAITING_CONFIRMATION now, even before the Round 6 Confirm screen exists: new prescriptions get no reminders until Round 6 ships.
+- Pharmacists use the panel's root URLs; the admin area is a fixed unlisted path, /super-control-007. Both get a dashboard with their own overview and a left sidebar; responsive; own components, no UI library.
+- Round 5 builds the admin shell only (sidebar, gate, existing pages moved); admin content (doctor/medicine data view, user analytics, notice approval) stays in Round 7.
+- Autosuggest: prefix search (no pg_trgm).
+- Doctor block: name required; "Not applicable" option. A typed name creates a Doctor row; Not applicable creates none.
+- Reject: backend + app Re-upload button in this round.
+Built: GET /prescriptions/admin/queue (status filter, 20 per page), PUT /prescriptions/admin/:id/details (doctor pick / new doctor / Not applicable, visit date, diagnosis, next visit, tests), structured medicine lines linked to the catalog (typed names become stub Medicines), complete -> AWAITING_CONFIRMATION with a "ready to confirm" notification, PrescriptionsService.activate() for Round 6 (routines, doses, health rules, "active" notification), re-upload link (previousPrescriptionId, own REJECTED only), /catalog (doctor/medicine/test search, lists with "incomplete" filter, create/edit), /lookups (dropdown tables), GET /pharmacist/dashboard, AuditLog rows for pharmacist actions, optional seed pharmacist. Roles: prescription and catalog writes are PHARMACIST only (admin read-only); admin dashboard, routines panel and AI suggestions are ADMIN only. Panel: sidebar shell, role gates via /users/me, pharmacist dashboard, queue, prescription workspace (photo beside the form), doctors and medicines pages, admin area under /super-control-007, notice pages shared by both (Publish only for admin). App: Re-upload button and hint on a rejected prescription (EN + BN), link sent through the existing outbox payload (no Drift change). Also restored the panel's list pages (prescriptions, routines, notices, health rules, AI suggestions), which commit a667029 had overwritten with copies of the detail pages, and stopped the login page logging the access token to the console.
+Checked: backend unit + integration specs (disposable Postgres), pending SQL 001-004 replayed and diffed (no differences), mobile tests + analyze, panel build, and a browser run of login, queue, form, send, reject, phone layout and role redirects against a disposable database.
+Not done / open:
+- No Confirm screen yet (Round 6): prescriptions prepared now wait in AWAITING_CONFIRMATION; nothing calls activate().
+- The app still labels AWAITING_CONFIRMATION "Awaiting confirmation" with no action; the "ready to confirm" push tells users to open the app.
+- Admin panel's "Completed prescriptions" count on the admin dashboard does not include AWAITING_CONFIRMATION (Round 7 reworks admin analytics).
+- Clearing an already-set doctor field (e.g. a wrong BMDC number) isn't possible from the doctor page; only filling in. Doctors/medicines can't be merged when duplicates appear.
+- Health rules stay editable by pharmacists (backend allows both roles); only pharmacists see the page.
+- Admin `next lint` still has no ESLint setup (see CLAUDE.md [ASK]).
 Round 6: User app
-The Confirm or Edit screen. Routines and doses are created at confirm.
+The Confirm or Edit screen. Routines and doses are created at confirm (call PrescriptionsService.activate(); it already validates, generates routines + doses, runs health rules, audits and notifies).
 Manual routine create, edit and remove, with “self-added” and “edited by you” labels.
 Caregiver actions with audit entries, the invitation warning, the privacy flag, and the new registration fields.
 Larger buttons and basic colors, and 10-row “Load more” lists.

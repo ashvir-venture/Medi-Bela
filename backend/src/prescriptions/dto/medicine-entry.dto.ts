@@ -2,7 +2,9 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsInt,
+  IsUUID,
   IsOptional,
   IsString,
   Matches,
@@ -76,4 +78,34 @@ export class MedicineEntryDto {
   @IsOptional()
   @Type(() => Date)
   startDate?: Date;
+
+  // --- Structured line (Round 4); the pharmacist form uses these in Round 5 ---
+
+  /** A row of the Medicine table. */
+  @IsOptional()
+  @IsUUID()
+  medicineId?: string;
+
+  /** Strength lives on the line, e.g. "500 mg". */
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  strength?: string;
+
+  /** Amount per dose, e.g. "1 tablet". */
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  doseAmount?: string;
+
+  /** A row of the meal_timings table. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  mealTimingId?: number;
+
+  /** No end date: durationDays may be omitted and doses keep being generated. */
+  @IsOptional()
+  @IsBoolean()
+  continuous?: boolean;
 }

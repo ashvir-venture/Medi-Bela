@@ -28,6 +28,7 @@ class PrescriptionSyncHandler implements SyncHandler {
       clientId: payload['clientId'] as String,
       note: payload['note'] as String?,
       imageLocalPath: payload['imageLocalPath'] as String?,
+      previousPrescriptionId: payload['previousPrescriptionId'] as String?,
     );
 
     await (_db.update(_db.prescriptionDrafts)

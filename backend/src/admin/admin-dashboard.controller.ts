@@ -4,7 +4,8 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { AdminDashboardService } from './admin-dashboard.service';
 
 @Controller('admin/dashboard')
-@Roles(Role.ADMIN, Role.PHARMACIST)
+// Pharmacists have their own overview at /pharmacist/dashboard.
+@Roles(Role.ADMIN)
 export class AdminDashboardController {
   constructor(private readonly dashboard: AdminDashboardService) {}
 

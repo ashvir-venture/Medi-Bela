@@ -64,13 +64,16 @@ class _PrescriptionScreenState extends ConsumerState<PrescriptionScreen> {
     );
   }
 
-  void _openEntryForm(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => const _PrescriptionEntryForm(),
-    );
-  }
+  void _openEntryForm(BuildContext context) => openPrescriptionEntryForm(context);
+}
+
+/// [rejectedServerId] set = re-upload of that rejected prescription.
+void openPrescriptionEntryForm(BuildContext context, {String? rejectedServerId}) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (_) => _PrescriptionEntryForm(rejectedServerId: rejectedServerId),
+  );
 }
 
 class _DraftTile extends ConsumerWidget {
@@ -114,6 +117,16 @@ class _DraftTile extends ConsumerWidget {
                   style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12),
                 ),
               ),
+            if (draft.serverStatus == 'REJECTED' && draft.serverId != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () =>
+                      openPrescriptionEntryForm(context, rejectedServerId: draft.serverId),
+                  icon: const Icon(Icons.upload_outlined, size: 18),
+                  label: Text(strings.reuploadPrescription),
+                ),
+              ),
           ],
         ),
       ),
@@ -123,7 +136,7 @@ class _DraftTile extends ConsumerWidget {
   /// Combines upload-sync state ([draft.status]) with pharmacist-review
   /// state ([draft.serverStatus]) into a single badge. Sync state takes
   /// priority while the upload itself hasn't completed yet; once synced,
-  /// the server's review status (still PENDING vs COMPLETED/REJECTED) is
+  /// the server's review status (still PENDING vs ACTIVE/REJECTED/...) is
   /// what the user actually cares about.
   (IconData, Color, String) _statusDisplay(BuildContext context, AppStrings strings) {
     if (draft.status == 'failed') {
@@ -133,7 +146,9 @@ class _DraftTile extends ConsumerWidget {
       return (Icons.schedule, Colors.orange, strings.pendingSyncBadge);
     }
     return switch (draft.serverStatus) {
-      'COMPLETED' => (Icons.check_circle, Colors.green, strings.statusCompleted),
+      'ACTIVE' => (Icons.check_circle, Colors.green, strings.statusActive),
+      'ENDED' => (Icons.check_circle_outline, Colors.grey, strings.statusEnded),
+      'AWAITING_CONFIRMATION' => (Icons.fact_check_outlined, Colors.blue, strings.statusAwaitingConfirmation),
       'REJECTED' => (Icons.cancel_outlined, Theme.of(context).colorScheme.error, strings.statusRejected),
       _ => (Icons.hourglass_top, Colors.orange, strings.statusPending),
     };
@@ -141,7 +156,10 @@ class _DraftTile extends ConsumerWidget {
 }
 
 class _PrescriptionEntryForm extends ConsumerStatefulWidget {
-  const _PrescriptionEntryForm();
+  const _PrescriptionEntryForm({this.rejectedServerId});
+
+  /// Server id of the rejected prescription this re-uploads, if any.
+  final String? rejectedServerId;
 
   @override
   ConsumerState<_PrescriptionEntryForm> createState() =>
@@ -175,6 +193,7 @@ class _PrescriptionEntryFormState extends ConsumerState<_PrescriptionEntryForm> 
           ? null
           : _noteController.text.trim(),
       imageLocalPath: _imagePath,
+      previousPrescriptionId: widget.rejectedServerId,
     );
     if (!mounted) return;
     Navigator.of(context).pop();
@@ -187,6 +206,9 @@ class _PrescriptionEntryFormState extends ConsumerState<_PrescriptionEntryForm> 
   @override
   Widget build(BuildContext context) {
     final strings = ref.watch(stringsProvider);
+    final isReupload = widget.rejectedServerId != null;
+    // The server needs a photo; a re-upload is only useful with a new one.
+    final canSave = !_isSaving && (!isReupload || _imagePath != null);
 
     return Padding(
       padding: EdgeInsets.only(
@@ -200,9 +222,13 @@ class _PrescriptionEntryFormState extends ConsumerState<_PrescriptionEntryForm> 
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            strings.newPrescriptionEntry,
+            isReupload ? strings.reuploadPrescription : strings.newPrescriptionEntry,
             style: Theme.of(context).textTheme.titleLarge,
           ),
+          if (isReupload) ...[
+            const SizedBox(height: 8),
+            Text(strings.reuploadHint, style: const TextStyle(fontSize: 13)),
+          ],
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.all(12),
@@ -229,7 +255,7 @@ class _PrescriptionEntryFormState extends ConsumerState<_PrescriptionEntryForm> 
           ),
           const SizedBox(height: 16),
           ElevatedButton(
-            onPressed: _isSaving ? null : _save,
+            onPressed: canSave ? _save : null,
             child: _isSaving
                 ? const SizedBox(
                     height: 20,

@@ -44,7 +44,15 @@ class PrescriptionLocalRepository {
 
   /// Saves a new draft and queues it for upload. Returns the local id
   /// immediately — the caller never waits on the network.
-  Future<String> createAndQueue({String? note, String? imageLocalPath}) async {
+  ///
+  /// [previousPrescriptionId] (server id of a REJECTED prescription) marks a
+  /// re-upload. It only travels in the outbox payload, so the Drift schema
+  /// is unchanged.
+  Future<String> createAndQueue({
+    String? note,
+    String? imageLocalPath,
+    String? previousPrescriptionId,
+  }) async {
     final id = _uuid.v4();
     final now = DateTime.now();
 
@@ -70,6 +78,8 @@ class PrescriptionLocalRepository {
                 'clientId': id,
                 'note': note,
                 'imageLocalPath': imageLocalPath,
+                if (previousPrescriptionId != null)
+                  'previousPrescriptionId': previousPrescriptionId,
               }),
               createdAt: now,
             ),

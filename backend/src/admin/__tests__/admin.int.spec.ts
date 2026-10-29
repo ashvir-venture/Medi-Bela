@@ -64,11 +64,13 @@ d('Phase 4B over HTTP (real AppModule + Postgres)', () => {
       expect(await prisma.healthSuggestionRule.count()).toBe(0);
     });
 
-    it('ADMIN and PHARMACIST can open the dashboard', async () => {
-      for (const role of ['ADMIN', 'PHARMACIST'] as const) {
-        const a = await account(role);
-        await http().get('/api/v1/admin/dashboard').set(auth(a.token)).expect(200);
-      }
+    it('each staff role opens only its own dashboard', async () => {
+      const admin = await account('ADMIN');
+      const pharmacist = await account('PHARMACIST');
+      await http().get('/api/v1/admin/dashboard').set(auth(admin.token)).expect(200);
+      await http().get('/api/v1/admin/dashboard').set(auth(pharmacist.token)).expect(403);
+      await http().get('/api/v1/pharmacist/dashboard').set(auth(pharmacist.token)).expect(200);
+      await http().get('/api/v1/pharmacist/dashboard').set(auth(admin.token)).expect(403);
     });
 
     it('a demoted/suspended admin loses access immediately (role re-read from DB each request)', async () => {
@@ -101,7 +103,7 @@ d('Phase 4B over HTTP (real AppModule + Postgres)', () => {
       const mk = (userId: string, status: string, minsAgo: number) =>
         prisma.prescription.create({ data: { userId, imageUrl: 'https://img/x.jpg', status, createdAt: new Date(Date.now() - minsAgo * 60_000) } });
       const oldest = await mk(u1.id, 'REJECTED', 30);
-      await mk(u1.id, 'COMPLETED', 20);
+      await mk(u1.id, 'ACTIVE', 20);
       await mk(u2.id, 'PENDING', 10);
       const newest = await mk(u2.id, 'PENDING', 1);
 
@@ -206,7 +208,7 @@ d('Phase 4B over HTTP (real AppModule + Postgres)', () => {
     it('add -> starts INACTIVE; edit; activate backfills reminders for matching medicines (category keywords); disable', async () => {
       const admin = await account('ADMIN'); const user = await account('USER'); const other = await account('USER');
       const rx = async (userId: string, medicine: string) => {
-        const p = await prisma.prescription.create({ data: { userId, imageUrl: 'u', status: 'COMPLETED' } });
+        const p = await prisma.prescription.create({ data: { userId, imageUrl: 'u', status: 'ACTIVE' } });
         await prisma.prescriptionMedicine.create({ data: { prescriptionId: p.id, medicineName: medicine, dosage: '1', frequency: 'd', duration: '5d', verified: true } });
       };
       await rx(user.id, 'Metformin 500mg'); await rx(other.id, 'Amlodipine 5mg');
