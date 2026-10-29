@@ -144,6 +144,14 @@ Dashboard with users by area, age and gender, total families, doctors with the m
 The madeBy view, a count of incomplete doctor and medicine records, and read-only doctor and medicine lists.
 Q2 rollups for speed.
 Done when: every number loads fast and matches the source data.
+Decisions (2026-10-29):
+- Speed: live queries on indexed columns with a 5-minute in-memory cache on the admin analytics endpoint; no rollup table unless the Round 9 query audit shows it is slow.
+- Users by area: per division, opening a division shows its districts. Age bands 0-17 / 18-39 / 40-59 / 60+. Role USER, not deleted; missing fields count as "Not set". Exact counts (no small-group hiding).
+- Top doctors: distinct patients on ACTIVE + ENDED prescriptions, top 10, all time.
+- Most-used medicines: distinct patients per catalog medicine on ACTIVE + ENDED prescription lines, top 10, all time (self-added routines not counted: they store no medicine id).
+- madeBy: doctors and medicines show "Created by" (the pharmacist's name, or the patient's/caregiver's name for a stub they created) in the admin area only. No edit column: a pharmacist edit overwrites createdById with that pharmacist; the earlier creator stays in AuditLog. Pharmacists keep editing as today.
+- Incomplete doctor: missing name, specialty, phone or chamber (chamber is the free-text address, relabelled "Chamber / address"); BMDC number and district are optional. Incomplete medicine: missing brand name, form, category or manufacturer (e.g. Seclo - Tablet - Gastric - Square Pharma); generic name is optional. Applies to the pharmacist dashboard count, the "Only incomplete" filter and the badges too.
+- Admin doctor and medicine pages: sidebar links, 20-row lists (search, "Only incomplete", Created by), read-only detail page with patient count.
 Round 9: Hardening and release
 The Q3 query audit, and dropping unused indexes after checking pg_stat_user_indexes.
 Load test the dose and missed-dose jobs.
