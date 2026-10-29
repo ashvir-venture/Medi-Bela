@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_theme.dart';
 import 'diabetes_log_sheet.dart';
 import 'diabetes_strings.dart';
 
@@ -60,7 +61,7 @@ class DiabetesTrackerScreen extends ConsumerWidget {
             style: Theme.of(context)
                 .textTheme
                 .bodySmall
-                ?.copyWith(color: Colors.grey.shade700),
+                ?.copyWith(color: context.palette.muted),
           ),
         ],
       ),
@@ -115,7 +116,7 @@ class _LogCard extends StatelessWidget {
                         style: Theme.of(context)
                             .textTheme
                             .bodyMedium
-                            ?.copyWith(color: Colors.grey.shade600),
+                            ?.copyWith(color: context.palette.subtle),
                       ),
                     ],
                   ),

@@ -118,6 +118,48 @@ d('Missed-dose pipeline (real Postgres)', () => {
     expect((await prisma.medicineDose.findUnique({ where: { id: missed.id } })).familyAlertProcessedAt).not.toBeNull();
   });
 
+  // The busiest minute (everyone's 08:00 dose) must not stop at one batch of 200.
+  it('sends a backstop to every patient due, beyond one batch, with all of their dose ids', async () => {
+    const { subject, routine } = await scenario();
+    const at = new Date(Date.now() - 40 * 60_000);
+    await prisma.user.createMany({
+      data: Array.from({ length: 210 }, (_, i) => ({ phone: `+8801855${String(i).padStart(6, '0')}`, name: `P${i}`, passwordHash: 'x' })),
+    });
+    const patients = await prisma.user.findMany({ where: { phone: { startsWith: '+8801855' } }, select: { id: true } });
+    const routines = await Promise.all(patients.map((p: any) => prisma.medicineRoutine.create({
+      data: { userId: p.id, medicineName: 'M', dosage: '1', frequency: 'daily', startDate: new Date() },
+    })));
+    await prisma.medicineDose.createMany({
+      data: routines.map((r: any) => ({ routineId: r.id, userId: r.userId, scheduledAt: at })),
+    });
+    // The subject's two doses at that time sort last (created last within the same time).
+    await prisma.medicineDose.createMany({
+      data: [1, 2].map(() => ({ routineId: routine.id, userId: subject.id, scheduledAt: at })),
+    });
+
+    await svc.run();
+
+    const rows = await prisma.notification.findMany({ where: { type: NotificationType.MEDICINE_REMINDER } });
+    expect(rows).toHaveLength(211);
+    const mine = rows.find((r: any) => r.userId === subject.id);
+    expect((mine.data as any).doseIds.split(',')).toHaveLength(2);
+    await svc.run();
+    expect(await prisma.notification.count({ where: { type: NotificationType.MEDICINE_REMINDER } })).toBe(211);
+  });
+
+  it('alerts the family for every missed dose in one run, beyond one batch', async () => {
+    const { subject, routine } = await scenario();
+    await prisma.medicineDose.createMany({
+      data: Array.from({ length: 250 }, (_, i) => ({
+        routineId: routine.id, userId: subject.id, scheduledAt: new Date(Date.now() - 3 * 3_600_000 - i * 1000),
+      })),
+    });
+    const result = await svc.run();
+    expect(result.swept).toBe(250);
+    expect(result.alerted).toBe(2 * 250); // two other family members each
+    expect(await prisma.medicineDose.count({ where: { familyAlertProcessedAt: null } })).toBe(0);
+  });
+
   it('sends the patient one backstop per scheduled time at the second-reminder time, once', async () => {
     const { subject, routine, dose } = await scenario();
     const at = new Date(Date.now() - 40 * 60_000);

@@ -9,6 +9,8 @@ import {
 } from '../prescriptions/lib/routine-generation.service';
 
 const BATCH_SIZE = 200;
+/** One hourly run stops taking new batches after this long (20,000 patients took ~80 s). */
+const RUN_BUDGET_MS = 10 * 60_000;
 
 /**
  * Keeps every active routine's doses generated ROLLING_HORIZON_DAYS ahead,
@@ -41,42 +43,88 @@ export class RollingDoseJob {
     }
   }
 
-  /** One pass; returns the number of doses created. Public for tests and manual runs. */
+  /**
+   * One pass over every routine that is behind; returns the number of doses
+   * created. Public for tests and manual runs. Takes batches until the scan is
+   * done (or RUN_BUDGET_MS is used up; the next hourly run continues), because
+   * every routine needs one extension a day: one batch an hour fell behind
+   * above ~4,800 routines.
+   */
   async run(now: Date = new Date()): Promise<number> {
     const today = startOfAppDay(now);
     const horizonEnd = generationLimit(null, now);
-    const routines = await this.prisma.medicineRoutine.findMany({
-      where: {
-        active: true,
-        scheduleTimes: { not: null },
-        generatedUntil: { lt: horizonEnd },
-        // Finished courses drop out, so the query stays small over time.
-        OR: [{ endDate: null }, { endDate: { gte: today } }],
-      },
-      orderBy: { generatedUntil: 'asc' },
-      take: BATCH_SIZE,
-      select: { id: true, userId: true, scheduleTimes: true, endDate: true, generatedUntil: true },
-    });
-
+    const started = Date.now();
+    // Keyset cursor over (generatedUntil, id) as read: routines this pass
+    // skips (a short course already generated to its end) or another run
+    // extended are passed over instead of filling every batch again.
+    let after: { generatedUntil: Date; id: string } | null = null;
     let created = 0;
-    for (const routine of routines) {
-      const from = routine.generatedUntil!;
-      const until = generationLimit(routine.endDate, now);
-      if (from >= until) continue;
-      const doses = dosesForDays(parseScheduleTimes(routine.scheduleTimes), from, until);
 
-      created += await this.prisma.$transaction(async (tx) => {
-        const claim = await tx.medicineRoutine.updateMany({
-          where: { id: routine.id, generatedUntil: from },
-          data: { generatedUntil: until },
-        });
-        if (claim.count === 0) return 0; // another run extended it first
-        const result = await tx.medicineDose.createMany({
-          data: doses.map((d) => ({ routineId: routine.id, userId: routine.userId, scheduledAt: d.scheduledAt })),
-        });
-        return result.count;
+    for (;;) {
+      const routines: {
+        id: string;
+        userId: string;
+        scheduleTimes: string | null;
+        endDate: Date | null;
+        generatedUntil: Date | null;
+      }[] = await this.prisma.medicineRoutine.findMany({
+        where: {
+          active: true,
+          scheduleTimes: { not: null },
+          generatedUntil: { lt: horizonEnd },
+          // Finished courses drop out, so the query stays small over time.
+          OR: [{ endDate: null }, { endDate: { gte: today } }],
+          ...(after
+            ? {
+                AND: [
+                  {
+                    OR: [
+                      { generatedUntil: { gt: after.generatedUntil } },
+                      { generatedUntil: after.generatedUntil, id: { gt: after.id } },
+                    ],
+                  },
+                ],
+              }
+            : {}),
+        },
+        orderBy: [{ generatedUntil: 'asc' }, { id: 'asc' }],
+        take: BATCH_SIZE,
+        select: { id: true, userId: true, scheduleTimes: true, endDate: true, generatedUntil: true },
       });
+
+      for (const routine of routines) {
+        created += await this.extend(routine, now);
+      }
+      if (routines.length < BATCH_SIZE) break;
+      const last = routines[routines.length - 1];
+      after = { generatedUntil: last.generatedUntil!, id: last.id };
+      if (Date.now() - started > RUN_BUDGET_MS) {
+        this.logger.warn('Rolling-dose run stopped at its time budget; the next run continues');
+        break;
+      }
     }
     return created;
+  }
+
+  private async extend(
+    routine: { id: string; userId: string; scheduleTimes: string | null; endDate: Date | null; generatedUntil: Date | null },
+    now: Date,
+  ): Promise<number> {
+    const from = routine.generatedUntil!;
+    const until = generationLimit(routine.endDate, now);
+    if (from >= until) return 0;
+    const doses = dosesForDays(parseScheduleTimes(routine.scheduleTimes), from, until);
+
+    return this.prisma.$transaction(async (tx) => {
+      const claim = await tx.medicineRoutine.updateMany({
+        where: { id: routine.id, generatedUntil: from },
+        data: { generatedUntil: until },
+      });
+      if (claim.count === 0) return 0; // another run extended it first
+      const result = await tx.medicineDose.createMany({
+        data: doses.map((d) => ({ routineId: routine.id, userId: routine.userId, scheduledAt: d.scheduledAt })),
+      });
+      return result.count;
+    });
   }
 }

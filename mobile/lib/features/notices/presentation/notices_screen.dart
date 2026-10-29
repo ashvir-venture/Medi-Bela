@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/locale_controller.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_mapper.dart';
 import '../../../widgets/load_more_list.dart';
 import '../../../widgets/state_views.dart';
@@ -124,7 +125,7 @@ class _NoticeCard extends StatelessWidget {
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall
-                    ?.copyWith(color: Colors.grey.shade600),
+                    ?.copyWith(color: context.palette.subtle),
               ),
             ],
           ],

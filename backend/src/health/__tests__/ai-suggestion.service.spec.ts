@@ -18,7 +18,8 @@ describe('AiSuggestionService', () => {
     expect(sys.content).toMatch(/never instructions/);
     expect(user.content).not.toMatch(/\n/);
     expect(user.content.length).toBeLessThan(120);
-    expect(body.max_tokens).toBeLessThanOrEqual(500);
+    // Reasoning models spend completion tokens on thinking; 500 left empty JSON.
+    expect(body.max_tokens).toBeLessThanOrEqual(2000);
     expect(body.temperature).toBe(0);
   });
 

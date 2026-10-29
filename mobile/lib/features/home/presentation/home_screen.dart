@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/localization/locale_controller.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../features/auth/presentation/auth_controller.dart';
 import '../../../features/health/domain/health_models.dart';
 import '../../../features/health/presentation/health_controller.dart';
@@ -258,7 +259,7 @@ class _DoseRow extends StatelessWidget {
     final (icon, color, label) = switch (computeDoseDisplayStatus(dose)) {
       DoseDisplayStatus.taken => (
         Icons.check_circle,
-        Colors.green.shade700,
+        context.palette.success,
         strings.doseTaken,
       ),
       DoseDisplayStatus.missed => (
@@ -268,12 +269,12 @@ class _DoseRow extends StatelessWidget {
       ),
       DoseDisplayStatus.due => (
         Icons.notifications_active_outlined,
-        Colors.orange.shade800,
+        context.palette.warning,
         strings.doseDue,
       ),
       DoseDisplayStatus.skipped => (
         Icons.block,
-        Colors.grey.shade700,
+        context.palette.muted,
         strings.doseMissed,
       ),
       DoseDisplayStatus.upcoming => (
@@ -359,7 +360,7 @@ class _HealthRemindersSection extends ConsumerWidget {
                   leading: Icon(
                     Icons.favorite_border,
                     color: due.any((d) => d.id == r.id)
-                        ? Colors.orange.shade800
+                        ? context.palette.warning
                         : Colors.blueGrey,
                   ),
                   title: Text(
@@ -391,10 +392,10 @@ class _EmptyLine extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         children: [
-          Icon(icon, color: Colors.grey.shade600),
+          Icon(icon, color: context.palette.subtle),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(text, style: TextStyle(color: Colors.grey.shade700)),
+            child: Text(text, style: TextStyle(color: context.palette.muted)),
           ),
         ],
       ),
@@ -489,7 +490,7 @@ class _NoticeTile extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyMedium
-                          ?.copyWith(color: Colors.grey.shade700),
+                          ?.copyWith(color: context.palette.muted),
                     ),
                   ],
                 ),
@@ -541,7 +542,7 @@ class _PlaceholderSectionCard extends StatelessWidget {
                     Text(
                       subtitle,
                       style: Theme.of(context).textTheme.bodyMedium
-                          ?.copyWith(color: Colors.grey.shade600),
+                          ?.copyWith(color: context.palette.subtle),
                     ),
                   ],
                 ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/app_theme.dart';
+
 class LoadingView extends StatelessWidget {
   const LoadingView({super.key});
 
@@ -76,7 +78,7 @@ class EmptyView extends StatelessWidget {
               textAlign: TextAlign.center,
               style: Theme.of(
                 context,
-              ).textTheme.bodyLarge?.copyWith(color: Colors.grey.shade600),
+              ).textTheme.bodyLarge?.copyWith(color: context.palette.subtle),
             ),
           ],
         ),

@@ -21,7 +21,7 @@ d('Notices: approval, scheduling and divisions', () => {
     seq += 1;
     const phone = `+88017500${String(seq).padStart(5, '0')}`;
     const res = await http()
-      .post('/api/v1/auth/register')
+      .post('/api/auth/register')
       .send({ phone, name: `${role} ${seq}`, password: 'pass1234', ...(await signupDetails(prisma)) })
       .expect(201);
     const data: Record<string, unknown> = { role };
@@ -32,7 +32,7 @@ d('Notices: approval, scheduling and divisions', () => {
   }
 
   const mine = async (token: string) =>
-    (await http().get('/api/v1/notices/mine').set(auth(token)).expect(200)).body.map((n: any) => n.title);
+    (await http().get('/api/notices/mine').set(auth(token)).expect(200)).body.map((n: any) => n.title);
   const pushes = (noticeId: string) => prisma.notification.count({ where: { type: 'NOTICE', relatedEntityId: noticeId } });
 
   beforeAll(async () => {
@@ -44,7 +44,7 @@ d('Notices: approval, scheduling and divisions', () => {
       .compile();
     app = mod.createNestApplication();
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true, transformOptions: { enableImplicitConversion: true } }));
-    app.setGlobalPrefix('api/v1');
+    app.setGlobalPrefix('api');
     await app.init();
   });
   afterAll(async () => { await app.close(); await prisma.$disconnect(); });
@@ -58,36 +58,36 @@ d('Notices: approval, scheduling and divisions', () => {
     const admin = await account('ADMIN');
     const patient = await account('USER');
 
-    const n = (await http().post('/api/v1/admin/notices').set(auth(pharmacist.token))
+    const n = (await http().post('/api/admin/notices').set(auth(pharmacist.token))
       .send({ title: 'Dengue alert', content: 'Use mosquito nets.', source: 'DGHS', sourceUrl: 'https://dghs.gov.bd' }).expect(201)).body;
     expect(n).toMatchObject({ status: 'DRAFT', source: 'DGHS' });
-    await http().post('/api/v1/admin/notices').set(auth(pharmacist.token)).send({ title: 't', content: 'c', sourceUrl: 'http://x.test' }).expect(400);
-    await http().post(`/api/v1/admin/notices/${n.id}/publish`).set(auth(pharmacist.token)).expect(403);
+    await http().post('/api/admin/notices').set(auth(pharmacist.token)).send({ title: 't', content: 'c', sourceUrl: 'http://x.test' }).expect(400);
+    await http().post(`/api/admin/notices/${n.id}/publish`).set(auth(pharmacist.token)).expect(403);
 
-    const at = (path: string, token = pharmacist.token) => http().post(`/api/v1/admin/notices/${n.id}/${path}`).set(auth(token));
+    const at = (path: string, token = pharmacist.token) => http().post(`/api/admin/notices/${n.id}/${path}`).set(auth(token));
     await at('submit').expect(201);
-    await http().patch(`/api/v1/admin/notices/${n.id}`).set(auth(pharmacist.token)).send({ title: 'x' }).expect(403);   // locked while pending
+    await http().patch(`/api/admin/notices/${n.id}`).set(auth(pharmacist.token)).send({ title: 'x' }).expect(403);   // locked while pending
     await at('withdraw').expect(201);
-    await http().patch(`/api/v1/admin/notices/${n.id}`).set(auth(pharmacist.token)).send({ title: 'Dengue: use nets' }).expect(200);
+    await http().patch(`/api/admin/notices/${n.id}`).set(auth(pharmacist.token)).send({ title: 'Dengue: use nets' }).expect(200);
     await at('submit').expect(201);
 
     await at('send-back', admin.token).send({}).expect(400);                                   // the note is required
     const back = (await at('send-back', admin.token).send({ note: 'Add the hotline number.' }).expect(201)).body;
     expect(back).toMatchObject({ status: 'DRAFT', reviewNote: 'Add the hotline number.' });
     await at('submit').expect(201);
-    expect((await http().get(`/api/v1/admin/notices/${n.id}`).set(auth(admin.token)).expect(200)).body.reviewNote).toBeNull();
+    expect((await http().get(`/api/admin/notices/${n.id}`).set(auth(admin.token)).expect(200)).body.reviewNote).toBeNull();
 
     expect(await mine(patient.token)).toEqual([]);
     const approved = (await at('publish', admin.token).expect(201)).body;
     expect(approved).toMatchObject({ status: 'PUBLISHED', approvedBy: { id: admin.id } });
     expect(await mine(patient.token)).toEqual(['Dengue: use nets']);
     expect(await pushes(n.id)).toBeGreaterThanOrEqual(1);
-    const shown = (await http().get('/api/v1/notices/mine').set(auth(patient.token))).body[0];
+    const shown = (await http().get('/api/notices/mine').set(auth(patient.token))).body[0];
     expect(shown).toMatchObject({ source: 'DGHS' });
     expect(shown).not.toHaveProperty('reviewNote');
 
-    await http().patch(`/api/v1/admin/notices/${n.id}`).set(auth(pharmacist.token)).send({ title: 'x' }).expect(403);
-    await http().delete(`/api/v1/admin/notices/${n.id}`).set(auth(pharmacist.token)).expect(403);
+    await http().patch(`/api/admin/notices/${n.id}`).set(auth(pharmacist.token)).send({ title: 'x' }).expect(403);
+    await http().delete(`/api/admin/notices/${n.id}`).set(auth(pharmacist.token)).expect(403);
     await at('archive').expect(403);
     expect(await prisma.auditLog.count({ where: { entityId: n.id, action: 'notice.approve' } })).toBe(1);
   });
@@ -96,9 +96,9 @@ d('Notices: approval, scheduling and divisions', () => {
     const admin = await account('ADMIN');
     const patient = await account('USER');
     const startsAt = new Date(Date.now() + 3_600_000);
-    const n = (await http().post('/api/v1/admin/notices').set(auth(admin.token))
+    const n = (await http().post('/api/admin/notices').set(auth(admin.token))
       .send({ title: 'Vaccine camp', content: 'Saturday', startsAt: startsAt.toISOString() }).expect(201)).body;
-    const published = (await http().post(`/api/v1/admin/notices/${n.id}/publish`).set(auth(admin.token)).expect(201)).body;
+    const published = (await http().post(`/api/admin/notices/${n.id}/publish`).set(auth(admin.token)).expect(201)).body;
     expect(published).toMatchObject({ status: 'PUBLISHED', publishedAt: null });
     expect(await mine(patient.token)).toEqual([]);
     expect(await pushes(n.id)).toBe(0);
@@ -119,13 +119,13 @@ d('Notices: approval, scheduling and divisions', () => {
     const inA = await account('USER', a.id);
     const inB = await account('USER', b.id);
 
-    const local = (await http().post('/api/v1/admin/notices').set(auth(admin.token))
+    const local = (await http().post('/api/admin/notices').set(auth(admin.token))
       .send({ title: 'Local', content: 'c', divisionIds: [a.id] }).expect(201)).body;
-    const national = (await http().post('/api/v1/admin/notices').set(auth(admin.token))
+    const national = (await http().post('/api/admin/notices').set(auth(admin.token))
       .send({ title: 'National', content: 'c' }).expect(201)).body;
-    await http().post('/api/v1/admin/notices').set(auth(admin.token)).send({ title: 'x', content: 'c', divisionIds: [999999] }).expect(400);
+    await http().post('/api/admin/notices').set(auth(admin.token)).send({ title: 'x', content: 'c', divisionIds: [999999] }).expect(400);
     for (const n of [local, national]) {
-      await http().post(`/api/v1/admin/notices/${n.id}/publish`).set(auth(admin.token)).expect(201);
+      await http().post(`/api/admin/notices/${n.id}/publish`).set(auth(admin.token)).expect(201);
     }
 
     expect((await mine(inA.token)).sort()).toEqual(['Local', 'National']);

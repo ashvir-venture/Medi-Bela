@@ -42,6 +42,9 @@ class PrefsKeys {
 
   static const String languageCode = 'pref_language_code';
 
+  /// 'system' | 'light' | 'dark' (this device only).
+  static const String themeMode = 'pref_theme_mode';
+
   /// Mirror of the account's `medicineRemindersEnabled`, so reminders
   /// follow the switch offline and in background isolates.
   static const String medicineRemindersEnabled = 'pref_medicine_reminders_enabled';

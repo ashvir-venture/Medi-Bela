@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/app_theme.dart';
+
 /// A sponsor-ready advertisement slot.
 ///
 /// For now it is fed static text (see `adHeadline` / `adMessage` in
@@ -60,14 +62,14 @@ class SponsoredAdBanner extends StatelessWidget {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: context.palette.tagBackground,
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(color: Colors.grey.shade400),
                         ),
                         child: Text(
                           tag,
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: Colors.grey.shade700,
+                            color: context.palette.muted,
                             fontWeight: FontWeight.w600,
                           ),
                         ),

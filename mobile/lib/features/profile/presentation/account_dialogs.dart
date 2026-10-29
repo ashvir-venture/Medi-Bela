@@ -99,7 +99,8 @@ class _ChangePasswordDialogState extends ConsumerState<_ChangePasswordDialog> {
                 decoration: InputDecoration(labelText: strings.newPassword),
                 validator: (v) {
                   if (v == null || v.isEmpty) return strings.requiredField;
-                  if (v.length < 8) return strings.passwordTooShort;
+                  // Same minimum as the server, sign-up and password reset.
+                  if (v.length < 6) return strings.passwordTooShort;
                   return null;
                 },
               ),

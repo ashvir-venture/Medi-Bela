@@ -8,7 +8,97 @@
   --color-danger: #dc2626;
   --color-success: #16a34a;
   --color-warning: #d97706;
+  /* Surfaces and tints. Light values are the colors used before dark mode. */
+  --color-surface: white;
+  --color-surface-alt: #f1f5f9;
+  --color-on-primary: white;
+  --color-neutral-bg: #e2e8f0;
+  --color-primary-soft: #ccfbf1;
+  --color-primary-faint: #f0fdfa;
+  --color-danger-bg: #fef2f2;
+  --color-danger-border: #fecaca;
+  --color-danger-soft: #fee2e2;
+  --color-warning-bg: #fef3c7;
+  --color-success-bg: #dcfce7;
+  --color-success-soft: #f0fdf4;
+  --color-success-border: #bbf7d0;
+  --color-info-bg: #eff6ff;
+  --color-info-border: #bfdbfe;
+  --color-info-text: #1d4ed8;
+  --color-overlay: rgba(15, 23, 42, 0.35);
+  /* Behind the logo: its navy text needs a light plate in dark mode. */
+  --color-logo-plate: transparent;
+  color-scheme: light;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/*
+ * Dark mode: follows the computer's setting unless the sidebar's Theme
+ * control chose one (data-theme on <html>, remembered in this browser).
+ * The two blocks hold the same values.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-primary: #14b8a6;
+    --color-primary-dark: #5eead4;
+    --color-bg: #0f172a;
+    --color-border: #334155;
+    --color-text: #e2e8f0;
+    --color-muted: #94a3b8;
+    --color-danger: #f87171;
+    --color-success: #4ade80;
+    --color-warning: #fbbf24;
+    --color-surface: #1e293b;
+    --color-surface-alt: #273449;
+    --color-on-primary: #042f2e;
+    --color-neutral-bg: #334155;
+    --color-primary-soft: rgba(20, 184, 166, 0.2);
+    --color-primary-faint: rgba(20, 184, 166, 0.12);
+    --color-danger-bg: rgba(220, 38, 38, 0.14);
+    --color-danger-border: rgba(248, 113, 113, 0.4);
+    --color-danger-soft: rgba(220, 38, 38, 0.22);
+    --color-warning-bg: rgba(217, 119, 6, 0.22);
+    --color-success-bg: rgba(22, 163, 74, 0.22);
+    --color-success-soft: rgba(22, 163, 74, 0.14);
+    --color-success-border: rgba(74, 222, 128, 0.35);
+    --color-info-bg: rgba(59, 130, 246, 0.16);
+    --color-info-border: rgba(96, 165, 250, 0.4);
+    --color-info-text: #93c5fd;
+    --color-overlay: rgba(2, 6, 23, 0.6);
+    --color-logo-plate: #f8fafc;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --color-primary: #14b8a6;
+  --color-primary-dark: #5eead4;
+  --color-bg: #0f172a;
+  --color-border: #334155;
+  --color-text: #e2e8f0;
+  --color-muted: #94a3b8;
+  --color-danger: #f87171;
+  --color-success: #4ade80;
+  --color-warning: #fbbf24;
+  --color-surface: #1e293b;
+  --color-surface-alt: #273449;
+  --color-on-primary: #042f2e;
+  --color-neutral-bg: #334155;
+  --color-primary-soft: rgba(20, 184, 166, 0.2);
+  --color-primary-faint: rgba(20, 184, 166, 0.12);
+  --color-danger-bg: rgba(220, 38, 38, 0.14);
+  --color-danger-border: rgba(248, 113, 113, 0.4);
+  --color-danger-soft: rgba(220, 38, 38, 0.22);
+  --color-warning-bg: rgba(217, 119, 6, 0.22);
+  --color-success-bg: rgba(22, 163, 74, 0.22);
+  --color-success-soft: rgba(22, 163, 74, 0.14);
+  --color-success-border: rgba(74, 222, 128, 0.35);
+  --color-info-bg: rgba(59, 130, 246, 0.16);
+  --color-info-border: rgba(96, 165, 250, 0.4);
+  --color-info-text: #93c5fd;
+  --color-overlay: rgba(2, 6, 23, 0.6);
+  --color-logo-plate: #f8fafc;
+  color-scheme: dark;
 }
 
 * {
@@ -38,14 +128,14 @@ a {
   padding: 8px 16px;
   border-radius: 8px;
   border: 1px solid var(--color-border);
-  background: white;
+  background: var(--color-surface);
   color: var(--color-text);
   font-size: 14px;
   cursor: pointer;
 }
 
 .btn:hover {
-  background: #f1f5f9;
+  background: var(--color-surface-alt);
 }
 
 .btn:disabled {
@@ -56,7 +146,7 @@ a {
 .btn-primary {
   background: var(--color-primary);
   border-color: var(--color-primary);
-  color: white;
+  color: var(--color-on-primary);
 }
 
 .btn-primary:hover {
@@ -64,17 +154,17 @@ a {
 }
 
 .btn-danger {
-  background: white;
+  background: var(--color-surface);
   border-color: var(--color-danger);
   color: var(--color-danger);
 }
 
 .btn-danger:hover {
-  background: #fef2f2;
+  background: var(--color-danger-bg);
 }
 
 .card {
-  background: white;
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 20px;
@@ -94,7 +184,7 @@ textarea {
   border: 1px solid var(--color-border);
   border-radius: 6px;
   font-size: 14px;
-  background: white;
+  background: var(--color-surface);
   color: var(--color-text);
 }
 
@@ -127,23 +217,23 @@ label {
 }
 
 .badge-pending {
-  background: #fef3c7;
+  background: var(--color-warning-bg);
   color: var(--color-warning);
 }
 
 .badge-completed {
-  background: #dcfce7;
+  background: var(--color-success-bg);
   color: var(--color-success);
 }
 
 .badge-draft {
-  background: #e2e8f0;
+  background: var(--color-neutral-bg);
   color: var(--color-muted);
 }
 
 .badge-rejected {
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
 }
 
 .stat-grid {
@@ -156,7 +246,7 @@ label {
 .stat-card {
   border: 1px solid var(--color-border);
   border-radius: 10px;
-  background: white;
+  background: var(--color-surface);
   padding: 16px;
 }
 
@@ -172,7 +262,7 @@ label {
   padding: 14px 16px;
   border: 1px solid var(--color-border);
   border-radius: 10px;
-  background: white;
+  background: var(--color-surface);
   margin-bottom: 10px;
   text-decoration: none;
   color: inherit;
@@ -188,8 +278,8 @@ label {
 }
 
 .error-banner {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger-border);
   color: var(--color-danger);
   padding: 10px 14px;
   border-radius: 8px;
@@ -230,7 +320,7 @@ label {
 }
 
 .badge-expired {
-  background: #fef3c7;
+  background: var(--color-warning-bg);
   color: var(--color-warning);
 }
 
@@ -290,7 +380,7 @@ label {
   padding: 6px 14px;
   border: 1px solid var(--color-border);
   border-radius: 999px;
-  background: white;
+  background: var(--color-surface);
   cursor: pointer;
   font-size: 13px;
 }
@@ -298,7 +388,7 @@ label {
 .tab.active {
   background: var(--color-primary);
   border-color: var(--color-primary);
-  color: white;
+  color: var(--color-on-primary);
 }
 
 /* --- App shell: left sidebar, drawer on phones --- */
@@ -313,7 +403,7 @@ label {
   width: 240px;
   display: flex;
   flex-direction: column;
-  background: white;
+  background: var(--color-surface);
   border-right: 1px solid var(--color-border);
   z-index: 30;
 }
@@ -362,11 +452,11 @@ label {
 }
 
 .sidebar-link:hover {
-  background: #f1f5f9;
+  background: var(--color-surface-alt);
 }
 
 .sidebar-link.active {
-  background: #ccfbf1;
+  background: var(--color-primary-soft);
   color: var(--color-primary-dark);
   font-weight: 600;
 }
@@ -412,7 +502,7 @@ label {
 }
 
 .icon-btn:hover {
-  background: #f1f5f9;
+  background: var(--color-surface-alt);
 }
 
 @media (max-width: 900px) {
@@ -428,7 +518,7 @@ label {
     align-items: center;
     gap: 8px;
     padding: 8px 12px;
-    background: white;
+    background: var(--color-surface);
     border-bottom: 1px solid var(--color-border);
   }
 
@@ -447,7 +537,7 @@ label {
     display: block;
     position: fixed;
     inset: 0;
-    background: rgba(15, 23, 42, 0.35);
+    background: var(--color-overlay);
     z-index: 25;
   }
 
@@ -526,15 +616,15 @@ label {
 }
 
 .success-banner {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
+  background: var(--color-success-soft);
+  border: 1px solid var(--color-success-border);
   color: var(--color-success);
 }
 
 .info-banner {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  color: #1d4ed8;
+  background: var(--color-info-bg);
+  border: 1px solid var(--color-info-border);
+  color: var(--color-info-text);
   margin: 12px 0 0;
 }
 
@@ -566,7 +656,7 @@ label {
   color: var(--color-muted);
   border: 1px dashed var(--color-border);
   border-radius: 10px;
-  background: white;
+  background: var(--color-surface);
 }
 
 .tag {
@@ -658,7 +748,7 @@ a.stat-card:hover {
   gap: 6px;
   padding: 4px 6px 4px 12px;
   border-radius: 999px;
-  background: #f1f5f9;
+  background: var(--color-surface-alt);
   border: 1px solid var(--color-border);
   font-size: 13px;
 }
@@ -688,7 +778,7 @@ a.stat-card:hover {
   margin: 0;
   padding: 4px;
   list-style: none;
-  background: white;
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
@@ -704,7 +794,7 @@ a.stat-card:hover {
 }
 
 .autosuggest-list li.active {
-  background: #f0fdfa;
+  background: var(--color-primary-faint);
 }
 
 .autosuggest-list .autosuggest-empty {
@@ -748,7 +838,7 @@ a.stat-card:hover {
   width: 100%;
   max-height: calc(100vh - 140px);
   object-fit: contain;
-  background: #f1f5f9;
+  background: var(--color-surface-alt);
 }
 
 .line-summary {
@@ -961,4 +1051,41 @@ a.stat-card:hover {
   .hbar-row {
     grid-template-columns: minmax(70px, 110px) 1fr 40px;
   }
+}
+
+/* --- Theme toggle (sidebar footer, login page) --- */
+
+.theme-toggle {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  margin-bottom: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-alt);
+}
+
+.theme-toggle button {
+  flex: 1;
+  min-height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.theme-toggle button.active {
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+}
+
+.sidebar-logo,
+.login-logo {
+  background: var(--color-logo-plate);
+  border-radius: 6px;
 }

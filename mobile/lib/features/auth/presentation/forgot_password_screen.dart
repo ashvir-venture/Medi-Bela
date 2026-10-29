@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../providers/core_providers.dart';
 import '../../../router/app_router.dart';
+import '../../../widgets/language_switcher.dart';
 
 /// Step 1 of "forgot password": ask for the phone number. The server answers
 /// the same whether or not an account exists (and only texts a code to the
@@ -51,7 +52,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     final strings = ref.watch(stringsProvider);
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(strings.resetPasswordTitle)),
+      appBar: AppBar(title: Text(strings.resetPasswordTitle), actions: const [LanguageSwitcher()]),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(

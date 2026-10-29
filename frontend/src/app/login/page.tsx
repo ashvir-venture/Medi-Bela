@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ApiError, login, rememberMe, saveTokens } from '@/lib/api-client';
 import { homeFor, isStaffRole } from '@/lib/paths';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -78,6 +79,9 @@ export default function LoginPage() {
             {isSubmitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
+        <div style={{ marginTop: 16 }}>
+          <ThemeToggle />
+        </div>
       </div>
     </div>
   );

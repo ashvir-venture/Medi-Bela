@@ -19,7 +19,7 @@ d('Admin analytics over HTTP (real AppModule + Postgres)', () => {
     seq += 1;
     const phone = `+88017200${String(seq).padStart(5, '0')}`;
     const res = await http()
-      .post('/api/v1/auth/register')
+      .post('/api/auth/register')
       .send({
         phone,
         name: `${name} ${seq}`,
@@ -76,7 +76,7 @@ d('Admin analytics over HTTP (real AppModule + Postgres)', () => {
         transformOptions: { enableImplicitConversion: true },
       }),
     );
-    app.setGlobalPrefix('api/v1');
+    app.setGlobalPrefix('api');
     await app.init();
   });
   afterAll(async () => {
@@ -94,9 +94,9 @@ d('Admin analytics over HTTP (real AppModule + Postgres)', () => {
     const pharmacist = await account('PHARMACIST');
     const user = await account('USER');
     for (const p of ['', '/divisions/1', '/top-doctors', '/top-medicines']) {
-      await http().get(`/api/v1/admin/analytics${p}`).expect(401);
-      await http().get(`/api/v1/admin/analytics${p}`).set(auth(pharmacist.token)).expect(403);
-      await http().get(`/api/v1/admin/analytics${p}`).set(auth(user.token)).expect(403);
+      await http().get(`/api/admin/analytics${p}`).expect(401);
+      await http().get(`/api/admin/analytics${p}`).set(auth(pharmacist.token)).expect(403);
+      await http().get(`/api/admin/analytics${p}`).set(auth(user.token)).expect(403);
     }
   });
 
@@ -118,7 +118,7 @@ d('Admin analytics over HTTP (real AppModule + Postgres)', () => {
     tenYearsAgo.setUTCFullYear(tenYearsAgo.getUTCFullYear() - 10);
     await makeUser(prisma, 'Child', { ...details, dateOfBirth: tenYearsAgo });
 
-    const { body } = await http().get('/api/v1/admin/analytics').set(auth(admin.token)).expect(200);
+    const { body } = await http().get('/api/admin/analytics').set(auth(admin.token)).expect(200);
     expect(body.users.total).toBe(4);
     const division = body.users.byDivision.find((r: any) => r.id === details.divisionId);
     expect(division.count).toBe(3);
@@ -137,11 +137,11 @@ d('Admin analytics over HTTP (real AppModule + Postgres)', () => {
     expect(body.cacheSeconds).toBe(300);
 
     const districts = await http()
-      .get(`/api/v1/admin/analytics/divisions/${details.divisionId}`)
+      .get(`/api/admin/analytics/divisions/${details.divisionId}`)
       .set(auth(admin.token))
       .expect(200);
     expect(districts.body.districts.find((r: any) => r.id === details.districtId).count).toBe(3);
-    await http().get('/api/v1/admin/analytics/divisions/999999').set(auth(admin.token)).expect(404);
+    await http().get('/api/admin/analytics/divisions/999999').set(auth(admin.token)).expect(404);
   });
 
   it('ranks doctors and medicines by distinct patients on confirmed prescriptions only', async () => {
@@ -172,7 +172,7 @@ d('Admin analytics over HTTP (real AppModule + Postgres)', () => {
     await line(p5.id, napa.id, 1); // an old revision: not counted
     await line(p5.id, seclo.id, 2);
 
-    const { body } = await http().get('/api/v1/admin/analytics').set(auth(admin.token)).expect(200);
+    const { body } = await http().get('/api/admin/analytics').set(auth(admin.token)).expect(200);
     expect(body.topDoctors.map((r: any) => [r.name, r.patients])).toEqual([
       ['Dr. Popular', 2],
       ['Dr. Other', 1],
@@ -182,13 +182,13 @@ d('Admin analytics over HTTP (real AppModule + Postgres)', () => {
       ['Napa', 1],
     ]);
 
-    const page = await http().get('/api/v1/admin/analytics/top-doctors').set(auth(admin.token)).expect(200);
+    const page = await http().get('/api/admin/analytics/top-doctors').set(auth(admin.token)).expect(200);
     expect(page.body.items.map((r: any) => r.rank)).toEqual([1, 2]);
     expect(page.body.nextCursor).toBeNull();
-    await http().get('/api/v1/admin/analytics/top-doctors?cursor=abc').set(auth(admin.token)).expect(400);
+    await http().get('/api/admin/analytics/top-doctors?cursor=abc').set(auth(admin.token)).expect(400);
 
     const detail = await http()
-      .get(`/api/v1/catalog/medicines/${seclo.id}`)
+      .get(`/api/catalog/medicines/${seclo.id}`)
       .set(auth(admin.token))
       .expect(200);
     expect(detail.body.patients).toBe(3);
@@ -229,26 +229,26 @@ d('Admin analytics over HTTP (real AppModule + Postgres)', () => {
     });
     await prisma.medicine.create({ data: { brandName: 'Stub' } });
 
-    const { body } = await http().get('/api/v1/admin/analytics').set(auth(admin.token)).expect(200);
+    const { body } = await http().get('/api/admin/analytics').set(auth(admin.token)).expect(200);
     expect(body.catalog).toEqual({
       doctors: 2,
       medicines: 2,
       incompleteDoctors: 1,
       incompleteMedicines: 1,
     });
-    const dash = await http().get('/api/v1/pharmacist/dashboard').set(auth(p1.token)).expect(200);
+    const dash = await http().get('/api/pharmacist/dashboard').set(auth(p1.token)).expect(200);
     expect(dash.body.catalog).toEqual({
       incompleteDoctors: 1,
       incompleteMedicines: 1,
     });
 
     await http()
-      .patch(`/api/v1/catalog/doctors/${partial.id}`)
+      .patch(`/api/catalog/doctors/${partial.id}`)
       .set(auth(p2.token))
       .send({ phone: '01711000001' })
       .expect(200);
     const asAdmin = await http()
-      .get(`/api/v1/catalog/doctors/${partial.id}`)
+      .get(`/api/catalog/doctors/${partial.id}`)
       .set(auth(admin.token))
       .expect(200);
     expect(asAdmin.body.createdBy).toMatchObject({
@@ -257,18 +257,18 @@ d('Admin analytics over HTTP (real AppModule + Postgres)', () => {
     });
     expect(asAdmin.body.incomplete).toBe(true); // still no chamber
     const list = await http()
-      .get('/api/v1/catalog/doctors?incomplete=true')
+      .get('/api/catalog/doctors?incomplete=true')
       .set(auth(admin.token))
       .expect(200);
     expect(list.body.items.map((r: any) => r.name)).toEqual(['Dr. Partial']);
     expect(list.body.items[0].createdBy.id).toBe(p2.id);
 
     const asPharmacist = await http()
-      .get(`/api/v1/catalog/doctors/${partial.id}`)
+      .get(`/api/catalog/doctors/${partial.id}`)
       .set(auth(p1.token))
       .expect(200);
     expect(asPharmacist.body).not.toHaveProperty('createdBy');
-    const pharmacistList = await http().get('/api/v1/catalog/doctors').set(auth(p1.token)).expect(200);
+    const pharmacistList = await http().get('/api/catalog/doctors').set(auth(p1.token)).expect(200);
     expect(pharmacistList.body.items[0]).not.toHaveProperty('createdBy');
   });
 });

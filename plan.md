@@ -158,8 +158,31 @@ Not done / open:
 - Speed is checked only on small demo data; Round 9's query audit should time /admin/analytics on production-sized data (the user breakdowns scan the users table; the rankings group prescriptions / lines).
 - Numbers can be up to 5 minutes old; the dashboard's own Refresh button doesn't clear the analytics cache.
 - Existing doctor/medicine records counted as complete under the old rule may now show as incomplete (and the other way round) until pharmacists fill phone, chamber and manufacturer.
+Between Rounds 8 and 9 (2026-10-29): dark mode and sign-in language switcher - CODE DONE, device testing pending
+Built: app dark theme (follows the phone; Profile → Appearance: System / Light / Dark, saved on the device), mode-aware text and status colors (AppPalette; light values unchanged), English | বাংলা switcher on login, register, forgot and reset password (synced to the account after sign-in like Profile). Panel dark mode via CSS tokens (follows the computer; System / Light / Dark in the sidebar footer and on the login page, remembered per browser, applied before paint), logo on a light plate in dark mode.
+Checked: mobile tests (37, incl. theme and switcher tests) + analyze (no errors or warnings) + release build; panel build and a browser run in dark and light (login, dashboard, analytics, prescriptions, workspace).
+Not done / open: the app's dark mode hasn't been seen on a phone (device testing deferred); the reminder notifications and lock-screen text keep the system's look.
 Round 9: Hardening and release
 The Q3 query audit, and dropping unused indexes after checking pg_stat_user_indexes.
 Load test the dose and missed-dose jobs.
 A backup and restore check, a staged rollout, and the Play Store exact-alarm policy check.
+Decisions (2026-10-29):
+- Deployment: Render hosts a pre-Round-1 version; the owner changes the env and redeploys after Round 9. Neon starts fresh (no users, old test data has no value): an empty database gets all migrations plus pending SQL 001-006 in order, then the seed (admin, optional pharmacist). Round 9 writes this cut-over as a backend runbook (new Neon DB, SQL, seed, Render env incl. DOSE_MISSED_GRACE_MINUTES, deploy, smoke test, rollback) and adds a step to delete the old public prescription test images in the Cloudinary console by hand. No Play Console plan.
+- Index audit: a disposable DB loaded with synthetic data now (EXPLAIN the hot queries, propose drops); drops are confirmed later from pg_stat_user_indexes on Neon after real use.
+- Load test: target 1,000 patients, but the design and the script must scale to 10,000-20,000 (size is a parameter). Fake data generated with SQL, the real jobs (rolling doses, missed-dose and backstop, notice schedule) and the hot reads timed by a ts-node script. No new dependency.
+- Backup: a Neon restore runbook (point-in-time branch, or pg_dump / pg_restore) plus a local dump-and-restore rehearsal on the disposable Postgres; the owner runs the Neon part.
+- Exact alarms: keep SCHEDULE_EXACT_ALARM with the inexact fallback (no USE_EXACT_ALARM). No Play upload for now, so the upload key (release signing) stays deferred; Play rejects debug-signed bundles, so it's needed before the first upload.
+- Clean-up in this round: update the stale tests, settle the API prefix on /api (specs follow main.ts), remove the stray files after checking nothing reads them, and set every part to version 0.1.0 (mobile 0.1.0+1). Admin lint stays a later decision.
+Status: CODE DONE 2026-10-30, device testing pending.
+Built: docs/release/ (deploy-runbook for the fresh Neon + Render cut-over incl. migrations_phase4a/phase4a_extra.sql, which is in neither the migrations nor pending SQL; backup-restore; load-test-and-index-audit; android-release-notes with the exact-alarm declaration and the signing steps), backend/scripts/load-test.ts (size is --patients). Clean-up: stray files removed (none was referenced; body.json held a test password), versions 0.1.0, integration specs on /api, stale tests updated to current behavior (health service name, AI token cap 2000, public-route list incl. password reset and lookups, 6-character password minimum, assistant tests on the conversations API).
+Checked: all 37 backend suites / 329 tests pass incl. DB-backed ones; the runbook sequence replayed on an empty Postgres (seed ok, no diff against schema.prisma); dump/restore of a 20,000-patient database (4.16M rows) identical; load test at 1,000 / 10,000 / 20,000 patients.
+Found by the load test and fixed (2026-10-30, with tests that failed before):
+- Backstop pushes reached only the first 200 doses in a window (151 of 1,000 patients at the 08:00 peak; 200 of 20,000). Now whole groups without a backstop are selected batch after batch: 20,000 of 20,000 within 2 minutes.
+- The rolling-dose job extended 200 routines an hour and fell behind above about 2,400 patients (routines would run out of doses). Now one hourly run covers all routines (40,000 in about 2 minutes); finished short courses no longer block the routines behind them.
+- Family alerts at the peak went out up to 30 minutes late at 20,000 patients; now within about 3 minutes.
+- Each job run has a time budget (rolling 10 min, missed-dose 45 s); the next run continues.
+- A notice to everyone creates one inbox row per user inside the every-minute job (21-110 s at 20,000 users); fine for now, batch it past ~50,000 users.
+Index audit: no drops now; doctors_name_idx and medicines_genericName_idx are drop candidates once Neon's pg_stat_user_indexes confirms (query in the audit doc).
+Fixed: the app's Change password dialog required 8 characters while its message, sign-up, reset and the server use 6; it now uses 6 (6 is final; change_password_dialog_test).
+Not done: device testing (all rounds); upload key (deferred); Neon point-in-time restore must be tried in the Neon console after the deploy.
 

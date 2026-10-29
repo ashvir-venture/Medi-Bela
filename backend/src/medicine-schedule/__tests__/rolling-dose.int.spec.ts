@@ -52,6 +52,36 @@ d('Rolling dose generation (real Postgres)', () => {
     expect(await prisma.medicineDose.count({ where: { routineId: r.id } })).toBe(2 * ROLLING_HORIZON_DAYS);
   });
 
+  // One run must cover every routine: each needs extending once a day, and a
+  // 200-a-run job (24 runs a day) fell behind above ~4,800 routines.
+  it('extends every routine in one run, not just the first batch', async () => {
+    const user = await makeUser(prisma, 'Rahim');
+    await prisma.medicineRoutine.createMany({
+      data: Array.from({ length: 210 }, () => ({
+        userId: user.id, medicineName: 'Metformin', dosage: '500mg', frequency: 'twice daily', startDate: today,
+        scheduleTimes: JSON.stringify(['08:00', '20:00']), generatedUntil: addAppDays(today, ROLLING_HORIZON_DAYS - 1),
+      })),
+    });
+    await expect(job.run(now)).resolves.toBe(2 * 210);
+    expect(await prisma.medicineRoutine.count({ where: { generatedUntil: addAppDays(today, ROLLING_HORIZON_DAYS) } })).toBe(210);
+  });
+
+  it('finished courses that are already complete do not block routines behind them', async () => {
+    const user = await makeUser(prisma, 'Rahim');
+    // Ending soon and fully generated (up to the day after the end): nothing to do,
+    // but they still match the job's query and sort first.
+    await prisma.medicineRoutine.createMany({
+      data: Array.from({ length: 210 }, () => ({
+        userId: user.id, medicineName: 'Short course', dosage: '1', frequency: 'daily', startDate: today,
+        scheduleTimes: JSON.stringify(['08:00']), endDate: addAppDays(today, 2), generatedUntil: addAppDays(today, 3),
+      })),
+    });
+    const behind = await routine({ endDate: null, generatedUntil: addAppDays(today, ROLLING_HORIZON_DAYS - 1) });
+    await expect(job.run(now)).resolves.toBe(2);
+    expect((await prisma.medicineRoutine.findUnique({ where: { id: behind.id } })).generatedUntil)
+      .toEqual(addAppDays(today, ROLLING_HORIZON_DAYS));
+  });
+
   it('leaves routines from before Round 4 (no scheduleTimes) and inactive ones alone', async () => {
     await routine({ scheduleTimes: null, generatedUntil: today });
     await routine({ active: false, generatedUntil: today });

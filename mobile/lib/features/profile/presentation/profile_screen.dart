@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/localization/locale_controller.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_mode_controller.dart';
 import '../../../features/auth/domain/user_model.dart';
 import '../../../router/app_router.dart';
 import '../../../widgets/state_views.dart';
@@ -134,7 +136,7 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
         ),
         const SizedBox(height: 8),
         Center(child: Text(widget.user.name, style: theme.textTheme.titleLarge)),
-        Center(child: Text(widget.user.phone, style: TextStyle(color: Colors.grey.shade700))),
+        Center(child: Text(widget.user.phone, style: TextStyle(color: context.palette.muted))),
         const SizedBox(height: 16),
         // Details live on their own page so Profile stays short.
         OutlinedButton.icon(
@@ -167,6 +169,20 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
             // background (SessionServices) because push text follows it.
             ref.read(localeControllerProvider.notifier).setLanguage(selection.first);
           },
+        ),
+
+        // ---- Appearance (this device only) ------------------------------
+        const SizedBox(height: 24),
+        _Header(strings.appearance),
+        SegmentedButton<ThemeMode>(
+          segments: [
+            ButtonSegment(value: ThemeMode.system, label: Text(strings.themeSystem)),
+            ButtonSegment(value: ThemeMode.light, label: Text(strings.themeLight)),
+            ButtonSegment(value: ThemeMode.dark, label: Text(strings.themeDark)),
+          ],
+          selected: {ref.watch(themeModeControllerProvider)},
+          onSelectionChanged: (selection) =>
+              ref.read(themeModeControllerProvider.notifier).setMode(selection.first),
         ),
 
         // ---- Notification settings -------------------------------------
@@ -293,7 +309,7 @@ class _RoutineSummary extends ConsumerWidget {
     final strings = ref.watch(stringsProvider);
     final routines = ref.watch(activeRoutinesProvider).valueOrNull;
     if (routines == null) return const LinearProgressIndicator();
-    if (routines.isEmpty) return Text(strings.noActiveRoutines, style: TextStyle(color: Colors.grey.shade700));
+    if (routines.isEmpty) return Text(strings.noActiveRoutines, style: TextStyle(color: context.palette.muted));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -319,7 +335,7 @@ class _PrescriptionSummary extends ConsumerWidget {
     final strings = ref.watch(stringsProvider);
     final drafts = ref.watch(prescriptionDraftsProvider).valueOrNull;
     if (drafts == null) return const LinearProgressIndicator();
-    if (drafts.isEmpty) return Text(strings.noPrescriptionsYet, style: TextStyle(color: Colors.grey.shade700));
+    if (drafts.isEmpty) return Text(strings.noPrescriptionsYet, style: TextStyle(color: context.palette.muted));
 
     int count(bool Function(String? serverStatus, String status) test) =>
         drafts.where((d) => test(d.serverStatus, d.status)).length;
@@ -343,8 +359,8 @@ class _PrescriptionSummary extends ConsumerWidget {
       runSpacing: 4,
       children: [
         if (waiting > 0) chip(strings.waitingToUpload, waiting, Colors.blueGrey),
-        chip(strings.statusPending, pending, Colors.orange.shade800),
-        chip(strings.statusCompleted, completed, Colors.green.shade700),
+        chip(strings.statusPending, pending, context.palette.warning),
+        chip(strings.statusCompleted, completed, context.palette.success),
         chip(strings.statusRejected, rejected, Theme.of(context).colorScheme.error),
       ],
     );
@@ -362,7 +378,7 @@ class _SyncStatus extends ConsumerWidget {
       children: [
         Icon(
           pending == 0 ? Icons.cloud_done_outlined : Icons.cloud_upload_outlined,
-          color: pending == 0 ? Colors.green.shade700 : Colors.orange.shade800,
+          color: pending == 0 ? context.palette.success : context.palette.warning,
         ),
         const SizedBox(width: 12),
         Expanded(

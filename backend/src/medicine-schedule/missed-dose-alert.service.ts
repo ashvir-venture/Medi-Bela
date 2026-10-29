@@ -1,12 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { AccountStatus, DoseStatus, NotificationType } from '@prisma/client';
+import { AccountStatus, DoseStatus, Language, NotificationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService, NewNotification } from '../notifications/notifications.service';
 import { messages } from '../notifications/notification-messages';
 import { missedCutoff } from './lib/dose-status.util';
 
 const BATCH_SIZE = 200;
+/** A run (every minute) stops taking new batches after this long; the next run continues. */
+const RUN_BUDGET_MS = 45_000;
 
 /** The app's own second reminder fires this long after the scheduled time; the backstop push goes out then too. */
 export const BACKSTOP_AFTER_MINUTES = 30;
@@ -77,38 +79,52 @@ export class MissedDoseAlertService {
       data: { familyAlertProcessedAt: now },
     });
 
-    // 3. Alert for recent unhandled missed doses.
-    const candidates = await this.prisma.medicineDose.findMany({
-      where: {
-        status: DoseStatus.MISSED,
-        familyAlertProcessedAt: null,
-        scheduledAt: { gte: staleBefore },
-      },
-      orderBy: { scheduledAt: 'asc' },
-      take: BATCH_SIZE,
-      select: {
-        id: true,
-        userId: true,
-        user: {
-          select: {
-            name: true,
-            accountStatus: true,
-            profileVisibleToFamily: true,
-            medicineRemindersEnabled: true,
+    // 3. Alert for recent unhandled missed doses, batch after batch: at the
+    //    morning peak there are thousands. A keyset cursor (scheduledAt, id)
+    //    moves past each batch, so a dose whose alert failed is retried by
+    //    the next run, not again and again in this one.
+    const started = Date.now();
+    let after: { scheduledAt: Date; id: string } | null = null;
+    let alerted = 0;
+    for (;;) {
+      const candidates = await this.prisma.medicineDose.findMany({
+        where: {
+          status: DoseStatus.MISSED,
+          familyAlertProcessedAt: null,
+          scheduledAt: { gte: staleBefore },
+          ...(after
+            ? { OR: [{ scheduledAt: { gt: after.scheduledAt } }, { scheduledAt: after.scheduledAt, id: { gt: after.id } }] }
+            : {}),
+        },
+        orderBy: [{ scheduledAt: 'asc' }, { id: 'asc' }],
+        take: BATCH_SIZE,
+        select: {
+          id: true,
+          userId: true,
+          scheduledAt: true,
+          user: {
+            select: {
+              name: true,
+              accountStatus: true,
+              profileVisibleToFamily: true,
+              medicineRemindersEnabled: true,
+            },
           },
         },
-      },
-    });
+      });
 
-    let alerted = 0;
-    for (const dose of candidates) {
-      try {
-        alerted += await this.alertFamily(dose, now);
-      } catch (err) {
-        // Claim + notifications are one transaction, so a failure here leaves the dose
-        // unclaimed and the next run retries it.
-        this.logger.error(`Family alert failed for dose ${dose.id}: ${(err as Error).message}`);
+      for (const dose of candidates) {
+        try {
+          alerted += await this.alertFamily(dose, now);
+        } catch (err) {
+          // Claim + notifications are one transaction, so a failure here leaves the dose
+          // unclaimed and the next run retries it.
+          this.logger.error(`Family alert failed for dose ${dose.id}: ${(err as Error).message}`);
+        }
       }
+      if (candidates.length < BATCH_SIZE || Date.now() - started > RUN_BUDGET_MS) break;
+      const last = candidates[candidates.length - 1];
+      after = { scheduledAt: last.scheduledAt, id: last.id };
     }
 
     const backstops = await this.sendBackstops(now);
@@ -131,40 +147,53 @@ export class MissedDoseAlertService {
    */
   async sendBackstops(now: Date = new Date()): Promise<number> {
     const dueBefore = new Date(now.getTime() - BACKSTOP_AFTER_MINUTES * 60_000);
-    const doses = await this.prisma.medicineDose.findMany({
-      where: {
-        status: DoseStatus.PENDING,
-        scheduledAt: { gte: missedCutoff(now), lte: dueBefore },
-        user: { accountStatus: AccountStatus.ACTIVE, medicineRemindersEnabled: true },
-      },
-      orderBy: { scheduledAt: 'asc' },
-      take: BATCH_SIZE,
-      select: { id: true, userId: true, scheduledAt: true, user: { select: { languagePreference: true } } },
-    });
+    const started = Date.now();
+    let sent = 0;
 
-    const groups = new Map<string, typeof doses>();
-    for (const dose of doses) {
-      const key = `${dose.userId}|${dose.scheduledAt.toISOString()}`;
-      groups.set(key, [...(groups.get(key) ?? []), dose]);
+    // Whole (patient, time) groups that don't have their backstop yet, so
+    // every patient due at the busiest minute gets one (a 200-dose batch
+    // used to return the same, already-sent doses every minute) and each
+    // push carries all of the group's dose ids. Timestamps are UTC in
+    // timestamp-without-time-zone columns, hence the AT TIME ZONE 'UTC'.
+    for (;;) {
+      const groups = await this.prisma.$queryRaw<
+        { userId: string; scheduledAt: Date; languagePreference: Language; doseIds: string[] }[]
+      >(Prisma.sql`
+        SELECT d."userId", d."scheduledAt", u."languagePreference", array_agg(d.id::text ORDER BY d.id) AS "doseIds"
+        FROM medicine_doses d
+        JOIN users u ON u.id = d."userId"
+        WHERE d.status = 'PENDING'
+          AND d."scheduledAt" >= (${missedCutoff(now).toISOString()}::timestamptz AT TIME ZONE 'UTC')
+          AND d."scheduledAt" <= (${dueBefore.toISOString()}::timestamptz AT TIME ZONE 'UTC')
+          AND u."accountStatus" = 'ACTIVE' AND u."medicineRemindersEnabled"
+          AND NOT EXISTS (
+            SELECT 1 FROM notifications n
+            WHERE n."userId" = d."userId" AND n.type = 'MEDICINE_REMINDER'
+              AND n."relatedEntityId" = 'backstop:' || to_char(d."scheduledAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
+        GROUP BY d."userId", d."scheduledAt", u."languagePreference"
+        ORDER BY d."scheduledAt", d."userId"
+        LIMIT ${BATCH_SIZE}`);
+
+      const rows: NewNotification[] = groups.map((group) => {
+        const copy = messages.medicineReminderBackstop(group.languagePreference);
+        const scheduledAt = group.scheduledAt.toISOString();
+        return {
+          userId: group.userId,
+          type: NotificationType.MEDICINE_REMINDER,
+          title: copy.title,
+          body: copy.body,
+          relatedEntityId: `backstop:${scheduledAt}`,
+          // Ids only: the app checks them against its own database.
+          data: { kind: 'backstop', scheduledAt, doseIds: group.doseIds.join(',') },
+        };
+      });
+      const ids = await this.notifications.createMany(rows);
+      await this.notifications.dispatch(ids);
+      sent += ids.length;
+      // Nothing new created means the rest already exist (a concurrent run): stop.
+      if (groups.length < BATCH_SIZE || ids.length === 0 || Date.now() - started > RUN_BUDGET_MS) break;
     }
-
-    const rows: NewNotification[] = [...groups.values()].map((group) => {
-      const first = group[0];
-      const copy = messages.medicineReminderBackstop(first.user.languagePreference);
-      const scheduledAt = first.scheduledAt.toISOString();
-      return {
-        userId: first.userId,
-        type: NotificationType.MEDICINE_REMINDER,
-        title: copy.title,
-        body: copy.body,
-        relatedEntityId: `backstop:${scheduledAt}`,
-        // Ids only: the app checks them against its own database.
-        data: { kind: 'backstop', scheduledAt, doseIds: group.map((d) => d.id).join(',') },
-      };
-    });
-    const ids = await this.notifications.createMany(rows);
-    await this.notifications.dispatch(ids);
-    return ids.length;
+    return sent;
   }
 
   private async alertFamily(

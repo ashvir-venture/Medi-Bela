@@ -127,6 +127,10 @@ class AppStrings {
     required this.currentPassword,
     required this.newPassword,
     required this.language,
+    required this.appearance,
+    required this.themeSystem,
+    required this.themeLight,
+    required this.themeDark,
     required this.notifications,
     required this.hideFromFamily,
     required this.newPrescriptionEntry,
@@ -385,6 +389,12 @@ class AppStrings {
   final String currentPassword;
   final String newPassword;
   final String language;
+
+  /// Theme choice in Profile (this device only).
+  final String appearance;
+  final String themeSystem;
+  final String themeLight;
+  final String themeDark;
   final String notifications;
   final String hideFromFamily;
   final String newPrescriptionEntry;
@@ -652,6 +662,10 @@ const AppStrings enStrings = AppStrings(
   currentPassword: 'Current password',
   newPassword: 'New password',
   language: 'Language',
+  appearance: 'Appearance',
+  themeSystem: 'Phone setting',
+  themeLight: 'Light',
+  themeDark: 'Dark',
   notifications: 'Notifications',
   hideFromFamily: 'Hide from family',
   newPrescriptionEntry: 'New prescription entry',
@@ -915,6 +929,10 @@ const AppStrings bnStrings = AppStrings(
   currentPassword: 'বর্তমান পাসওয়ার্ড',
   newPassword: 'নতুন পাসওয়ার্ড',
   language: 'ভাষা',
+  appearance: 'রঙের ধরন',
+  themeSystem: 'ফোনের সেটিং',
+  themeLight: 'হালকা',
+  themeDark: 'গাঢ়',
   notifications: 'বিজ্ঞপ্তি',
   hideFromFamily: 'পরিবার থেকে লুকান',
   newPrescriptionEntry: 'নতুন প্রেসক্রিপশন এন্ট্রি',

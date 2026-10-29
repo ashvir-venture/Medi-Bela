@@ -127,7 +127,7 @@ export default function HealthRuleDetailPage() {
 
         {error && <div className="error-banner">{error}</div>}
         {notice && (
-          <div className="card" style={{ background: '#f0fdf4', borderColor: '#bbf7d0' }}>
+          <div className="card" style={{ background: 'var(--color-success-soft)', borderColor: 'var(--color-success-border)' }}>
             {notice}
           </div>
         )}

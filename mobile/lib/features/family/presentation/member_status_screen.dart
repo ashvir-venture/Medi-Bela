@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/localization/locale_controller.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../router/app_router.dart';
 import '../../../widgets/state_views.dart';
 import '../../auth/presentation/auth_controller.dart';
@@ -105,7 +106,7 @@ class _CaregiverShortcuts extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(strings.caregiverActingHint, style: TextStyle(color: Colors.grey.shade700)),
+        Text(strings.caregiverActingHint, style: TextStyle(color: context.palette.muted)),
         const SizedBox(height: 12),
         Row(
           children: [
@@ -146,7 +147,7 @@ class _DoseTile extends ConsumerWidget {
     switch (dose.status) {
       case 'TAKEN':
         label = strings.doseTaken;
-        color = Colors.green.shade700;
+        color = context.palette.success;
         break;
       case 'MISSED':
         label = strings.doseMissed;
@@ -154,12 +155,12 @@ class _DoseTile extends ConsumerWidget {
         break;
       case 'SKIPPED':
         label = strings.doseSkipped;
-        color = Colors.grey.shade600;
+        color = context.palette.subtle;
         break;
       default: // PENDING
         final due = !dose.scheduledAt.isAfter(DateTime.now());
         label = due ? strings.doseDue : strings.doseUpcoming;
-        color = due ? Colors.orange.shade800 : Colors.grey.shade600;
+        color = due ? context.palette.warning : context.palette.subtle;
     }
 
     return Card(

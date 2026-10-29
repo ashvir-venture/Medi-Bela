@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/localization/app_strings.dart';
 import '../../../core/localization/locale_controller.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../providers/core_providers.dart';
 import '../../../router/app_router.dart';
 import '../../../widgets/caregiver_tag.dart';
@@ -122,7 +123,7 @@ class _RoutineCard extends StatelessWidget {
                     Text(routine.medicineName, style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 2),
                     Text([routine.dosage, routine.frequency].where((s) => s != '-').join(' • ')),
-                    if (times.isNotEmpty) Text(times, style: TextStyle(color: Colors.grey.shade700)),
+                    if (times.isNotEmpty) Text(times, style: TextStyle(color: context.palette.muted)),
                     if (tags.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Wrap(spacing: 6, runSpacing: 6, children: tags),

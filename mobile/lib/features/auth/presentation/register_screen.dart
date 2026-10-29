@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../router/app_router.dart';
 import '../../../widgets/details_fields.dart';
+import '../../../widgets/language_switcher.dart';
 import 'auth_controller.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -70,7 +71,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final strings = ref.watch(stringsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(strings.register)),
+      appBar: AppBar(title: Text(strings.register), actions: const [LanguageSwitcher()]),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../router/app_router.dart';
 import '../../../widgets/app_logo.dart';
+import '../../../widgets/language_switcher.dart';
 import 'auth_controller.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -66,7 +67,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SizedBox(height: 32),
+                    const Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: LanguageSwitcher(),
+                    ),
+                    const SizedBox(height: 8),
                     Center(
                       child: AppLogo(
                         height: 72,

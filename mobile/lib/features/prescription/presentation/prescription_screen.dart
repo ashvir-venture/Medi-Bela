@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/localization/app_strings.dart';
 import '../../../core/localization/locale_controller.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../providers/core_providers.dart';
 import '../../../router/app_router.dart';
 import '../../../widgets/load_more_list.dart';
@@ -270,7 +271,7 @@ class _PrescriptionEntryFormState extends ConsumerState<_PrescriptionEntryForm> 
             ),
             child: Text(
               strings.uploadPendingNotice,
-              style: TextStyle(fontSize: 13, color: Colors.amber.shade900),
+              style: TextStyle(fontSize: 13, color: context.palette.caution),
             ),
           ),
           const SizedBox(height: 16),

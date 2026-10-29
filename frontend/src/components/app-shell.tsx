@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { AdminUser, clearTokens } from '@/lib/api-client';
 import { ADMIN_BASE } from '@/lib/paths';
 import { Icon, IconName } from '@/components/icons';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export interface NavItem {
   href: string;
@@ -110,6 +111,7 @@ export function AppShell({
             <div className="sidebar-user-name">{user.name}</div>
             <div className="muted">{ROLE_LABEL[user.role]}</div>
           </div>
+          <ThemeToggle />
           <button className="btn btn-block" onClick={logout}>
             <Icon name="logout" /> Log out
           </button>

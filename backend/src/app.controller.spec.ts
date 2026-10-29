@@ -16,7 +16,7 @@ describe('AppController', () => {
 
   describe('root', () => {
     it('reports service health', () => {
-      expect(appController.getHealth()).toMatchObject({ status: 'ok', service: 'carebridge-backend' });
+      expect(appController.getHealth()).toMatchObject({ status: 'ok', service: 'medi-bela backend' });
     });
   });
 });

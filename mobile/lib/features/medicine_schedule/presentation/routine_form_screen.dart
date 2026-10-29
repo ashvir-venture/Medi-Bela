@@ -1,3 +1,4 @@
+import '../../../core/theme/app_theme.dart';
 import 'dart:async';
 
 import 'package:dio/dio.dart';
@@ -196,7 +197,7 @@ class _RoutineFormScreenState extends ConsumerState<RoutineFormScreen> {
               Text(_routine!.medicineName, style: Theme.of(context).textTheme.titleLarge),
               Text(_routine!.dosage),
               const SizedBox(height: 8),
-              Text(strings.pharmacistMedicineLimited, style: TextStyle(color: Colors.grey.shade700)),
+              Text(strings.pharmacistMedicineLimited, style: TextStyle(color: context.palette.muted)),
               const SizedBox(height: 16),
             ] else ...[
               Autocomplete<CatalogMedicineOption>(

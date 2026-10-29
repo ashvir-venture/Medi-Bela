@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/localization/app_strings.dart';
 import '../../../core/localization/locale_controller.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_mapper.dart';
 import '../../../providers/core_providers.dart';
 import '../../../router/app_router.dart';
@@ -193,9 +194,9 @@ class ServerPrescriptionTile extends ConsumerWidget {
       };
 
   static Color _statusColor(BuildContext context, String status) => switch (status) {
-        'ACTIVE' => Colors.green.shade700,
-        'AWAITING_CONFIRMATION' => Colors.blue.shade700,
+        'ACTIVE' => context.palette.success,
+        'AWAITING_CONFIRMATION' => context.palette.info,
         'REJECTED' => Theme.of(context).colorScheme.error,
-        _ => Colors.orange.shade800,
+        _ => context.palette.warning,
       };
 }

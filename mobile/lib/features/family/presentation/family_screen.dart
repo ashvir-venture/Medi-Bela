@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/localization/locale_controller.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../widgets/state_views.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../domain/family_models.dart';
@@ -85,7 +86,7 @@ class _FamilyContent extends ConsumerWidget {
             child: Text(
               strings.familyEmptyHint,
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade600),
+              style: TextStyle(color: context.palette.subtle),
             ),
           ),
           const SizedBox(height: 24),
@@ -124,7 +125,7 @@ class _FamilyContent extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text(
                     strings.inviteToSeeStatus,
-                    style: TextStyle(color: Colors.grey.shade600),
+                    style: TextStyle(color: context.palette.subtle),
                   ),
                 )
               : const SizedBox.shrink();
@@ -242,13 +243,13 @@ class _SummaryChips extends ConsumerWidget {
     if (!summary.shared) {
       return Text(
         strings.statusNotShared,
-        style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+        style: TextStyle(color: context.palette.subtle, fontSize: 12),
       );
     }
     if (summary.total == 0) {
       return Text(
         strings.noDosesToday,
-        style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+        style: TextStyle(color: context.palette.subtle, fontSize: 12),
       );
     }
     return Wrap(
@@ -299,7 +300,7 @@ class _PendingInvitationsSection extends ConsumerWidget {
               if (invitations.isEmpty) {
                 return Text(
                   strings.noItemsYet,
-                  style: TextStyle(color: Colors.grey.shade600),
+                  style: TextStyle(color: context.palette.subtle),
                 );
               }
               return Column(
@@ -340,19 +341,19 @@ class _InvitationTile extends ConsumerWidget {
                   if (invitation.invitedByName != null)
                     Text(
                       '${strings.invitedBy} ${invitation.invitedByName!}',
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: TextStyle(color: context.palette.subtle),
                     ),
                   const SizedBox(height: 6),
                   // What joining means: the inviter becomes this person's caregiver.
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.info_outline, size: 18, color: Colors.orange.shade800),
+                      Icon(Icons.info_outline, size: 18, color: context.palette.warning),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           strings.invitationWarning,
-                          style: TextStyle(fontSize: 13, color: Colors.orange.shade900),
+                          style: TextStyle(fontSize: 13, color: context.palette.warningStrong),
                         ),
                       ),
                     ],

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../providers/core_providers.dart';
 import '../../../router/app_router.dart';
+import '../../../widgets/language_switcher.dart';
 
 /// Step 2: the 6-digit code from the SMS + the new password. Success sends the
 /// user back to the login screen; every failure shows the same generic server
@@ -85,7 +86,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
     final strings = ref.watch(stringsProvider);
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(strings.resetPasswordTitle)),
+      appBar: AppBar(title: Text(strings.resetPasswordTitle), actions: const [LanguageSwitcher()]),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(

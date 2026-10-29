@@ -5,17 +5,16 @@ import { missedGraceMinutes, DEFAULT_MISSED_GRACE_MINUTES } from '../lib/dose-st
 const NOW = new Date('2026-10-29T08:45:00.000Z');
 const minutesAgo = (m: number) => new Date(NOW.getTime() - m * 60_000);
 
-/** Prisma fake: `pendingForBackstop` answers the backstop query, `missed` the family-alert candidates. */
-function setup(opts: { pendingForBackstop?: any[]; missed?: any[] } = {}) {
+/** Prisma fake: `backstopGroups` answers the backstop query, `missed` the family-alert candidates. */
+function setup(opts: { backstopGroups?: any[]; missed?: any[] } = {}) {
   const createdRows: any[] = [];
   const familyLookups = jest.fn(async () => ({ familyId: 'f1' }));
   const prisma: any = {
     medicineDose: {
       updateMany: jest.fn(async () => ({ count: 1 })),
-      findMany: jest.fn(async ({ where }: any) =>
-        where.status === DoseStatus.PENDING ? opts.pendingForBackstop ?? [] : opts.missed ?? [],
-      ),
+      findMany: jest.fn(async ({ where }: any) => (where.status === DoseStatus.MISSED ? opts.missed ?? [] : [])),
     },
+    $queryRaw: jest.fn(async () => opts.backstopGroups ?? []),
     familyMember: {
       findUnique: familyLookups,
       findMany: jest.fn(async () => [{ user: { id: 'relative', languagePreference: 'EN' } }]),
@@ -58,20 +57,21 @@ describe('reminder backstop push', () => {
     const { service, prisma } = setup();
     await service.sendBackstops(NOW);
 
-    const { where } = prisma.medicineDose.findMany.mock.calls[0][0];
-    expect(where.status).toBe(DoseStatus.PENDING);
-    expect(where.scheduledAt.lte).toEqual(minutesAgo(BACKSTOP_AFTER_MINUTES));
-    expect(where.scheduledAt.gte).toEqual(minutesAgo(62));
-    expect(where.user).toMatchObject({ medicineRemindersEnabled: true });
+    const query = prisma.$queryRaw.mock.calls[0][0];
+    expect(query.sql).toMatch(/d\.status = 'PENDING'/);
+    expect(query.sql).toMatch(/"medicineRemindersEnabled"/);
+    // Groups that already have their backstop are skipped, so later groups get theirs.
+    expect(query.sql).toMatch(/NOT EXISTS/);
+    expect(query.values).toContain(minutesAgo(BACKSTOP_AFTER_MINUTES).toISOString());
+    expect(query.values).toContain(minutesAgo(62).toISOString());
   });
 
   it('sends one neutral, data-only-ready notification per user and scheduled time, to the patient', async () => {
     const at = minutesAgo(31);
     const { service, createdRows, notifications } = setup({
-      pendingForBackstop: [
-        { id: 'd1', userId: 'u1', scheduledAt: at, user: { languagePreference: 'EN' } },
-        { id: 'd2', userId: 'u1', scheduledAt: at, user: { languagePreference: 'EN' } },
-        { id: 'd3', userId: 'u2', scheduledAt: at, user: { languagePreference: 'BN' } },
+      backstopGroups: [
+        { userId: 'u1', scheduledAt: at, languagePreference: 'EN', doseIds: ['d1', 'd2'] },
+        { userId: 'u2', scheduledAt: at, languagePreference: 'BN', doseIds: ['d3'] },
       ],
     });
 
@@ -95,6 +95,7 @@ describe('family alert and the reminder switch', () => {
   const missedDose = (medicineRemindersEnabled: boolean) => ({
     id: 'd1',
     userId: 'patient',
+    scheduledAt: minutesAgo(90),
     user: { name: 'Rahim', accountStatus: 'ACTIVE', profileVisibleToFamily: true, medicineRemindersEnabled },
   });
 

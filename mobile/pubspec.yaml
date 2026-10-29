@@ -2,7 +2,7 @@ name: mobile
 description: "Medi-Bela - offline-first healthcare reminder app"
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 0.1.0+1
 
 environment:
   sdk: ^3.13.2

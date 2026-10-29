@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/localization/app_strings.dart';
 import '../../../core/localization/locale_controller.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../router/app_router.dart';
 import '../domain/assistant_models.dart';
 import 'assistant_controller.dart';
@@ -157,7 +158,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
                   const SizedBox(height: 4),
                   Text(
                     strings.assistantPrivacy,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey.shade700),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: context.palette.muted),
                   ),
                 ],
               ),
@@ -261,7 +262,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
                           style: Theme.of(context)
                               .textTheme
                               .bodySmall
-                              ?.copyWith(color: Colors.grey.shade700),
+                              ?.copyWith(color: context.palette.muted),
                         ),
                       ),
                     Row(
@@ -384,7 +385,7 @@ class _Bubble extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 message.disclaimer!,
-                style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey.shade700),
+                style: theme.textTheme.bodySmall?.copyWith(color: context.palette.muted),
               ),
             ],
           ],
