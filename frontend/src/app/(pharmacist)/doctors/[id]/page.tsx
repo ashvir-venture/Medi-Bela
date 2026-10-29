@@ -102,7 +102,7 @@ export default function DoctorDetailPage() {
                 </select>
               </div>
               <div className="field">
-                <label htmlFor="chamber">Chamber / hospital</label>
+                <label htmlFor="chamber">Chamber / address</label>
                 <input id="chamber" className="input" value={form.chamber} onChange={set('chamber')} />
               </div>
               <div className="field">

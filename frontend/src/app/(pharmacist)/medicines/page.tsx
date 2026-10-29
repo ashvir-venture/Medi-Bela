@@ -10,12 +10,12 @@ export default function MedicinesPage() {
     <Suspense>
       <CatalogList<CatalogMedicine>
         title="Medicines"
-        intro="New medicines typed on a prescription land here with only a brand name. Add the generic name, form and category. Strength stays on each prescription line."
+        intro="New medicines typed on a prescription land here with only a brand name. Add the form, category and manufacturer (e.g. Seclo - Tablet - Gastric - Square Pharma); the generic name is optional. Strength stays on each prescription line."
         basePath="/medicines"
         searchLabel="Search by brand name"
         incompleteLabel="Only incomplete"
         fetchPage={listMedicines}
-        isIncomplete={(m) => !m.genericName || !m.formId || !m.categoryId}
+        isIncomplete={(m) => Boolean(m.incomplete)}
         renderRow={(m) => (
           <>
             <div style={{ fontWeight: 600 }}>

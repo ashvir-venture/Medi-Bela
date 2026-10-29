@@ -164,6 +164,13 @@ d('MVP end-to-end flow', () => {
 
     // --- 7. User misses a dose -> background job -> family alerted once, privately ----
     const missed = doses[0];
+    // Only this dose may be overdue. The routine's real 08:00 / 20:00 doses can
+    // fall inside the alert window depending on the hour the test runs (and
+    // reading the routines above already marked such a dose MISSED), so every
+    // other untaken dose moves a month ahead (else: a second, correct, alert).
+    await prisma.$executeRaw`UPDATE medicine_doses
+      SET "scheduledAt" = "scheduledAt" + interval '30 days', status = 'PENDING'
+      WHERE "userId" = ${patient.id}::uuid AND id <> ${missed.id}::uuid AND status <> 'TAKEN'`;
     await prisma.medicineDose.update({ where: { id: missed.id }, data: { scheduledAt: new Date(Date.now() - 3 * 3_600_000), status: 'PENDING' } });
     sent.length = 0;
     const job = app.get(MissedDoseAlertService);

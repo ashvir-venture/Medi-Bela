@@ -59,6 +59,41 @@ describe('CatalogService', () => {
     );
   });
 
+  it('an edit makes the editing pharmacist the record\'s "Created by"', async () => {
+    prisma.doctor.findUnique.mockResolvedValue({ id: 'doc-1', name: 'Dr. A', createdById: 'pharm-1' });
+    prisma.doctor.update.mockImplementation(async ({ data }: any) => ({ id: 'doc-1', name: 'Dr. A', ...data }));
+    await service.updateDoctor('pharm-2', 'doc-1', { phone: '01711000000' });
+    expect(prisma.doctor.update.mock.calls[0][0].data.createdById).toBe('pharm-2');
+
+    prisma.medicine.findUnique = jest.fn().mockResolvedValue({ id: 'med-1', brandName: 'Seclo', createdById: 'user-1' });
+    prisma.medicine.update = jest.fn(async ({ data }: any) => ({ id: 'med-1', brandName: 'Seclo', ...data }));
+    await service.updateMedicine('pharm-2', 'med-1', { manufacturer: 'Square Pharma' });
+    expect(prisma.medicine.update.mock.calls[0][0].data.createdById).toBe('pharm-2');
+  });
+
+  it('shows "Created by" and the patient count to admins only', async () => {
+    const row = {
+      id: 'med-1',
+      brandName: 'Seclo',
+      genericName: null,
+      formId: 1,
+      categoryId: 2,
+      manufacturer: 'Square Pharma',
+      createdBy: { id: 'user-1', name: 'A patient', role: 'USER' },
+    };
+    prisma.medicine.findUnique = jest.fn().mockResolvedValue(row);
+    prisma.$queryRaw = jest.fn().mockResolvedValue([{ n: 4 }]);
+
+    const forPharmacist = await service.getMedicine('med-1');
+    expect(forPharmacist).not.toHaveProperty('createdBy');
+    expect(forPharmacist).not.toHaveProperty('patients');
+    expect(forPharmacist.incomplete).toBe(false);
+
+    const forAdmin: any = await service.getMedicine('med-1', true);
+    expect(forAdmin.createdBy).toEqual(row.createdBy);
+    expect(forAdmin.patients).toBe(4);
+  });
+
   it('links a typed medicine to an existing one by brand name, ignoring case', async () => {
     prisma.medicine.findFirst.mockResolvedValue({ id: 'med-1' });
     const id = await service.findOrCreateMedicineStub('pharm-1', ' napa ', prisma);

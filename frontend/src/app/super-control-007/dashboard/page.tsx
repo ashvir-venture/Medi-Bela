@@ -6,6 +6,7 @@ import { ApiError, DashboardData, getDashboard } from '@/lib/api-client';
 import { useRequireAuth } from '@/lib/use-require-auth';
 import { Topbar } from '@/components/topbar';
 import { StatusBadge } from '@/components/status-badge';
+import { AnalyticsSection } from '@/components/analytics';
 
 /**
  * Renders GET /admin/dashboard. No business logic here: every count,
@@ -134,6 +135,8 @@ export default function DashboardPage() {
               <h2>New users per day (14 days)</h2>
               <Bars series={data.analytics.newUsersPerDay} />
             </div>
+
+            <AnalyticsSection />
 
             <p className="muted" style={{ fontSize: 12 }}>
               Updated {new Date(data.generatedAt).toLocaleTimeString()} ·{' '}

@@ -155,6 +155,13 @@ export interface CursorPage<T> {
 
 // --- Catalog: doctors, medicines, tests ---
 
+/** Who made a catalog record (the last pharmacist to save it). Admin responses only. */
+export interface CreatedBy {
+  id: string;
+  name: string;
+  role: AdminUser['role'];
+}
+
 export interface Doctor {
   id: string;
   name: string;
@@ -167,6 +174,11 @@ export interface Doctor {
   specialty: LookupRow | null;
   district: LookupRow | null;
   _count?: { prescriptions: number };
+  /** Computed by the backend: still missing name, specialty, phone or address. */
+  incomplete?: boolean;
+  createdBy?: CreatedBy | null;
+  /** Admin detail only: distinct patients on confirmed prescriptions. */
+  patients?: number;
 }
 
 export interface DoctorInput {
@@ -189,6 +201,11 @@ export interface CatalogMedicine {
   form: LookupRow | null;
   category?: LookupRow | null;
   _count?: { lines: number };
+  /** Computed by the backend: still missing name, form, category or manufacturer. */
+  incomplete?: boolean;
+  createdBy?: CreatedBy | null;
+  /** Admin detail only: distinct patients on confirmed prescriptions. */
+  patients?: number;
 }
 
 export interface MedicineInput {
@@ -662,6 +679,78 @@ export interface DashboardData {
 
 export function getDashboard() {
   return request<DashboardData>('/admin/dashboard');
+}
+
+// --- Analytics (admin) ---
+// GET /admin/analytics*: computed by the backend and cached there for
+// `cacheSeconds`; generatedAt says when.
+
+export interface CountBucket {
+  id: number;
+  name: string;
+  count: number;
+}
+
+export interface TopDoctor {
+  id: string;
+  name: string;
+  specialty: LookupRow | null;
+  patients: number;
+}
+
+export interface TopMedicine {
+  id: string;
+  brandName: string;
+  manufacturer: string | null;
+  form: LookupRow | null;
+  patients: number;
+}
+
+export interface AnalyticsData {
+  generatedAt: string;
+  cacheSeconds: number;
+  users: {
+    total: number;
+    byDivision: CountBucket[];
+    divisionNotSet: number;
+    byGender: CountBucket[];
+    genderNotSet: number;
+    byAge: { band: string; count: number }[];
+    ageNotSet: number;
+  };
+  families: { total: number; members: number };
+  catalog: { doctors: number; medicines: number; incompleteDoctors: number; incompleteMedicines: number };
+  topDoctors: TopDoctor[];
+  topMedicines: TopMedicine[];
+}
+
+export interface DivisionAnalytics {
+  generatedAt: string;
+  division: LookupRow;
+  districts: CountBucket[];
+  notSet: number;
+}
+
+export type Ranked<T> = T & { rank: number };
+
+export function getAnalytics() {
+  return request<AnalyticsData>('/admin/analytics');
+}
+
+export function getDivisionAnalytics(divisionId: number) {
+  return request<DivisionAnalytics>(`/admin/analytics/divisions/${divisionId}`);
+}
+
+export function listTopDoctors(cursor: string | null) {
+  return request<CursorPage<Ranked<TopDoctor>>>(
+    `/admin/analytics/top-doctors${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`,
+  );
+}
+
+export function listTopMedicines(cursor: string | null) {
+  return request<CursorPage<Ranked<TopMedicine>>>(
+    `/admin/analytics/top-medicines${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`,
+  );
 }
 
 export interface PharmacistDashboardData {

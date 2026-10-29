@@ -83,11 +83,11 @@ export default function PharmacistDashboardPage() {
             <div className="stat-grid">
               <Link href="/doctors?incomplete=1" className="stat-card">
                 <div className="stat-value">{data.catalog.incompleteDoctors}</div>
-                <div className="muted">Doctors missing BMDC number or specialty</div>
+                <div className="muted">Doctors missing specialty, phone or chamber / address</div>
               </Link>
               <Link href="/medicines?incomplete=1" className="stat-card">
                 <div className="stat-value">{data.catalog.incompleteMedicines}</div>
-                <div className="muted">Medicines missing generic name, form or category</div>
+                <div className="muted">Medicines missing form, category or manufacturer</div>
               </Link>
             </div>
 

@@ -25,6 +25,8 @@ export const PHARMACIST_NAV: NavItem[] = [
 export const ADMIN_NAV: NavItem[] = [
   { href: `${ADMIN_BASE}/dashboard`, label: 'Dashboard', icon: 'dashboard' },
   { href: `${ADMIN_BASE}/prescriptions`, label: 'Prescriptions', icon: 'prescription' },
+  { href: `${ADMIN_BASE}/doctors`, label: 'Doctors', icon: 'doctor' },
+  { href: `${ADMIN_BASE}/medicines`, label: 'Medicines', icon: 'medicine' },
   { href: `${ADMIN_BASE}/routines`, label: 'Routines', icon: 'routine' },
   { href: `${ADMIN_BASE}/health-suggestions`, label: 'AI suggestions', icon: 'sparkle' },
   { href: `${ADMIN_BASE}/notices`, label: 'Notices', icon: 'notice' },

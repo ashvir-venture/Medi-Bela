@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrescriptionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { appDayBounds } from '../common/utils/time.util';
+import { DOCTOR_INCOMPLETE_WHERE, MEDICINE_INCOMPLETE_WHERE } from '../catalog/lib/catalog-completeness';
 
 const OLDEST_LIMIT = 5;
 
@@ -43,10 +44,8 @@ export class PharmacistDashboardService {
       this.prisma.prescription.count({
         where: { reviewedById: pharmacistId, reviewedAt: reviewedToday, status: PrescriptionStatus.REJECTED },
       }),
-      this.prisma.doctor.count({ where: { OR: [{ bmdcNumber: null }, { specialtyId: null }] } }),
-      this.prisma.medicine.count({
-        where: { OR: [{ genericName: null }, { formId: null }, { categoryId: null }] },
-      }),
+      this.prisma.doctor.count({ where: DOCTOR_INCOMPLETE_WHERE }),
+      this.prisma.medicine.count({ where: MEDICINE_INCOMPLETE_WHERE }),
       this.prisma.prescription.findMany({
         where: { status: PrescriptionStatus.PENDING },
         orderBy: { createdAt: 'asc' },

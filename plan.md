@@ -139,7 +139,7 @@ Checked: notice role spec + notices-flow.int.spec (approval, send-back, schedule
 Not done / open:
 - Not run on a phone; admin pages not clicked through in a browser this round.
 - A notice already published can't be re-targeted to divisions after its push went out (the push isn't repeated); edit before publishing.
-Round 8: Admin analytics
+Round 8: Admin analytics - CODE DONE 2026-10-29
 Dashboard with users by area, age and gender, total families, doctors with the most patients, and most-used medicines.
 The madeBy view, a count of incomplete doctor and medicine records, and read-only doctor and medicine lists.
 Q2 rollups for speed.
@@ -152,6 +152,12 @@ Decisions (2026-10-29):
 - madeBy: doctors and medicines show "Created by" (the pharmacist's name, or the patient's/caregiver's name for a stub they created) in the admin area only. No edit column: a pharmacist edit overwrites createdById with that pharmacist; the earlier creator stays in AuditLog. Pharmacists keep editing as today.
 - Incomplete doctor: missing name, specialty, phone or chamber (chamber is the free-text address, relabelled "Chamber / address"); BMDC number and district are optional. Incomplete medicine: missing brand name, form, category or manufacturer (e.g. Seclo - Tablet - Gastric - Square Pharma); generic name is optional. Applies to the pharmacist dashboard count, the "Only incomplete" filter and the badges too.
 - Admin doctor and medicine pages: sidebar links, 20-row lists (search, "Only incomplete", Created by), read-only detail page with patient count.
+Built: GET /admin/analytics (users by division / gender / age with "Not set", people in families, catalog totals and incomplete counts, top 10 doctors and medicines), /admin/analytics/divisions/:id (districts), /top-doctors and /top-medicines (full rankings, 20 per page); all behind a 5-minute in-memory cache (TtlCache). One completeness rule (catalog-completeness.ts) used by the catalog filter, a new `incomplete` flag on each record and both dashboards. Pharmacist edits overwrite createdById. Admin catalog responses add createdBy (and patients on detail); pharmacist responses don't. No schema change, no pending SQL. Panel: analytics section on the admin dashboard (division bars open their districts), ranked pages, admin Doctors / Medicines lists and read-only record pages, pharmacist labels for the new rule ("Chamber / address").
+Checked: backend unit tests (only the 2 known failures), all DB-backed specs (only the known stale ones fail). Fixed a clock-dependent test: mvp-flow's "complete journey" failed whenever the routine's real 08:00 / 20:00 dose was inside the missed-alert window (e.g. run at 22:30), giving a second, correct family alert; the test now moves the patient's other untaken doses a month ahead before running the job. No product code changed. Your local backend/.env still sets DOSE_MISSED_GRACE_MINUTES=120 (overrides the 62 default). on a disposable Postgres incl. new admin-analytics.int.spec (numbers vs. the tables, ranking rules, incomplete rule, Created by admin-only), panel build, and a browser run of the dashboard, district drill-down, ranked page, admin lists and record page (desktop and phone width) with demo data; the numbers matched direct SQL.
+Not done / open:
+- Speed is checked only on small demo data; Round 9's query audit should time /admin/analytics on production-sized data (the user breakdowns scan the users table; the rankings group prescriptions / lines).
+- Numbers can be up to 5 minutes old; the dashboard's own Refresh button doesn't clear the analytics cache.
+- Existing doctor/medicine records counted as complete under the old rule may now show as incomplete (and the other way round) until pharmacists fill phone, chamber and manufacturer.
 Round 9: Hardening and release
 The Q3 query audit, and dropping unused indexes after checking pg_stat_user_indexes.
 Load test the dose and missed-dose jobs.

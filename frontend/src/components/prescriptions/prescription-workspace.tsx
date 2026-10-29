@@ -601,7 +601,7 @@ function DoctorBlock({
                   </select>
                 </div>
                 <div className="field">
-                  <label htmlFor="doctor-chamber">Chamber / hospital (optional)</label>
+                  <label htmlFor="doctor-chamber">Chamber / address (optional)</label>
                   <input
                     id="doctor-chamber"
                     className="input"

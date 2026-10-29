@@ -43,14 +43,16 @@ export class CatalogController {
 
   // --- Doctors ---
 
+  // Admin responses add "Created by" (and the patient count on detail).
+
   @Get('doctors')
-  listDoctors(@Query() query: CatalogListQueryDto) {
-    return this.catalog.listDoctors(query);
+  listDoctors(@CurrentUser('role') role: Role, @Query() query: CatalogListQueryDto) {
+    return this.catalog.listDoctors(query, role === Role.ADMIN);
   }
 
   @Get('doctors/:id')
-  getDoctor(@Param('id', ParseUUIDPipe) id: string) {
-    return this.catalog.getDoctor(id);
+  getDoctor(@CurrentUser('role') role: Role, @Param('id', ParseUUIDPipe) id: string) {
+    return this.catalog.getDoctor(id, role === Role.ADMIN);
   }
 
   @Post('doctors')
@@ -72,13 +74,13 @@ export class CatalogController {
   // --- Medicines ---
 
   @Get('medicines')
-  listMedicines(@Query() query: CatalogListQueryDto) {
-    return this.catalog.listMedicines(query);
+  listMedicines(@CurrentUser('role') role: Role, @Query() query: CatalogListQueryDto) {
+    return this.catalog.listMedicines(query, role === Role.ADMIN);
   }
 
   @Get('medicines/:id')
-  getMedicine(@Param('id', ParseUUIDPipe) id: string) {
-    return this.catalog.getMedicine(id);
+  getMedicine(@CurrentUser('role') role: Role, @Param('id', ParseUUIDPipe) id: string) {
+    return this.catalog.getMedicine(id, role === Role.ADMIN);
   }
 
   @Post('medicines')

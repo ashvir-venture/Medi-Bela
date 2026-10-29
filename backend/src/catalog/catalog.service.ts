@@ -16,6 +16,13 @@ import {
   UpdateDoctorDto,
   UpdateMedicineDto,
 } from './dto/catalog.dto';
+import {
+  DOCTOR_INCOMPLETE_WHERE,
+  MEDICINE_INCOMPLETE_WHERE,
+  isDoctorIncomplete,
+  isMedicineIncomplete,
+} from './lib/catalog-completeness';
+import { doctorPatientCount, medicinePatientCount } from './lib/patient-counts';
 
 export const SUGGEST_LIMIT = 10;
 
@@ -25,6 +32,19 @@ const DOCTOR_INCLUDE = {
 } as const;
 
 const MEDICINE_INCLUDE = { form: true, category: true } as const;
+
+/** Who made the record (the last pharmacist to save it). Admin responses only. */
+const CREATED_BY = { createdBy: { select: { id: true, name: true, role: true } } } as const;
+
+/**
+ * Admin responses carry `createdBy`; pharmacist responses don't (a stub a
+ * patient created would show the patient's name). Prisma's include always
+ * loads it, so it is stripped here for pharmacists.
+ */
+function shape<T extends { createdBy?: unknown }>(row: T, incomplete: boolean, forAdmin: boolean) {
+  const { createdBy, ...rest } = row;
+  return { ...rest, incomplete, ...(forAdmin ? { createdBy: createdBy ?? null } : {}) };
+}
 
 /** Doctor columns safe for the audit log (no phone numbers). */
 function doctorAuditView(d: { name: string; bmdcNumber: string | null; specialtyId: number | null; chamber: string | null; districtId: number | null }) {
@@ -129,28 +149,30 @@ export class CatalogService {
 
   // --- Doctors ------------------------------------------------------------
 
-  async listDoctors(query: CatalogListQueryDto) {
+  async listDoctors(query: CatalogListQueryDto, forAdmin = false) {
     const where: Prisma.DoctorWhereInput = {
       ...(query.q ? { name: { startsWith: query.q, mode: 'insensitive' } } : {}),
-      // "Incomplete" = still missing what identifies a doctor reliably.
-      ...(query.incomplete ? { OR: [{ bmdcNumber: null }, { specialtyId: null }] } : {}),
+      ...(query.incomplete ? DOCTOR_INCOMPLETE_WHERE : {}),
     };
     const rows = await this.prisma.doctor.findMany({
       where: { AND: [where, cursorWhere(query.cursor)] },
       orderBy: CURSOR_ORDER,
       take: ADMIN_PAGE_SIZE + 1,
-      include: { ...DOCTOR_INCLUDE, _count: { select: { prescriptions: true } } },
+      include: { ...DOCTOR_INCLUDE, ...CREATED_BY, _count: { select: { prescriptions: true } } },
     });
-    return toCursorPage(rows, ADMIN_PAGE_SIZE);
+    const page = toCursorPage(rows, ADMIN_PAGE_SIZE);
+    return { ...page, items: page.items.map((d) => shape(d, isDoctorIncomplete(d), forAdmin)) };
   }
 
-  async getDoctor(id: string) {
+  /** Admins also get the patient count (distinct patients on confirmed prescriptions). */
+  async getDoctor(id: string, forAdmin = false) {
     const doctor = await this.prisma.doctor.findUnique({
       where: { id },
-      include: { ...DOCTOR_INCLUDE, _count: { select: { prescriptions: true } } },
+      include: { ...DOCTOR_INCLUDE, ...CREATED_BY, _count: { select: { prescriptions: true } } },
     });
     if (!doctor) throw new NotFoundException('Doctor not found');
-    return doctor;
+    const shaped = shape(doctor, isDoctorIncomplete(doctor), forAdmin);
+    return forAdmin ? { ...shaped, patients: await doctorPatientCount(this.prisma, id) } : shaped;
   }
 
   async createDoctor(actorId: string, dto: CreateDoctorDto, tx?: Prisma.TransactionClient) {
@@ -201,6 +223,9 @@ export class CatalogService {
           chamber: dto.chamber === undefined ? undefined : dto.chamber || null,
           phone: dto.phone === undefined ? undefined : dto.phone || null,
           districtId: dto.districtId,
+          // "Created by" shows the last pharmacist to save the record; the
+          // earlier creator stays in the audit log.
+          createdById: actorId,
         },
         include: DOCTOR_INCLUDE,
       });
@@ -221,29 +246,30 @@ export class CatalogService {
 
   // --- Medicines ------------------------------------------------------------
 
-  async listMedicines(query: CatalogListQueryDto) {
+  async listMedicines(query: CatalogListQueryDto, forAdmin = false) {
     const where: Prisma.MedicineWhereInput = {
       ...(query.q ? { brandName: { startsWith: query.q, mode: 'insensitive' } } : {}),
-      ...(query.incomplete
-        ? { OR: [{ genericName: null }, { formId: null }, { categoryId: null }] }
-        : {}),
+      ...(query.incomplete ? MEDICINE_INCOMPLETE_WHERE : {}),
     };
     const rows = await this.prisma.medicine.findMany({
       where: { AND: [where, cursorWhere(query.cursor)] },
       orderBy: CURSOR_ORDER,
       take: ADMIN_PAGE_SIZE + 1,
-      include: { ...MEDICINE_INCLUDE, _count: { select: { lines: true } } },
+      include: { ...MEDICINE_INCLUDE, ...CREATED_BY, _count: { select: { lines: true } } },
     });
-    return toCursorPage(rows, ADMIN_PAGE_SIZE);
+    const page = toCursorPage(rows, ADMIN_PAGE_SIZE);
+    return { ...page, items: page.items.map((m) => shape(m, isMedicineIncomplete(m), forAdmin)) };
   }
 
-  async getMedicine(id: string) {
+  /** Admins also get the patient count (distinct patients on confirmed prescriptions). */
+  async getMedicine(id: string, forAdmin = false) {
     const medicine = await this.prisma.medicine.findUnique({
       where: { id },
-      include: { ...MEDICINE_INCLUDE, _count: { select: { lines: true } } },
+      include: { ...MEDICINE_INCLUDE, ...CREATED_BY, _count: { select: { lines: true } } },
     });
     if (!medicine) throw new NotFoundException('Medicine not found');
-    return medicine;
+    const shaped = shape(medicine, isMedicineIncomplete(medicine), forAdmin);
+    return forAdmin ? { ...shaped, patients: await medicinePatientCount(this.prisma, id) } : shaped;
   }
 
   async createMedicine(actorId: string, dto: CreateMedicineDto) {
@@ -315,6 +341,9 @@ export class CatalogService {
           formId: dto.formId,
           categoryId: dto.categoryId,
           manufacturer: dto.manufacturer === undefined ? undefined : dto.manufacturer || null,
+          // "Created by" shows the last pharmacist to save the record; the
+          // earlier creator stays in the audit log.
+          createdById: actorId,
         },
         include: MEDICINE_INCLUDE,
       });

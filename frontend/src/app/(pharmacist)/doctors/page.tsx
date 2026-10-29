@@ -10,12 +10,12 @@ export default function DoctorsPage() {
     <Suspense>
       <CatalogList<Doctor>
         title="Doctors"
-        intro="Doctors are added from prescriptions. Complete their BMDC number and specialty here so the same doctor is recognised next time."
+        intro="Doctors are added from prescriptions. Complete their specialty, phone and chamber / address here; the BMDC number is optional but helps recognise the same doctor next time."
         basePath="/doctors"
         searchLabel="Search by name"
         incompleteLabel="Only incomplete"
         fetchPage={listDoctors}
-        isIncomplete={(d) => !d.bmdcNumber || !d.specialtyId}
+        isIncomplete={(d) => Boolean(d.incomplete)}
         renderRow={(d) => (
           <>
             <div style={{ fontWeight: 600 }}>{d.name}</div>
