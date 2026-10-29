@@ -1,8 +1,7 @@
 import { Transform } from 'class-transformer';
 import { IsString, Matches, MaxLength, MinLength } from 'class-validator';
-import { normalizePhone } from '../../common/utils/phone.util';
-
-const phone = () => Transform(({ value }) => (typeof value === 'string' ? normalizePhone(value) : value));
+// Kept as typed (trimmed), like LoginDto: AuthService.findUserByPhone does the matching.
+const phone = () => Transform(({ value }) => (typeof value === 'string' ? value.trim() : value));
 
 export class ForgotPasswordDto {
   @phone()

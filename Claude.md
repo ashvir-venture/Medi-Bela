@@ -20,7 +20,7 @@ Health records: log and review readings
 AI health suggestions: admin requests per routine, reviews, then publishes (never automatic)
 AI assistant: medical-info chat, saved conversations (10 user messages each), safety layer (no diagnosis/prescribing, emergency guidance), read-only history
 Notices, in-app inbox, push via Firebase. Notices: pharmacist drafts and submits, admin approves or sends back with a note (admin's own publish directly); optional source; scheduled start; limited to divisions or nationwide (list and push follow the same rule); the app shows the source, opens a notice from its push/inbox entry, and the General tab has an "All notices" shortcut
-Account tools: phone login, SMS-code password reset, change password, account deletion
+Account tools: phone login, SMS-code password reset, change password, account deletion. Phones: sign-up and family invitations store +880... (common/utils/phone.util normalizePhone); the seed stores SEED_*_PHONE exactly as written. Login and password reset take the phone as typed and match it exactly first, then normalized (AuthService.findUserByPhone); their throttle keys and the reset SMS use the normalized form
 Global API rate limit (per user signed in, per IP on public routes); private prescription images served via expiring signed links
 Bilingual: English and Bengali; an English | বাংলা switcher on every sign-in screen (login, register, forgot/reset password), uploaded to the account after sign-in like the Profile choice
 Dark mode: the app follows the phone or Profile → Appearance (System / Light / Dark, this device only); the staff panel follows the computer or the sidebar / login Theme control (this browser only)

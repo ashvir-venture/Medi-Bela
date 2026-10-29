@@ -16,6 +16,7 @@ import { createHmac, randomInt, timingSafeEqual } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from '../common/interfaces/jwt-payload.interface';
 import { sanitizeUser, SafeUser } from '../common/utils/sanitize-user';
+import { normalizePhone } from '../common/utils/phone.util';
 import { RegisterDto } from './dto/register.dto';
 import { assertValidDetails, dateOfBirthColumn } from '../users/lib/profile-details';
 import { LoginDto } from './dto/login.dto';
@@ -88,7 +89,8 @@ export class AuthService {
   }
 
   async login(dto: LoginDto, clientIp = 'unknown'): Promise<{ user: SafeUser; tokens: TokenPair }> {
-    const throttleKey = `${clientIp}|${dto.phone}`;
+    // Normalized so other spellings of the same number share one throttle.
+    const throttleKey = `${clientIp}|${normalizePhone(dto.phone)}`;
     if (this.throttle.isBlocked(throttleKey)) {
       throw new HttpException(
         'Too many failed login attempts. Please try again in a few minutes.',
@@ -96,9 +98,7 @@ export class AuthService {
       );
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: { phone: dto.phone },
-    });
+    const user = await this.findUserByPhone(dto.phone);
 
     // Same error and same work for "no such user" and "wrong password" so
     // neither the message nor the response time reveals which phone numbers
@@ -177,16 +177,30 @@ export class AuthService {
     return { message: 'If an account exists for this number, a verification code has been sent.' };
   }
 
+  /**
+   * The account for a phone as typed at login or password reset. Seeded staff
+   * accounts store the number exactly as written in .env (prisma/seed.ts), app
+   * sign-ups store it normalized (+880...): the exact value wins, then the
+   * normalized one.
+   */
+  private async findUserByPhone(phone: string): Promise<User | null> {
+    const exact = await this.prisma.user.findUnique({ where: { phone } });
+    if (exact) return exact;
+    const normalized = normalizePhone(phone);
+    return normalized === phone ? null : this.prisma.user.findUnique({ where: { phone: normalized } });
+  }
+
   private async issueResetCode(phone: string): Promise<void> {
-    if (this.exceedsRequestLimit(`phone:${phone}`, RESET_REQUESTS_PER_PHONE_PER_HOUR)) return;
-    const user = await this.prisma.user.findUnique({ where: { phone } });
+    if (this.exceedsRequestLimit(`phone:${normalizePhone(phone)}`, RESET_REQUESTS_PER_PHONE_PER_HOUR)) return;
+    const user = await this.findUserByPhone(phone);
     if (!user || user.accountStatus !== 'ACTIVE') return;
 
     const code = String(randomInt(100000, 1000000));
     const data = { codeHash: this.hashResetCode(user.id, code), attempts: 0, expiresAt: new Date(Date.now() + RESET_CODE_TTL_MS) };
     // One live code per user: a new request replaces the old one.
     await this.prisma.passwordResetCode.upsert({ where: { userId: user.id }, create: { userId: user.id, ...data }, update: data });
-    await this.sms.send(phone, `Medi-Bela: your password reset code is ${code}. It expires in 10 minutes. Never share it.`);
+    // The gateway always gets +880... (a seeded account may store 01...).
+    await this.sms.send(normalizePhone(user.phone), `Medi-Bela: your password reset code is ${code}. It expires in 10 minutes. Never share it.`);
   }
 
   /**
@@ -196,7 +210,7 @@ export class AuthService {
    * earlier sessions (access tokens) stop working.
    */
   async resetPassword(dto: ResetPasswordDto, clientIp = 'unknown'): Promise<void> {
-    const throttleKey = `${clientIp}|${dto.phone}`;
+    const throttleKey = `${clientIp}|${normalizePhone(dto.phone)}`;
     if (this.resetThrottle.isBlocked(throttleKey)) {
       throw new HttpException('Too many attempts. Please try again later.', HttpStatus.TOO_MANY_REQUESTS);
     }
@@ -205,7 +219,7 @@ export class AuthService {
       throw new BadRequestException(RESET_GENERIC_ERROR);
     };
 
-    const user = await this.prisma.user.findUnique({ where: { phone: dto.phone } });
+    const user = await this.findUserByPhone(dto.phone);
     const row = user ? await this.prisma.passwordResetCode.findUnique({ where: { userId: user.id } }) : null;
     if (!user || !row || user.accountStatus !== 'ACTIVE') return fail();
     if (row.expiresAt.getTime() < Date.now() || row.attempts >= RESET_MAX_CODE_ATTEMPTS) return fail();

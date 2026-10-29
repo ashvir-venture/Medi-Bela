@@ -69,7 +69,7 @@ DATABASE_URL="$NEON_URL" SEED_ADMIN_PHONE="+8801XXXXXXXXX" SEED_ADMIN_PASSWORD="
   npx ts-node prisma/seed.ts
 ```
 
-The pharmacist pair is optional. Don't paste these passwords into chat,
+The phone is stored exactly as written (01... or +880...); sign in with that same number. The pharmacist pair is optional. Don't paste these passwords into chat,
 tickets or the Render env.
 
 ## 4. Render environment
