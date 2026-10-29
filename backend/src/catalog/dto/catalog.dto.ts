@@ -124,11 +124,19 @@ export class CreateMedicineDto {
   @MaxLength(200)
   brandName: string;
 
+  /** Typed generic: found case-insensitively or created. genericId wins when both are sent. */
   @IsOptional()
   @Transform(trim)
   @IsString()
   @MaxLength(200)
   genericName?: string;
+
+  /** A generic picked from GET /catalog/generics/search. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  genericId?: number;
 
   @IsOptional()
   @Type(() => Number)
@@ -157,11 +165,19 @@ export class UpdateMedicineDto {
   @MaxLength(200)
   brandName?: string;
 
+  /** Typed generic (found or created); an empty string removes the link. */
   @IsOptional()
   @Transform(trim)
   @IsString()
   @MaxLength(200)
   genericName?: string;
+
+  /** A generic picked from GET /catalog/generics/search. Wins over genericName. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  genericId?: number;
 
   @IsOptional()
   @Type(() => Number)

@@ -103,9 +103,9 @@ in the test).
 | index | why it looks redundant |
 |---|---|
 | `doctors_name_idx` (plain btree on name) | Search uses `doctors_name_prefix_idx` (lower(name) text_pattern_ops); lists sort by createdAt. |
-| `medicines_genericName_idx` (plain btree) | Search uses `medicines_genericName_prefix_idx`. |
+| ~~`medicines_genericName_idx`~~ | Dropped by pending SQL 007 (generic names moved to `medicine_generics`). |
 
-Both are tiny today, so there is no hurry.
+It is tiny today, so there is no hurry.
 
 ### Checking on Neon after a few weeks of real use
 

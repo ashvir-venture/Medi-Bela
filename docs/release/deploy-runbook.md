@@ -26,7 +26,16 @@ differences.
 
 ## 2. Build the schema
 
-In `backend/`, with `NEON_URL` set to the direct connection string:
+In `backend/`, with `NEON_URL` set to the direct connection string.
+
+Shortest way: one script with everything below (migrations, Prisma's
+migration history, phase4a_extra and every pending file):
+
+```bash
+psql "$NEON_URL" -v ON_ERROR_STOP=1 -f prisma/fresh-install.sql
+```
+
+Or step by step:
 
 ```bash
 DATABASE_URL="$NEON_URL" npx prisma migrate deploy
@@ -42,6 +51,7 @@ Then, in order, in the Neon SQL editor (or `psql "$NEON_URL" -f <file>`):
 5. `prisma/pending-sql/004_round5_search_indexes.sql`
 6. `prisma/pending-sql/005_round6_caregiver.sql`
 7. `prisma/pending-sql/006_round7_notice_review_note.sql`
+8. `prisma/pending-sql/007_generic_names.sql`
 
 Each must finish without an error before the next. On an empty database none
 of them converts data.

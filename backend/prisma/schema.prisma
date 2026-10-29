@@ -761,11 +761,23 @@ model Doctor {
   @@map("doctors")
 }
 
+/// Generic (active ingredient) names, e.g. Paracetamol. Pharmacists pick one
+/// or type a new one (matched case-insensitively: pending SQL 007 adds a
+/// unique index on lower(name)); the owner fixes spellings in the database.
+model MedicineGeneric {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+  createdAt DateTime   @default(now())
+  medicines Medicine[]
+
+  @@map("medicine_generics")
+}
+
 /// Strength is not stored here: it lives on the prescription/routine line.
 model Medicine {
   id           String   @id @default(uuid()) @db.Uuid
   brandName    String
-  genericName  String?
+  genericId    Int?
   formId       Int?
   categoryId   Int?
   manufacturer String?
@@ -773,13 +785,14 @@ model Medicine {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  generic   MedicineGeneric?       @relation(fields: [genericId], references: [id], onDelete: Restrict)
   form      MedicineForm?          @relation(fields: [formId], references: [id], onDelete: Restrict)
   category  MedicineCategory?      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   createdBy User?                  @relation("MedicineCreator", fields: [createdById], references: [id], onDelete: SetNull)
   lines     PrescriptionMedicine[]
 
   @@unique([brandName, formId])
-  @@index([genericName])
+  @@index([genericId])
   @@map("medicines")
 }
 

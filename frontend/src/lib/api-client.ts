@@ -190,10 +190,18 @@ export interface DoctorInput {
   districtId?: number;
 }
 
+export interface MedicineGeneric {
+  id: number;
+  name: string;
+}
+
 export interface CatalogMedicine {
   id: string;
   brandName: string;
+  /** The linked generic's name (same as generic?.name). */
   genericName: string | null;
+  genericId?: number | null;
+  generic?: MedicineGeneric | null;
   formId: number | null;
   categoryId: number | null;
   manufacturer: string | null;
@@ -210,7 +218,9 @@ export interface CatalogMedicine {
 
 export interface MedicineInput {
   brandName: string;
+  /** Found ignoring case or created; an empty string removes the generic. */
   genericName?: string;
+  genericId?: number;
   formId?: number;
   categoryId?: number;
   manufacturer?: string;
@@ -244,6 +254,10 @@ export function searchDoctors(q: string) {
 
 export function searchMedicines(q: string) {
   return request<CatalogMedicine[]>(`/catalog/medicines/search?q=${encodeURIComponent(q)}`);
+}
+
+export function searchGenerics(q: string) {
+  return request<MedicineGeneric[]>(`/catalog/generics/search?q=${encodeURIComponent(q)}`);
 }
 
 export function searchTests(q: string) {

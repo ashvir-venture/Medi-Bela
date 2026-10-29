@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { CatalogService, prefixPattern } from '../catalog.service';
 
@@ -26,7 +26,14 @@ describe('CatalogService', () => {
       },
       medicine: {
         findFirst: jest.fn(),
-        create: jest.fn(async ({ data }: any) => ({ id: 'med-new', genericName: null, formId: null, categoryId: null, manufacturer: null, ...data })),
+        create: jest.fn(async ({ data }: any) => ({ id: 'med-new', genericId: null, generic: null, formId: null, categoryId: null, manufacturer: null, ...data })),
+        update: jest.fn(async ({ data }: any) => ({ id: 'med-1', brandName: 'Napa', generic: null, ...data })),
+        findUnique: jest.fn(),
+      },
+      medicineGeneric: {
+        findFirst: jest.fn(),
+        findUnique: jest.fn(),
+        create: jest.fn(async ({ data }: any) => ({ id: 7, ...data })),
       },
     };
     audit = { record: jest.fn().mockResolvedValue(undefined) };
@@ -75,7 +82,8 @@ describe('CatalogService', () => {
     const row = {
       id: 'med-1',
       brandName: 'Seclo',
-      genericName: null,
+      genericId: null,
+      generic: null,
       formId: 1,
       categoryId: 2,
       manufacturer: 'Square Pharma',
@@ -111,5 +119,72 @@ describe('CatalogService', () => {
     expect(id).toBe('med-new');
     expect(prisma.medicine.create.mock.calls[0][0].data).toEqual({ brandName: 'Newmed', createdById: 'pharm-1' });
     expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ action: 'medicine.create' }), prisma);
+  });
+
+  describe('generic names', () => {
+    it('links a typed generic to the existing one, ignoring case', async () => {
+      prisma.medicineGeneric.findFirst.mockResolvedValue({ id: 3, name: 'Paracetamol' });
+      const medicine: any = await service.createMedicine('pharm-1', { brandName: 'Ace', genericName: ' paracetamol ' });
+      expect(prisma.medicineGeneric.findFirst.mock.calls[0][0].where.name).toEqual({
+        equals: 'paracetamol',
+        mode: 'insensitive',
+      });
+      expect(prisma.medicineGeneric.create).not.toHaveBeenCalled();
+      expect(prisma.medicine.create.mock.calls[0][0].data.genericId).toBe(3);
+      expect(medicine).toHaveProperty('genericName');
+    });
+
+    it('creates a new generic when none matches', async () => {
+      prisma.medicineGeneric.findFirst.mockResolvedValue(null);
+      await service.createMedicine('pharm-1', { brandName: 'Napa', genericName: 'Paracetamol' });
+      expect(prisma.medicineGeneric.create.mock.calls[0][0].data).toEqual({ name: 'Paracetamol' });
+      expect(prisma.medicine.create.mock.calls[0][0].data.genericId).toBe(7);
+    });
+
+    it('returns the winner when two pharmacists add the same new generic at once', async () => {
+      prisma.medicineGeneric.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 9, name: 'Paracetamol' });
+      prisma.medicineGeneric.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('dup', { code: 'P2002', clientVersion: 'test' }),
+      );
+      const generic = await service.findOrCreateGeneric('PARACETAMOL');
+      expect(generic.id).toBe(9);
+    });
+
+    it('a picked generic id must exist, and wins over a typed name', async () => {
+      prisma.medicineGeneric.findUnique.mockResolvedValue(null);
+      await expect(service.createMedicine('pharm-1', { brandName: 'Napa', genericId: 99 })).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(prisma.medicine.create).not.toHaveBeenCalled();
+
+      prisma.medicineGeneric.findUnique.mockResolvedValue({ id: 4 });
+      await service.createMedicine('pharm-1', { brandName: 'Napa', genericId: 4, genericName: 'Other' });
+      expect(prisma.medicine.create.mock.calls[0][0].data.genericId).toBe(4);
+      expect(prisma.medicineGeneric.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('an empty name removes the generic; leaving both out keeps it', async () => {
+      prisma.medicine.findUnique.mockResolvedValue({ id: 'med-1', brandName: 'Napa', genericId: 3 });
+      await service.updateMedicine('pharm-1', 'med-1', { genericName: '' });
+      expect(prisma.medicine.update.mock.calls[0][0].data.genericId).toBeNull();
+
+      await service.updateMedicine('pharm-1', 'med-1', { manufacturer: 'Beximco' });
+      expect(prisma.medicine.update.mock.calls[1][0].data.genericId).toBeUndefined();
+    });
+
+    it('responses carry the flat genericName from the linked generic', async () => {
+      prisma.medicine.findUnique.mockResolvedValue({
+        id: 'med-1',
+        brandName: 'Napa',
+        genericId: 3,
+        generic: { id: 3, name: 'Paracetamol' },
+        formId: 1,
+        categoryId: 2,
+        manufacturer: 'Beximco',
+      });
+      const medicine: any = await service.getMedicine('med-1');
+      expect(medicine.genericName).toBe('Paracetamol');
+      expect(medicine.generic).toEqual({ id: 3, name: 'Paracetamol' });
+    });
   });
 });

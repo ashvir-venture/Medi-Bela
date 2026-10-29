@@ -41,6 +41,11 @@ export class CatalogController {
     return this.catalog.searchTests(query.q);
   }
 
+  @Get('generics/search')
+  searchGenerics(@Query() query: SearchQueryDto) {
+    return this.catalog.searchGenerics(query.q);
+  }
+
   // --- Doctors ---
 
   // Admin responses add "Created by" (and the patient count on detail).

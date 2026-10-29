@@ -30,7 +30,7 @@ describe('staff roles (Round 5 split)', () => {
     for (const h of ['createDoctor', 'updateDoctor', 'createMedicine', 'updateMedicine', 'createTest']) {
       expect(roles(CatalogController, h)).toEqual([Role.PHARMACIST]);
     }
-    for (const h of ['searchDoctors', 'searchTests', 'listDoctors', 'listMedicines']) {
+    for (const h of ['searchDoctors', 'searchTests', 'searchGenerics', 'listDoctors', 'listMedicines']) {
       expect(roles(CatalogController, h)).toEqual([Role.ADMIN, Role.PHARMACIST]);
     }
     // Patients add their own medicines with the same suggestions (read-only).

@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -31,7 +31,12 @@ const DOCTOR_INCLUDE = {
   district: { select: { id: true, name: true } },
 } as const;
 
-const MEDICINE_INCLUDE = { form: true, category: true } as const;
+const MEDICINE_INCLUDE = { generic: true, form: true, category: true } as const;
+
+/** Responses keep the flat `genericName` the apps already read, next to `generic`. */
+function withGenericName<T extends { generic?: { name: string } | null }>(m: T) {
+  return { ...m, genericName: m.generic?.name ?? null };
+}
 
 /** Who made the record (the last pharmacist to save it). Admin responses only. */
 const CREATED_BY = { createdBy: { select: { id: true, name: true, role: true } } } as const;
@@ -57,10 +62,10 @@ function doctorAuditView(d: { name: string; bmdcNumber: string | null; specialty
   };
 }
 
-function medicineAuditView(m: { brandName: string; genericName: string | null; formId: number | null; categoryId: number | null; manufacturer: string | null }) {
+function medicineAuditView(m: { brandName: string; genericId: number | null; formId: number | null; categoryId: number | null; manufacturer: string | null }) {
   return {
     brandName: m.brandName,
-    genericName: m.genericName,
+    genericId: m.genericId,
     formId: m.formId,
     categoryId: m.categoryId,
     manufacturer: m.manufacturer,
@@ -118,16 +123,23 @@ export class CatalogService {
   async searchMedicines(q: string) {
     const pattern = prefixPattern(q);
     const rows = await this.prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
-      SELECT id FROM medicines
-      WHERE lower("brandName") LIKE ${pattern} OR lower("genericName") LIKE ${pattern}
-      ORDER BY lower("brandName"), id
+      SELECT m.id FROM medicines m
+      LEFT JOIN medicine_generics g ON g.id = m."genericId"
+      WHERE lower(m."brandName") LIKE ${pattern} OR lower(g.name) LIKE ${pattern}
+      ORDER BY lower(m."brandName"), m.id
       LIMIT ${SUGGEST_LIMIT}`);
     const ids = rows.map((r) => r.id);
     if (ids.length === 0) return [];
-    return inOrder(
-      ids,
-      await this.prisma.medicine.findMany({ where: { id: { in: ids } }, include: MEDICINE_INCLUDE }),
-    );
+    const medicines = await this.prisma.medicine.findMany({ where: { id: { in: ids } }, include: MEDICINE_INCLUDE });
+    return inOrder(ids, medicines.map(withGenericName));
+  }
+
+  async searchGenerics(q: string) {
+    return this.prisma.$queryRaw<{ id: number; name: string }[]>(Prisma.sql`
+      SELECT id, name FROM medicine_generics
+      WHERE lower(name) LIKE ${prefixPattern(q)}
+      ORDER BY lower(name), id
+      LIMIT ${SUGGEST_LIMIT}`);
   }
 
   async searchTests(q: string) {
@@ -258,7 +270,7 @@ export class CatalogService {
       include: { ...MEDICINE_INCLUDE, ...CREATED_BY, _count: { select: { lines: true } } },
     });
     const page = toCursorPage(rows, ADMIN_PAGE_SIZE);
-    return { ...page, items: page.items.map((m) => shape(m, isMedicineIncomplete(m), forAdmin)) };
+    return { ...page, items: page.items.map((m) => shape(withGenericName(m), isMedicineIncomplete(m), forAdmin)) };
   }
 
   /** Admins also get the patient count (distinct patients on confirmed prescriptions). */
@@ -268,16 +280,17 @@ export class CatalogService {
       include: { ...MEDICINE_INCLUDE, ...CREATED_BY, _count: { select: { lines: true } } },
     });
     if (!medicine) throw new NotFoundException('Medicine not found');
-    const shaped = shape(medicine, isMedicineIncomplete(medicine), forAdmin);
+    const shaped = shape(withGenericName(medicine), isMedicineIncomplete(medicine), forAdmin);
     return forAdmin ? { ...shaped, patients: await medicinePatientCount(this.prisma, id) } : shaped;
   }
 
   async createMedicine(actorId: string, dto: CreateMedicineDto) {
+    const genericId = await this.resolveGenericId(dto);
     try {
       const medicine = await this.prisma.medicine.create({
         data: {
           brandName: dto.brandName,
-          genericName: dto.genericName || null,
+          genericId: genericId ?? null,
           formId: dto.formId ?? null,
           categoryId: dto.categoryId ?? null,
           manufacturer: dto.manufacturer || null,
@@ -292,7 +305,7 @@ export class CatalogService {
         entityId: medicine.id,
         after: medicineAuditView(medicine),
       });
-      return medicine;
+      return withGenericName(medicine);
     } catch (e) {
       if (isUniqueError(e)) throw new ConflictException('This medicine already exists in that form');
       throw e;
@@ -314,7 +327,7 @@ export class CatalogService {
     if (existing) return existing.id;
     const created = await tx.medicine.create({
       data: { brandName: name, createdById: actorId },
-      select: { id: true, brandName: true, genericName: true, formId: true, categoryId: true, manufacturer: true },
+      select: { id: true, brandName: true, genericId: true, formId: true, categoryId: true, manufacturer: true },
     });
     await this.audit.record(
       {
@@ -332,12 +345,13 @@ export class CatalogService {
   async updateMedicine(actorId: string, id: string, dto: UpdateMedicineDto) {
     const before = await this.prisma.medicine.findUnique({ where: { id } });
     if (!before) throw new NotFoundException('Medicine not found');
+    const genericId = await this.resolveGenericId(dto);
     try {
       const medicine = await this.prisma.medicine.update({
         where: { id },
         data: {
           brandName: dto.brandName,
-          genericName: dto.genericName === undefined ? undefined : dto.genericName || null,
+          genericId,
           formId: dto.formId,
           categoryId: dto.categoryId,
           manufacturer: dto.manufacturer === undefined ? undefined : dto.manufacturer || null,
@@ -355,9 +369,44 @@ export class CatalogService {
         before: medicineAuditView(before),
         after: medicineAuditView(medicine),
       });
-      return medicine;
+      return withGenericName(medicine);
     } catch (e) {
       if (isUniqueError(e)) throw new ConflictException('This medicine already exists in that form');
+      throw e;
+    }
+  }
+
+  // --- Generic names ----------------------------------------------------------
+
+  /**
+   * The generic a medicine create/update asks for: a picked id (must exist),
+   * a typed name (found or created), '' to remove it, or undefined to leave
+   * it unchanged.
+   */
+  private async resolveGenericId(dto: { genericId?: number; genericName?: string }) {
+    if (dto.genericId != null) {
+      const picked = await this.prisma.medicineGeneric.findUnique({ where: { id: dto.genericId }, select: { id: true } });
+      if (!picked) throw new BadRequestException('Generic not found');
+      return picked.id;
+    }
+    if (dto.genericName === undefined) return undefined;
+    if (!dto.genericName.trim()) return null;
+    return (await this.findOrCreateGeneric(dto.genericName)).id;
+  }
+
+  /** Generic names are unique ignoring case (pending SQL 007): an existing one is returned. */
+  async findOrCreateGeneric(name: string) {
+    const where = { name: { equals: name.trim(), mode: 'insensitive' as const } };
+    const existing = await this.prisma.medicineGeneric.findFirst({ where });
+    if (existing) return existing;
+    try {
+      return await this.prisma.medicineGeneric.create({ data: { name: name.trim() } });
+    } catch (e) {
+      // Two pharmacists typing the same new generic at once: return the winner.
+      if (isUniqueError(e)) {
+        const winner = await this.prisma.medicineGeneric.findFirst({ where });
+        if (winner) return winner;
+      }
       throw e;
     }
   }

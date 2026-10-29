@@ -21,6 +21,8 @@ Workflow: during development only backend/prisma/schema.prisma changes (no migra
 4. 004_round5_search_indexes.sql - prefix-search indexes for doctor / medicine / test autosuggest (expression indexes, not in schema.prisma). Safe to re-run.
 5. 005_round6_caregiver.sql - family role OWNER renamed to CAREGIVER (in place, existing rows convert), and who-acted columns (prescriptions.uploadedById/confirmedById/confirmedAt, medicine_routines.createdById).
 6. 006_round7_notice_review_note.sql - notices.reviewNote (admin's note when sending a notice back).
+7. 007_generic_names.sql - medicine_generics table; medicines.genericName (text) becomes medicines.genericId, existing names copied over (one row per name ignoring case). One transaction.
+Fresh database: backend/prisma/fresh-install.sql is all migrations + phase4a_extra + every pending file in one script (with Prisma's _prisma_migrations rows), rebuilt by `bash scripts/build-fresh-install.sh` after each new pending file.
 Until these run, the deployed API's queries on the new columns fail, so don't deploy Round 3+ backend code before the SQL is applied.
 
 Rounds
@@ -182,7 +184,10 @@ Found by the load test and fixed (2026-10-30, with tests that failed before):
 - Family alerts at the peak went out up to 30 minutes late at 20,000 patients; now within about 3 minutes.
 - Each job run has a time budget (rolling 10 min, missed-dose 45 s); the next run continues.
 - A notice to everyone creates one inbox row per user inside the every-minute job (21-110 s at 20,000 users); fine for now, batch it past ~50,000 users.
-Index audit: no drops now; doctors_name_idx and medicines_genericName_idx are drop candidates once Neon's pg_stat_user_indexes confirms (query in the audit doc).
+Index audit: no drops now; doctors_name_idx is a drop candidate (medicines_genericName_idx is gone with SQL 007) once Neon's pg_stat_user_indexes confirms (query in the audit doc).
 Fixed: the app's Change password dialog required 8 characters while its message, sign-up, reset and the server use 6; it now uses 6 (6 is final; change_password_dialog_test).
 Not done: device testing (all rounds); upload key (deferred); Neon point-in-time restore must be tried in the Neon console after the deploy.
-
+After Round 9 (2026-10-30): generic names as a table - CODE DONE
+Built: medicine_generics (pending SQL 007, unique ignoring case), medicines.genericId instead of free text. Pharmacists pick a generic from GET /catalog/generics/search (staff only) or type a new one (found ignoring case, else created); an empty name removes it. Responses keep the flat genericName (apps unchanged) and add generic {id, name}; PATCH/POST also take genericId. Medicine search still matches on the generic. Panel medicine page: Generic name uses the autosuggest. backend/prisma/fresh-install.sql (one script for an empty database) + scripts/build-fresh-install.sh.
+Checked: SQL 007 on a copy of the old schema with sample rows (case/space variants merged, blanks left empty) and on a fresh database, both with no diff against schema.prisma; backend unit + DB-backed tests (generics.int.spec), lint, build; panel build.
+Not done / open: no starter list of generics (pharmacists fill it; an import file if the owner supplies an official list). Prescription detail responses embed the medicine row, which now has genericId/generic instead of genericName (no app or panel code reads it). Clearing the Generic name box and saving now removes the generic (before, it was silently kept).

@@ -3,7 +3,16 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ApiError, CatalogMedicine, Lookups, getLookups, getMedicine, updateMedicine } from '@/lib/api-client';
+import {
+  ApiError,
+  CatalogMedicine,
+  Lookups,
+  getLookups,
+  getMedicine,
+  searchGenerics,
+  updateMedicine,
+} from '@/lib/api-client';
+import { Autosuggest } from '@/components/autosuggest';
 import { Topbar } from '@/components/topbar';
 
 export default function MedicineDetailPage() {
@@ -47,7 +56,9 @@ export default function MedicineDetailPage() {
       apply(
         await updateMedicine(id, {
           brandName: form.brandName.trim(),
-          genericName: form.genericName.trim() || undefined,
+          // A picked or typed name; the backend reuses a generic that matches ignoring case.
+          // Empty removes it.
+          genericName: form.genericName.trim(),
           formId: form.formId ? Number(form.formId) : undefined,
           categoryId: form.categoryId ? Number(form.categoryId) : undefined,
           manufacturer: form.manufacturer.trim() || undefined,
@@ -85,7 +96,16 @@ export default function MedicineDetailPage() {
               </div>
               <div className="field">
                 <label htmlFor="generic">Generic name</label>
-                <input id="generic" className="input" value={form.genericName} onChange={set('genericName')} placeholder="e.g. Paracetamol" />
+                <Autosuggest
+                  id="generic"
+                  value={form.genericName}
+                  onChange={(text) => setForm((f) => ({ ...f, genericName: text }))}
+                  search={searchGenerics}
+                  getKey={(g) => String(g.id)}
+                  renderItem={(g) => g.name}
+                  onPick={(g) => setForm((f) => ({ ...f, genericName: g.name }))}
+                  placeholder="e.g. Paracetamol"
+                />
               </div>
               <div className="field">
                 <label htmlFor="form">Form</label>
