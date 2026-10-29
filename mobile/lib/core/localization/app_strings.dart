@@ -208,6 +208,60 @@ class AppStrings {
     required this.inboxPersonalTab,
     required this.inboxFamilyTab,
     required this.inboxGeneralTab,
+    required this.byCaregiver,
+    required this.selfAdded,
+    required this.addedByCaregiver,
+    required this.editedByYou,
+    required this.editedByCaregiver,
+    required this.confirmPrescriptionTitle,
+    required this.confirmPrescriptionHelp,
+    required this.confirmAndStartReminders,
+    required this.prescriptionConfirmedDone,
+    required this.alreadyConfirmed,
+    required this.keepOneMedicine,
+    required this.reviewAndConfirm,
+    required this.removeMedicine,
+    required this.undoRemove,
+    required this.removeMedicineConfirm,
+    required this.doseTimes,
+    required this.startDate,
+    required this.startsWhenConfirmed,
+    required this.today,
+    required this.mealTiming,
+    required this.notSpecified,
+    required this.continuousLabel,
+    required this.continuousHelp,
+    required this.daysCountTemplate,
+    required this.myMedicines,
+    required this.medicinesOfTemplate,
+    required this.manageMedicines,
+    required this.addMedicine,
+    required this.editMedicine,
+    required this.pharmacistMedicineLimited,
+    required this.medicineName,
+    required this.strength,
+    required this.doseAmount,
+    required this.timesPerDay,
+    required this.numberOfDays,
+    required this.numberOfDaysInvalid,
+    required this.timesMustDiffer,
+    required this.prescriptionsOfTemplate,
+    required this.uploadedForMember,
+    required this.takePhoto,
+    required this.caregiverActingHint,
+    required this.medicinesButton,
+    required this.prescriptionsButton,
+    required this.invitationWarning,
+    required this.editYourDetails,
+    required this.detailsSaved,
+    required this.dateOfBirth,
+    required this.gender,
+    required this.division,
+    required this.district,
+    required this.upazila,
+    required this.couldNotLoadOptions,
+    required this.allNotices,
+    required this.noticeSource,
   });
 
   final String appName;
@@ -412,6 +466,67 @@ class AppStrings {
   final String inboxPersonalTab;
   final String inboxFamilyTab;
   final String inboxGeneralTab;
+  final String byCaregiver;
+  final String selfAdded;
+  final String addedByCaregiver;
+  final String editedByYou;
+  final String editedByCaregiver;
+  final String confirmPrescriptionTitle;
+  final String confirmPrescriptionHelp;
+  final String confirmAndStartReminders;
+  final String prescriptionConfirmedDone;
+  final String alreadyConfirmed;
+  final String keepOneMedicine;
+  final String reviewAndConfirm;
+  final String removeMedicine;
+  final String undoRemove;
+  final String removeMedicineConfirm;
+  final String doseTimes;
+  final String startDate;
+  final String startsWhenConfirmed;
+  final String today;
+  final String mealTiming;
+  final String notSpecified;
+  final String continuousLabel;
+  final String continuousHelp;
+  final String daysCountTemplate;
+  final String myMedicines;
+  final String medicinesOfTemplate;
+  final String manageMedicines;
+  final String addMedicine;
+  final String editMedicine;
+  final String pharmacistMedicineLimited;
+  final String medicineName;
+  final String strength;
+  final String doseAmount;
+  final String timesPerDay;
+  final String numberOfDays;
+  final String numberOfDaysInvalid;
+  final String timesMustDiffer;
+  final String prescriptionsOfTemplate;
+  final String uploadedForMember;
+  final String takePhoto;
+  final String caregiverActingHint;
+  final String medicinesButton;
+  final String prescriptionsButton;
+  final String invitationWarning;
+  final String editYourDetails;
+  final String detailsSaved;
+  final String dateOfBirth;
+  final String gender;
+  final String division;
+  final String district;
+  final String upazila;
+  final String couldNotLoadOptions;
+
+  /// "{n} days"
+  String daysCount(int n) => daysCountTemplate.replaceAll('{n}', '$n');
+
+  String medicinesOf(String name) => medicinesOfTemplate.replaceAll('{name}', name);
+
+  String prescriptionsOf(String name) => prescriptionsOfTemplate.replaceAll('{name}', name);
+  final String allNotices;
+  final String noticeSource;
 }
 
 const AppStrings enStrings = AppStrings(
@@ -427,7 +542,7 @@ const AppStrings enStrings = AppStrings(
   pushNotificationsLabel: 'Push notifications',
   pushNotificationsHelp: 'Family alerts, prescription updates and notices sent from Medi-Bela.',
   privacySettings: 'Privacy',
-  privacyHelp: 'When on, no one in your family, including the family owner, can see your address or whether you took today\'s medicines, and they get no missed-dose alerts about you.',
+  privacyHelp: 'When on, no one in your family, including the caregiver, can see your address or your medicines or manage them for you, and they get no missed-dose alerts about you.',
   syncStatusTitle: 'Sync',
   allChangesSynced: 'All changes are synced',
   changesWaitingToSync: 'changes waiting to sync',
@@ -463,7 +578,7 @@ const AppStrings enStrings = AppStrings(
   markAllRead: 'Mark all as read',
   noNotificationsYet: 'No notifications yet',
   loadMore: 'Load more',
-  familyOwner: 'Owner',
+  familyOwner: 'Caregiver',
   memberNotSharing: 'This member is not sharing their medicine status.',
   noDosesToday: 'No doses scheduled today',
   familyEmptyHint: 'Create a family to share medicine status with people you trust.',
@@ -621,6 +736,60 @@ const AppStrings enStrings = AppStrings(
   inboxPersonalTab: 'Personal',
   inboxFamilyTab: 'Family',
   inboxGeneralTab: 'General',
+  byCaregiver: 'by caregiver',
+  selfAdded: 'Self-added',
+  addedByCaregiver: 'Added by caregiver',
+  editedByYou: 'Edited by you',
+  editedByCaregiver: 'Edited by caregiver',
+  confirmPrescriptionTitle: 'Confirm your medicines',
+  confirmPrescriptionHelp: 'Your pharmacist prepared these medicines. You can change the dose times, start date or meal timing, or remove a medicine. Reminders start when you confirm.',
+  confirmAndStartReminders: 'Confirm and start reminders',
+  prescriptionConfirmedDone: 'Confirmed. Your reminders have started.',
+  alreadyConfirmed: 'This prescription is already confirmed.',
+  keepOneMedicine: 'Keep at least one medicine to confirm.',
+  reviewAndConfirm: 'Review and confirm',
+  removeMedicine: 'Remove',
+  undoRemove: 'Keep it',
+  removeMedicineConfirm: 'Stop this medicine? Its reminders stop from now on. Past doses stay in your history.',
+  doseTimes: 'Dose times',
+  startDate: 'Start date',
+  startsWhenConfirmed: 'The day you confirm',
+  today: 'Today',
+  mealTiming: 'Meal timing',
+  notSpecified: 'Not specified',
+  continuousLabel: 'Continuous (no end date)',
+  continuousHelp: 'Keep taking it until a doctor says to stop.',
+  daysCountTemplate: '{n} days',
+  myMedicines: 'My medicines',
+  medicinesOfTemplate: "{name}'s medicines",
+  manageMedicines: 'Manage',
+  addMedicine: 'Add a medicine',
+  editMedicine: 'Change medicine',
+  pharmacistMedicineLimited: 'Your pharmacist set this medicine. You can change the dose times and meal timing.',
+  medicineName: 'Medicine name',
+  strength: 'Strength',
+  doseAmount: 'Amount per dose',
+  timesPerDay: 'Times a day',
+  numberOfDays: 'Number of days',
+  numberOfDaysInvalid: 'Enter 1 to 365 days',
+  timesMustDiffer: 'Choose a different time for each dose.',
+  prescriptionsOfTemplate: "{name}'s prescriptions",
+  uploadedForMember: 'Uploaded. The pharmacist will prepare it.',
+  takePhoto: 'Take a photo',
+  caregiverActingHint: 'As the caregiver you can manage their medicines and prescriptions. They are told about each change.',
+  medicinesButton: 'Medicines',
+  prescriptionsButton: 'Prescriptions',
+  invitationWarning: 'If you join, the person who invited you becomes your caregiver. They can see your medicines, get an alert if you miss a dose, and manage your medicines and prescriptions for you. Only you mark your doses as taken. You can hide yourself from family in Profile.',
+  editYourDetails: 'Edit your details',
+  detailsSaved: 'Your details are saved.',
+  dateOfBirth: 'Date of birth',
+  gender: 'Gender',
+  division: 'Division',
+  district: 'District',
+  upazila: 'Upazila',
+  couldNotLoadOptions: 'Could not load the options. Check your internet.',
+  allNotices: 'All notices',
+  noticeSource: 'Source',
 );
 
 const AppStrings bnStrings = AppStrings(
@@ -636,7 +805,7 @@ const AppStrings bnStrings = AppStrings(
   pushNotificationsLabel: 'পুশ নোটিফিকেশন',
   pushNotificationsHelp: 'Medi-Bela থেকে পাঠানো পরিবারের সতর্কতা, প্রেসক্রিপশনের হালনাগাদ ও বিজ্ঞপ্তি।',
   privacySettings: 'গোপনীয়তা',
-  privacyHelp: 'চালু থাকলে পরিবারের কেউ, পরিবারের মালিকসহ, আপনার ঠিকানা বা আজ ওষুধ খেয়েছেন কি না দেখতে পারবেন না, এবং আপনার ওষুধ মিস হলে সতর্কতাও পাবেন না।',
+  privacyHelp: 'চালু থাকলে পরিবারের কেউ, পরিচর্যাকারীসহ, আপনার ঠিকানা বা ওষুধ দেখতে বা আপনার হয়ে পরিচালনা করতে পারবেন না, এবং আপনার ওষুধ মিস হলে সতর্কতাও পাবেন না।',
   syncStatusTitle: 'সিঙ্ক',
   allChangesSynced: 'সব পরিবর্তন সিঙ্ক হয়েছে',
   changesWaitingToSync: 'টি পরিবর্তন সিঙ্কের অপেক্ষায়',
@@ -672,7 +841,7 @@ const AppStrings bnStrings = AppStrings(
   markAllRead: 'সবগুলো পড়া হয়েছে চিহ্নিত করুন',
   noNotificationsYet: 'এখনো কোনো বিজ্ঞপ্তি নেই',
   loadMore: 'আরও দেখুন',
-  familyOwner: 'মালিক',
+  familyOwner: 'পরিচর্যাকারী',
   memberNotSharing: 'এই সদস্য ওষুধের তথ্য শেয়ার করছেন না।',
   noDosesToday: 'আজ কোনো ডোজ নির্ধারিত নেই',
   familyEmptyHint: 'বিশ্বস্ত মানুষদের সাথে ওষুধের তথ্য শেয়ার করতে একটি পরিবার তৈরি করুন।',
@@ -830,4 +999,58 @@ const AppStrings bnStrings = AppStrings(
   inboxPersonalTab: 'ব্যক্তিগত',
   inboxFamilyTab: 'পরিবার',
   inboxGeneralTab: 'সাধারণ',
+  byCaregiver: 'পরিচর্যাকারী করেছেন',
+  selfAdded: 'নিজে যোগ করা',
+  addedByCaregiver: 'পরিচর্যাকারী যোগ করেছেন',
+  editedByYou: 'আপনি পরিবর্তন করেছেন',
+  editedByCaregiver: 'পরিচর্যাকারী পরিবর্তন করেছেন',
+  confirmPrescriptionTitle: 'আপনার ওষুধ নিশ্চিত করুন',
+  confirmPrescriptionHelp: 'আপনার ফার্মাসিস্ট এই ওষুধগুলো প্রস্তুত করেছেন। আপনি ওষুধ খাওয়ার সময়, শুরুর তারিখ বা খাবারের সময় বদলাতে পারেন, অথবা কোনো ওষুধ বাদ দিতে পারেন। নিশ্চিত করলে রিমাইন্ডার শুরু হবে।',
+  confirmAndStartReminders: 'নিশ্চিত করুন ও রিমাইন্ডার শুরু করুন',
+  prescriptionConfirmedDone: 'নিশ্চিত হয়েছে। আপনার রিমাইন্ডার শুরু হয়েছে।',
+  alreadyConfirmed: 'এই প্রেসক্রিপশন আগেই নিশ্চিত করা হয়েছে।',
+  keepOneMedicine: 'নিশ্চিত করতে অন্তত একটি ওষুধ রাখুন।',
+  reviewAndConfirm: 'দেখে নিশ্চিত করুন',
+  removeMedicine: 'বাদ দিন',
+  undoRemove: 'রেখে দিন',
+  removeMedicineConfirm: 'এই ওষুধ বন্ধ করবেন? এখন থেকে এর রিমাইন্ডার বন্ধ হবে। আগের ডোজের তথ্য থেকে যাবে।',
+  doseTimes: 'ওষুধ খাওয়ার সময়',
+  startDate: 'শুরুর তারিখ',
+  startsWhenConfirmed: 'যেদিন নিশ্চিত করবেন',
+  today: 'আজ',
+  mealTiming: 'খাবারের সময়',
+  notSpecified: 'উল্লেখ নেই',
+  continuousLabel: 'চলমান (শেষ তারিখ নেই)',
+  continuousHelp: 'ডাক্তার বন্ধ করতে না বলা পর্যন্ত চলবে।',
+  daysCountTemplate: '{n} দিন',
+  myMedicines: 'আমার ওষুধ',
+  medicinesOfTemplate: '{name}-এর ওষুধ',
+  manageMedicines: 'পরিচালনা করুন',
+  addMedicine: 'ওষুধ যোগ করুন',
+  editMedicine: 'ওষুধ পরিবর্তন',
+  pharmacistMedicineLimited: 'এই ওষুধটি ফার্মাসিস্ট ঠিক করেছেন। আপনি ওষুধ খাওয়ার সময় ও খাবারের সময় বদলাতে পারবেন।',
+  medicineName: 'ওষুধের নাম',
+  strength: 'শক্তি (মাত্রা)',
+  doseAmount: 'প্রতিবারের পরিমাণ',
+  timesPerDay: 'দিনে কতবার',
+  numberOfDays: 'কত দিন',
+  numberOfDaysInvalid: '১ থেকে ৩৬৫ দিন লিখুন',
+  timesMustDiffer: 'প্রতিটি ডোজের জন্য আলাদা সময় দিন।',
+  prescriptionsOfTemplate: '{name}-এর প্রেসক্রিপশন',
+  uploadedForMember: 'আপলোড হয়েছে। ফার্মাসিস্ট এটি প্রস্তুত করবেন।',
+  takePhoto: 'ছবি তুলুন',
+  caregiverActingHint: 'পরিচর্যাকারী হিসেবে আপনি তাঁর ওষুধ ও প্রেসক্রিপশন পরিচালনা করতে পারেন। প্রতিটি পরিবর্তনের কথা তাঁকে জানানো হয়।',
+  medicinesButton: 'ওষুধ',
+  prescriptionsButton: 'প্রেসক্রিপশন',
+  invitationWarning: 'যোগ দিলে যিনি আমন্ত্রণ জানিয়েছেন তিনি আপনার পরিচর্যাকারী হবেন। তিনি আপনার ওষুধ দেখতে, কোনো ডোজ মিস হলে সতর্কতা পেতে এবং আপনার ওষুধ ও প্রেসক্রিপশন পরিচালনা করতে পারবেন। ডোজ নেওয়া হয়েছে বলে শুধু আপনিই চিহ্নিত করবেন। প্রোফাইল থেকে নিজেকে পরিবারের কাছে লুকাতে পারবেন।',
+  editYourDetails: 'আপনার তথ্য সম্পাদনা করুন',
+  detailsSaved: 'আপনার তথ্য সংরক্ষিত হয়েছে।',
+  dateOfBirth: 'জন্ম তারিখ',
+  gender: 'লিঙ্গ',
+  division: 'বিভাগ',
+  district: 'জেলা',
+  upazila: 'উপজেলা',
+  couldNotLoadOptions: 'তালিকা লোড করা যায়নি। ইন্টারনেট সংযোগ দেখুন।',
+  allNotices: 'সব নোটিশ',
+  noticeSource: 'সূত্র',
 );

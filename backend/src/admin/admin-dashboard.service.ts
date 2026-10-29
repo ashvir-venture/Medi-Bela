@@ -72,6 +72,8 @@ export class AdminDashboardService {
       this.prisma.notice.count({
         where: {
           status: NoticeStatus.PUBLISHED,
+          // Scheduled notices (no publishedAt yet) aren't live.
+          publishedAt: { not: null, lte: now },
           OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
         },
       }),

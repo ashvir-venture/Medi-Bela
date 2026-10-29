@@ -36,7 +36,7 @@ d('Missed-dose pipeline (real Postgres)', () => {
     const outsider = await makeUser(prisma, 'Outsider');
     const family = await prisma.family.create({
       data: { members: { create: [
-        { userId: subject.id, role: 'OWNER' }, { userId: b.id }, { userId: c.id },
+        { userId: subject.id, role: 'CAREGIVER' }, { userId: b.id }, { userId: c.id },
       ] } },
     });
     const routine = await prisma.medicineRoutine.create({

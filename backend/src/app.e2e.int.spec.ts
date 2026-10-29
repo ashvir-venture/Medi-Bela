@@ -3,7 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from './app.module';
 import { PrismaService } from './prisma/prisma.service';
-import { makeTestPrisma, resetDb } from './test-utils/test-prisma';
+import { makeTestPrisma, resetDb, signupDetails } from './test-utils/test-prisma';
 
 const prisma = makeTestPrisma();
 const d = prisma ? describe : describe.skip;
@@ -12,7 +12,7 @@ d('HTTP end-to-end (real AppModule + Postgres)', () => {
   let app: INestApplication;
   const http = () => request(app.getHttpServer());
   const reg = async (phone: string, name: string) => {
-    const res = await http().post('/api/v1/auth/register').send({ phone, name, password: 'pass1234' }).expect(201);
+    const res = await http().post('/api/v1/auth/register').send({ phone, name, password: 'pass1234', ...(await signupDetails(prisma)) }).expect(201);
     return { token: res.body.tokens.accessToken as string, id: res.body.user.id as string, user: res.body.user };
   };
   const auth = (t: string) => ({ Authorization: `Bearer ${t}` });
@@ -31,7 +31,7 @@ d('HTTP end-to-end (real AppModule + Postgres)', () => {
   beforeEach(async () => { await resetDb(prisma); });
 
   it('auth works end to end with a single JWT (register, login, protected call, bad token)', async () => {
-    const r = await http().post('/api/v1/auth/register').send({ phone: '01711000001', name: 'Local User', password: 'pass1234' }).expect(201);
+    const r = await http().post('/api/v1/auth/register').send({ phone: '01711000001', name: 'Local User', password: 'pass1234', ...(await signupDetails(prisma)) }).expect(201);
     expect(r.body.user.phone).toBe('+8801711000001');                       // normalised on the way in
     expect(Object.keys(r.body.tokens)).toEqual(['accessToken']);
     expect(JSON.stringify(r.body)).not.toMatch(/passwordHash|refresh/i);

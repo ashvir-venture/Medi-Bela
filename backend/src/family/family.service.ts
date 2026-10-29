@@ -16,7 +16,7 @@ import { CreateFamilyDto } from './dto/create-family.dto';
 import { InviteMemberDto } from './dto/invite-member.dto';
 
 const INVITATION_TTL_DAYS = 7;
-/** Spam/abuse guard: an owner cannot stack unlimited open invitations. */
+/** Spam/abuse guard: a caregiver cannot stack unlimited open invitations. */
 const MAX_PENDING_INVITATIONS = 20;
 
 /**
@@ -71,7 +71,7 @@ export class FamilyService {
   async createFamily(userId: string, dto: CreateFamilyDto) {
     try {
       const family = await this.prisma.family.create({
-        data: { name: dto.name, members: { create: { userId, role: FamilyRole.OWNER } } },
+        data: { name: dto.name, members: { create: { userId, role: FamilyRole.CAREGIVER } } },
         select: { id: true },
       });
       return this.loadFamily(family.id);
@@ -236,8 +236,8 @@ export class FamilyService {
 
   async inviteMember(userId: string, dto: InviteMemberDto) {
     const membership = await this.requireMembership(userId);
-    if (membership.role !== FamilyRole.OWNER) {
-      throw new ForbiddenException('Only the family owner can invite members');
+    if (membership.role !== FamilyRole.CAREGIVER) {
+      throw new ForbiddenException('Only the caregiver can invite members');
     }
 
     const phone = normalizePhone(dto.phone);
@@ -341,8 +341,8 @@ export class FamilyService {
 
   async listSentInvitations(userId: string) {
     const membership = await this.requireMembership(userId);
-    if (membership.role !== FamilyRole.OWNER) {
-      throw new ForbiddenException('Only the family owner can view sent invitations');
+    if (membership.role !== FamilyRole.CAREGIVER) {
+      throw new ForbiddenException('Only the caregiver can view sent invitations');
     }
     const rows = await this.prisma.familyInvitation.findMany({
       where: {
@@ -360,12 +360,12 @@ export class FamilyService {
 
     try {
       return await this.prisma.$transaction(async (tx) => {
-        // A user who only created an EMPTY family of their own (sole owner, nobody
+        // A user who only created an EMPTY family of their own (sole caregiver, nobody
         // else in it) may still join another one; that empty family is discarded.
         const existing = await tx.familyMember.findUnique({ where: { userId } });
         if (existing) {
           const size = await tx.familyMember.count({ where: { familyId: existing.familyId } });
-          if (existing.role === FamilyRole.OWNER && size === 1) {
+          if (existing.role === FamilyRole.CAREGIVER && size === 1) {
             await tx.family.delete({ where: { id: existing.familyId } });
           } else {
             throw new ConflictException('You already belong to a family');

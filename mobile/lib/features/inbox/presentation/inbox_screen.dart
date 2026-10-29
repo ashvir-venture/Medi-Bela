@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/localization/locale_controller.dart';
 import '../../../notifications/push_service.dart';
+import '../../../router/app_router.dart';
 import '../../../widgets/state_views.dart';
 import '../domain/inbox_models.dart';
 import 'inbox_controller.dart';
@@ -29,13 +30,23 @@ class InboxScreen extends ConsumerWidget {
           ),
         ]);
       }
+      // General: a shortcut to every notice above the notice pushes.
+      final header = tab == InboxTab.general ? 1 : 0;
       // Tabs filter the pages loaded so far, so "Load more" stays available
       // even when this tab is still empty.
       return ListView.separated(
         padding: const EdgeInsets.all(12),
-        itemCount: (items.isEmpty ? 1 : items.length) + (state.hasMore ? 1 : 0),
+        itemCount: header + (items.isEmpty ? 1 : items.length) + (state.hasMore ? 1 : 0),
         separatorBuilder: (_, _) => const SizedBox(height: 8),
-        itemBuilder: (context, index) {
+        itemBuilder: (context, position) {
+          if (header == 1 && position == 0) {
+            return OutlinedButton.icon(
+              onPressed: () => context.go(AppRoutes.notices),
+              icon: const Icon(Icons.campaign_outlined),
+              label: Text(strings.allNotices),
+            );
+          }
+          final index = position - header;
           if (items.isEmpty && index == 0) {
             return Padding(
               padding: const EdgeInsets.only(top: 48),

@@ -1,5 +1,17 @@
 import { NoticeAudience } from '@prisma/client';
-import { IsEnum, IsISO8601, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsEnum,
+  IsInt,
+  IsISO8601,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 
 export class CreateNoticeDto {
   @IsString()
@@ -20,7 +32,32 @@ export class CreateNoticeDto {
   @IsISO8601()
   expiresAt?: string;
 
-  // No `status` field here on purpose: every new notice starts as a
-  // DRAFT (see NoticesService.create). Use POST .../:id/publish to go
-  // live, matching the health-suggestion-rules publish convention.
+  /** Where the information comes from, shown with the notice (e.g. "DGHS"). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  source?: string;
+
+  /** Link to the original announcement (https only). */
+  @IsOptional()
+  @IsUrl({ protocols: ['https'], require_protocol: true })
+  @MaxLength(500)
+  sourceUrl?: string;
+
+  /** Scheduled publishing: hidden (and not pushed) until this time. */
+  @IsOptional()
+  @IsISO8601()
+  startsAt?: string;
+
+  /** lookup `divisions` ids; empty or omitted = every division. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(8)
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  divisionIds?: number[];
+
+  // No `status` field here on purpose: every new notice starts as a DRAFT.
+  // A pharmacist submits it for approval; an admin publishes it (their own
+  // directly, a pharmacist's after review).
 }

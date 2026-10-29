@@ -13,6 +13,11 @@ class UserModel {
     required this.profileVisibleToFamily,
     this.medicineRemindersEnabled = true,
     this.noticesEnabled = true,
+    this.dateOfBirth,
+    this.genderId,
+    this.divisionId,
+    this.districtId,
+    this.upazilaId,
   });
 
   final String id;
@@ -28,6 +33,12 @@ class UserModel {
   final bool medicineRemindersEnabled;
   /// Off: notices are not pushed (still listed in the app).
   final bool noticesEnabled;
+  // Personal details (only from the server; the Drift cache keeps the basics).
+  final DateTime? dateOfBirth;
+  final int? genderId;
+  final int? divisionId;
+  final int? districtId;
+  final int? upazilaId;
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
@@ -43,6 +54,11 @@ class UserModel {
           json['profileVisibleToFamily'] as bool? ?? true,
       medicineRemindersEnabled: json['medicineRemindersEnabled'] as bool? ?? true,
       noticesEnabled: json['noticesEnabled'] as bool? ?? true,
+      dateOfBirth: json['dateOfBirth'] == null ? null : DateTime.parse(json['dateOfBirth'] as String),
+      genderId: json['genderId'] as int?,
+      divisionId: json['divisionId'] as int?,
+      districtId: json['districtId'] as int?,
+      upazilaId: json['upazilaId'] as int?,
     );
   }
 }

@@ -10,6 +10,7 @@ class NoticeModel {
     required this.content,
     required this.publishedAt,
     this.expiresAt,
+    this.source,
   });
 
   final String id;
@@ -17,6 +18,8 @@ class NoticeModel {
   final String content;
   final DateTime? publishedAt;
   final DateTime? expiresAt;
+  /// Where the information comes from (e.g. "DGHS"), when given.
+  final String? source;
 
   bool get isExpired => expiresAt != null && !expiresAt!.isAfter(DateTime.now());
 
@@ -26,6 +29,7 @@ class NoticeModel {
         'content': content,
         'publishedAt': publishedAt?.toUtc().toIso8601String(),
         'expiresAt': expiresAt?.toUtc().toIso8601String(),
+        'source': source,
       };
 
   factory NoticeModel.fromJson(Map<String, dynamic> json) {
@@ -37,6 +41,7 @@ class NoticeModel {
           json['publishedAt'] == null ? null : DateTime.parse(json['publishedAt'] as String),
       expiresAt:
           json['expiresAt'] == null ? null : DateTime.parse(json['expiresAt'] as String),
+      source: json['source'] as String?,
     );
   }
 }

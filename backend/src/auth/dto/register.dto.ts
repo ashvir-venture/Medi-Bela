@@ -1,9 +1,12 @@
 import {
+  IsDateString,
   IsEnum,
+  IsInt,
   IsOptional,
   IsString,
   Matches,
   MaxLength,
+  Min,
   MinLength,
 } from 'class-validator';
 import { Language } from '@prisma/client';
@@ -37,4 +40,26 @@ export class RegisterDto {
   @IsOptional()
   @IsEnum(Language)
   languagePreference?: Language;
+
+  // --- Required since Round 6 (checked against the lookup tables) ---
+
+  /** YYYY-MM-DD */
+  @IsDateString({ strict: true })
+  dateOfBirth: string;
+
+  @IsInt()
+  @Min(1)
+  genderId: number;
+
+  @IsInt()
+  @Min(1)
+  divisionId: number;
+
+  @IsInt()
+  @Min(1)
+  districtId: number;
+
+  @IsInt()
+  @Min(1)
+  upazilaId: number;
 }

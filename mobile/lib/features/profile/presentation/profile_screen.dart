@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/localization/app_strings.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../features/auth/domain/user_model.dart';
 import '../../../router/app_router.dart';
@@ -56,53 +55,9 @@ class _ProfileContent extends ConsumerStatefulWidget {
 }
 
 class _ProfileContentState extends ConsumerState<_ProfileContent> {
-  late final TextEditingController _nameController;
-  late final TextEditingController _addressController;
-  bool _isSaving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController(text: widget.user.name);
-    _addressController = TextEditingController(text: widget.user.address ?? '');
-  }
-
-  @override
-  void didUpdateWidget(covariant _ProfileContent oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.user.name != widget.user.name) _nameController.text = widget.user.name;
-    if (oldWidget.user.address != widget.user.address) {
-      _addressController.text = widget.user.address ?? '';
-    }
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _addressController.dispose();
-    super.dispose();
-  }
-
   void _toast(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  Future<void> _save() async {
-    final strings = ref.read(stringsProvider);
-    final name = _nameController.text.trim();
-    if (name.length < 2) {
-      _toast(strings.name);
-      return;
-    }
-    setState(() => _isSaving = true);
-    final result = await ref.read(authControllerProvider.notifier).updateProfile({
-      'name': name,
-      'address': _addressController.text.trim(),
-    });
-    if (!mounted) return;
-    setState(() => _isSaving = false);
-    result.when(success: (_) => _toast(strings.save), failure: _toast);
   }
 
   /// Settings are account data (the server uses them to decide who gets
@@ -178,30 +133,19 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
           ),
         ),
         const SizedBox(height: 8),
+        Center(child: Text(widget.user.name, style: theme.textTheme.titleLarge)),
         Center(child: Text(widget.user.phone, style: TextStyle(color: Colors.grey.shade700))),
-        const SizedBox(height: 20),
-        _Header(strings.personalInformation),
-        TextField(
-          controller: _nameController,
-          textInputAction: TextInputAction.next,
-          decoration: InputDecoration(labelText: strings.name),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _addressController,
-          decoration: InputDecoration(labelText: strings.address),
-        ),
-        const SizedBox(height: 12),
-        ElevatedButton(
-          onPressed: _isSaving ? null : _save,
-          child: _isSaving
-              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : Text(strings.save),
+        const SizedBox(height: 16),
+        // Details live on their own page so Profile stays short.
+        OutlinedButton.icon(
+          onPressed: () => context.push(AppRoutes.editDetails),
+          icon: const Icon(Icons.edit_outlined),
+          label: Text(strings.editYourDetails),
         ),
 
         // ---- Medicine routine summary ----------------------------------
         const SizedBox(height: 24),
-        _Header(strings.myMedicineRoutines, action: strings.seeAll, onAction: () => context.go(AppRoutes.todaysMedicine)),
+        _Header(strings.myMedicineRoutines, action: strings.seeAll, onAction: () => context.push(AppRoutes.medicines)),
         const _RoutineSummary(),
 
         // ---- Prescription summary --------------------------------------

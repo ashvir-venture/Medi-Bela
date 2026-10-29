@@ -13,7 +13,7 @@ class FamilyMemberModel {
   final String userId;
   final String name;
   final String phone;
-  final String role; // OWNER | MEMBER
+  final String role; // CAREGIVER | MEMBER
   final String? address;
   final DateTime joinedAt;
 

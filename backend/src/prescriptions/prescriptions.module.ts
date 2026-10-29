@@ -5,9 +5,10 @@ import { RoutineGenerationService } from './lib/routine-generation.service';
 import { CloudinaryService } from './lib/cloudinary.service';
 import { HealthModule } from '../health/health.module';
 import { CatalogModule } from '../catalog/catalog.module';
+import { FamilyModule } from '../family/family.module';
 
 @Module({
-  imports: [HealthModule, CatalogModule],
+  imports: [HealthModule, CatalogModule, FamilyModule],
   controllers: [PrescriptionsController],
   providers: [PrescriptionsService, RoutineGenerationService, CloudinaryService],
   exports: [RoutineGenerationService, PrescriptionsService],

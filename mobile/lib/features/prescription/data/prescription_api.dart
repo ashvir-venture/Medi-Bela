@@ -46,19 +46,48 @@ class PrescriptionApi {
 
   /// Full history, newest first — used to refresh local status (PENDING /
   /// COMPLETED / REJECTED) for drafts that have already synced.
-  Future<List<PrescriptionSummaryModel>> getHistory() async {
+  Future<List<PrescriptionSummaryModel>> getHistory({String? forUserId}) async {
     final response = await _dio.get<List<dynamic>>(
       ApiEndpoints.prescriptionHistory,
+      queryParameters: {if (forUserId != null) 'forUserId': forUserId},
     );
     return response.data!
         .map((p) => PrescriptionSummaryModel.fromJson(p as Map<String, dynamic>))
         .toList();
   }
 
-  Future<PrescriptionDetailModel> getDetail(String id) async {
+  Future<PrescriptionDetailModel> getDetail(String id, {String? forUserId}) async {
     final response = await _dio.get<Map<String, dynamic>>(
       ApiEndpoints.prescriptionDetail(id),
+      queryParameters: {if (forUserId != null) 'forUserId': forUserId},
     );
     return PrescriptionDetailModel.fromJson(response.data!);
+  }
+
+  /// Confirm or Edit. [lines] holds only changed lines:
+  /// `{id, scheduleTimes?, startDate?, mealTimingId?, remove?}`.
+  Future<PrescriptionDetailModel> confirm(
+    String id, {
+    required List<Map<String, dynamic>> lines,
+    String? forUserId,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      ApiEndpoints.prescriptionConfirm(id),
+      data: {'lines': lines},
+      queryParameters: {if (forUserId != null) 'forUserId': forUserId},
+    );
+    return PrescriptionDetailModel.fromJson(response.data!);
+  }
+
+  /// A caregiver uploading for a family member. Online only: the member's
+  /// prescriptions aren't kept in this phone's offline queue.
+  Future<String> uploadForMember({required String forUserId, required String imagePath}) async {
+    final formData = FormData.fromMap({'image': await MultipartFile.fromFile(imagePath)});
+    final response = await _dio.post<Map<String, dynamic>>(
+      ApiEndpoints.prescriptions,
+      data: formData,
+      queryParameters: {'forUserId': forUserId},
+    );
+    return response.data!['id'] as String;
   }
 }

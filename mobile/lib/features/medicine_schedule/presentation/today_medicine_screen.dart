@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/localization/app_strings.dart';
 import '../../../core/localization/locale_controller.dart';
+import '../../../router/app_router.dart';
 import '../../../widgets/state_views.dart';
 import '../../reminders/presentation/reminder_status_banner.dart';
 import '../domain/dose_display_status.dart';
@@ -88,7 +90,18 @@ class _TodaysMedicineScreenState extends ConsumerState<TodaysMedicineScreen> {
                 else
                   ...doses.map((d) => _DoseTile(dose: d, strings: strings)),
                 const SizedBox(height: 24),
-                Text(strings.myMedicineRoutines, style: Theme.of(context).textTheme.titleMedium),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(strings.myMedicineRoutines, style: Theme.of(context).textTheme.titleMedium),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => context.push(AppRoutes.medicines),
+                      icon: const Icon(Icons.edit_note),
+                      label: Text(strings.manageMedicines),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 8),
                 if (activeRoutines.isEmpty)
                   EmptyView(message: strings.noActiveRoutines, icon: Icons.list_alt_outlined)

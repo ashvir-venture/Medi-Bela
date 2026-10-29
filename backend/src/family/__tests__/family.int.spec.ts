@@ -91,7 +91,7 @@ d('FamilyService (real Postgres)', () => {
       expect(Object.keys(a).sort()).toEqual(Object.keys(b).sort());
     });
 
-    it('only the owner can invite or list sent invitations', async () => {
+    it('only the caregiver can invite or list sent invitations', async () => {
       const { owner } = await familyOf();
       const m = await makeUser(prisma, 'M'); await join(owner, m);
       await expect(invite(m, '+8801811111111')).rejects.toThrow(ForbiddenException);
@@ -147,7 +147,7 @@ d('FamilyService (real Postgres)', () => {
       await expect(svc.acceptInvitation(e.id, e.phone, inv3.id)).rejects.toThrow(ConflictException);
     });
 
-    it('a member of a real family cannot join another; a SOLE owner of an empty family can', async () => {
+    it('a member of a real family cannot join another; a SOLE caregiver of an empty family can', async () => {
       const A = await familyOf('A'); const B = await familyOf('B');
       const member = await makeUser(prisma, 'Mem'); await join(A.owner, member);
       const invB = await invite(B.owner, member.phone);

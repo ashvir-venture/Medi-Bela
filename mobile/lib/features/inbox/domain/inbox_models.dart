@@ -73,7 +73,9 @@ InboxTab inboxTabFor(InboxItem item) {
     case 'MISSED_DOSE_FAMILY_ALERT':
       return InboxTab.family;
     case 'SYSTEM':
-      return item.data['kind'] == 'family_invitation' ? InboxTab.family : InboxTab.personal;
+      return const {'family_invitation', 'caregiver_action'}.contains(item.data['kind'])
+          ? InboxTab.family
+          : InboxTab.personal;
     default:
       // MEDICINE_REMINDER, PRESCRIPTION_UPDATE, anything new.
       return InboxTab.personal;

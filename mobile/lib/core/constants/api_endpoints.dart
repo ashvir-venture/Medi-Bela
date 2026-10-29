@@ -14,6 +14,13 @@ class ApiEndpoints {
   // Users
   static const String me = '/users/me';
 
+  // Dropdown data (public)
+  static const String lookups = '/lookups';
+  static const String upazilas = '/lookups/upazilas';
+
+  // Medicine catalog autosuggest (read-only for patients)
+  static const String catalogMedicineSearch = '/catalog/medicines/search';
+
   // Family
   static const String family = '/family';
   static const String familyMembers = '/family/members';
@@ -37,10 +44,12 @@ class ApiEndpoints {
   static const String prescriptions = '/prescriptions';
   static const String prescriptionHistory = '/prescriptions/mine';
   static String prescriptionDetail(String id) => '/prescriptions/$id';
+  static String prescriptionConfirm(String id) => '/prescriptions/$id/confirm';
 
   // Medicine schedule (Phase 3A/3B) — synchronized routines/doses
   // generated once a prescription is COMPLETED.
   static const String medicineRoutines = '/medicine-schedule/routines';
+  static String medicineRoutine(String id) => '/medicine-schedule/routines/$id';
   static const String medicineToday = '/medicine-schedule/today';
   static const String medicineUpcoming = '/medicine-schedule/upcoming';
   static String doseDetail(String id) => '/medicine-schedule/doses/$id';

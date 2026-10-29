@@ -40,7 +40,8 @@ String routeForNotificationData(Map<String, dynamic> data) {
     case 'PRESCRIPTION_UPDATE':
       return '/prescription';
     case 'NOTICE':
-      return '/notices';
+      final noticeId = data['noticeId'];
+      return noticeId is String ? '/notices?id=$noticeId' : '/notices';
     case 'MEDICINE_REMINDER':
       // Local reminders and the server's backstop: names are only in the app.
       return '/prescription/today';

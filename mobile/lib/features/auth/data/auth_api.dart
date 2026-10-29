@@ -18,6 +18,7 @@ class AuthApi {
     required String password,
     String? address,
     String? languagePreference,
+    Map<String, dynamic> details = const {},
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       ApiEndpoints.register,
@@ -28,6 +29,8 @@ class AuthApi {
         if (address != null && address.isNotEmpty) 'address': address,
         if (languagePreference != null)
           'languagePreference': languagePreference,
+        // dateOfBirth, genderId, divisionId, districtId, upazilaId (required).
+        ...details,
       },
     );
     return _parseAuthResponse(response.data!);

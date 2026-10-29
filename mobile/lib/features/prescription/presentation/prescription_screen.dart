@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/localization/app_strings.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../providers/core_providers.dart';
+import '../../../router/app_router.dart';
+import '../../../widgets/load_more_list.dart';
 import '../../../widgets/state_views.dart';
 import '../domain/prescription_draft_model.dart';
+import 'member_prescriptions_screen.dart' show ServerPrescriptionTile;
 import 'prescription_controller.dart';
 
 class PrescriptionScreen extends ConsumerStatefulWidget {
@@ -42,17 +46,31 @@ class _PrescriptionScreenState extends ConsumerState<PrescriptionScreen> {
           onRetry: () => ref.invalidate(prescriptionDraftsProvider),
         ),
         data: (drafts) {
-          if (drafts.isEmpty) {
+          // Prescriptions my caregiver uploaded for me aren't local drafts:
+          // they come from the server (online only) and are listed after mine.
+          final mineOnPhone = drafts.map((d) => d.serverId).whereType<String>().toSet();
+          final fromCaregiver = (ref.watch(serverPrescriptionsProvider(null)).valueOrNull ?? const [])
+              .where((p) => p.uploadedByCaregiver && !mineOnPhone.contains(p.id))
+              .toList();
+          if (drafts.isEmpty && fromCaregiver.isEmpty) {
             return EmptyView(
               message: strings.noItemsYet,
               icon: Icons.medication_outlined,
             );
           }
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: drafts.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, index) => _DraftTile(draft: drafts[index]),
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(serverPrescriptionsProvider(null));
+              await ref.read(prescriptionLocalRepositoryProvider).refreshStatuses();
+            },
+            child: LoadMoreListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+              itemCount: drafts.length + fromCaregiver.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, index) => index < drafts.length
+                  ? _DraftTile(draft: drafts[index])
+                  : ServerPrescriptionTile(prescription: fromCaregiver[index - drafts.length]),
+            ),
           );
         },
       ),
@@ -115,6 +133,20 @@ class _DraftTile extends ConsumerWidget {
                 child: Text(
                   '${strings.rejectionReason}: ${draft.rejectionReason}',
                   style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12),
+                ),
+              ),
+            if (draft.serverStatus == 'AWAITING_CONFIRMATION' && draft.serverId != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: FilledButton.icon(
+                  onPressed: () async {
+                    final done = await context.push<bool>(AppRoutes.confirmPrescriptionPath(draft.serverId!));
+                    if (done == true) {
+                      await ref.read(prescriptionLocalRepositoryProvider).refreshStatuses();
+                    }
+                  },
+                  icon: const Icon(Icons.fact_check_outlined),
+                  label: Text(strings.reviewAndConfirm),
                 ),
               ),
             if (draft.serverStatus == 'REJECTED' && draft.serverId != null)

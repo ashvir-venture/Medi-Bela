@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/localization/locale_controller.dart';
 import '../../../router/app_router.dart';
+import '../../../widgets/details_fields.dart';
 import 'auth_controller.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -22,6 +23,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _confirmPasswordController = TextEditingController();
   bool _isSubmitting = false;
   String? _errorMessage;
+  // Required since Round 6: date of birth, gender and address.
+  PersonalDetails _details = const PersonalDetails();
 
   @override
   void dispose() {
@@ -50,6 +53,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               ? null
               : _addressController.text.trim(),
           languagePreference: locale.languageCode.toUpperCase(),
+          details: _details.toJson(),
         );
 
     if (!mounted) return;
@@ -110,6 +114,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             .hasMatch(v.trim());
                         return valid ? null : strings.invalidPhone;
                       },
+                    ),
+                    const SizedBox(height: 16),
+                    PersonalDetailsFields(
+                      value: _details,
+                      onChanged: (d) => setState(() => _details = d),
                     ),
                     const SizedBox(height: 16),
                     TextFormField(

@@ -24,8 +24,10 @@ enum Language {
   BN
 }
 
+// CAREGIVER (was OWNER until Round 6) runs the family: invites members and
+// may act for any member who doesn't hide from family.
 enum FamilyRole {
-  OWNER
+  CAREGIVER
   MEMBER
 }
 
@@ -124,34 +126,34 @@ enum AssistantMessageRole {
 }
 
 model User {
-  id                     String        @id @default(uuid()) @db.Uuid
-  phone                  String        @unique
-  name                   String
-  address                String?
-  passwordHash           String
-  role                   Role          @default(USER)
-  accountStatus          AccountStatus @default(ACTIVE)
-  languagePreference     Language      @default(EN)
-  notificationsEnabled   Boolean       @default(true)
+  id                       String        @id @default(uuid()) @db.Uuid
+  phone                    String        @unique
+  name                     String
+  address                  String?
+  passwordHash             String
+  role                     Role          @default(USER)
+  accountStatus            AccountStatus @default(ACTIVE)
+  languagePreference       Language      @default(EN)
+  notificationsEnabled     Boolean       @default(true)
   // Off: no medicine reminders, backstop pushes or missed-dose family alerts.
-  medicineRemindersEnabled Boolean     @default(true)
+  medicineRemindersEnabled Boolean       @default(true)
   // Off: notices are not pushed (still listed in the app).
-  noticesEnabled         Boolean       @default(true)
+  noticesEnabled           Boolean       @default(true)
   // The privacy flag, stored inverted: false = "Hide from family" switched
   // on, which hides this user from every family member, the owner included.
-  profileVisibleToFamily Boolean       @default(true)
-  dateOfBirth            DateTime?     @db.Date
-  genderId               Int?
+  profileVisibleToFamily   Boolean       @default(true)
+  dateOfBirth              DateTime?     @db.Date
+  genderId                 Int?
   // Address: each level must belong to the one above it, enforced by the
   // composite foreign keys below (a district of another division is rejected).
-  divisionId             Int?
-  districtId             Int?
-  upazilaId              Int?
-  createdAt              DateTime      @default(now())
-  updatedAt              DateTime      @updatedAt
+  divisionId               Int?
+  districtId               Int?
+  upazilaId                Int?
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
   // Set when the password is RESET (forgot-password): access tokens issued
   // before this moment are rejected, so a stolen session cannot outlive a reset.
-  passwordChangedAt      DateTime?
+  passwordChangedAt        DateTime?
 
   familyMemberships      FamilyMember[]
   sentInvitations        FamilyInvitation[]      @relation("InvitationSender")
@@ -180,6 +182,9 @@ model User {
   approvedNotices        Notice[]                @relation("NoticeApprover")
   auditActions           AuditLog[]              @relation("AuditActor")
   auditSubjectOf         AuditLog[]              @relation("AuditSubject")
+  uploadedPrescriptions  Prescription[]          @relation("PrescriptionUploader")
+  confirmedPrescriptions Prescription[]          @relation("PrescriptionConfirmer")
+  createdRoutines        MedicineRoutine[]       @relation("RoutineCreator")
 
   @@index([role])
   @@map("users")
@@ -234,41 +239,47 @@ model FamilyInvitation {
 }
 
 model Prescription {
-  id              String              @id @default(uuid()) @db.Uuid
-  userId          String              @db.Uuid
-  imageUrl        String
-  status          PrescriptionStatus  @default(PENDING)
-  reviewedById    String?             @db.Uuid
-  reviewedAt      DateTime?
-  rejectionReason String?
-  processingNote  String?
+  id                     String             @id @default(uuid()) @db.Uuid
+  userId                 String             @db.Uuid
+  imageUrl               String
+  status                 PrescriptionStatus @default(PENDING)
+  reviewedById           String?            @db.Uuid
+  reviewedAt             DateTime?
+  rejectionReason        String?
+  processingNote         String?
   // Client-generated id sent by the mobile app on upload (see
   // PrescriptionApi.uploadDraft's `clientId`). Used purely as an
   // idempotency key so a retried offline sync can't create a duplicate
   // prescription server-side; never exposed as the canonical id.
-  clientUploadId  String?             @unique
+  clientUploadId         String?            @unique
   // Filled in by the pharmacist.
-  doctorId        String?             @db.Uuid
-  visitDate       DateTime?           @db.Date
-  diagnosis       String?
-  nextVisitDate   DateTime?           @db.Date
+  doctorId               String?            @db.Uuid
+  visitDate              DateTime?          @db.Date
+  diagnosis              String?
+  nextVisitDate          DateTime?          @db.Date
   // A re-upload after a rejection points at the rejected prescription.
-  previousPrescriptionId String?      @db.Uuid
+  previousPrescriptionId String?            @db.Uuid
   // Medicine lines belong to a revision. A pharmacist edit after activation
   // is a new pendingRevision; the current one keeps running until the user
   // confirms (or edits) it.
-  currentRevision Int                 @default(1)
-  pendingRevision Int?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  currentRevision        Int                @default(1)
+  pendingRevision        Int?
+  // Who uploaded / confirmed it: the patient, or their caregiver acting for them.
+  uploadedById           String?            @db.Uuid
+  confirmedById          String?            @db.Uuid
+  confirmedAt            DateTime?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
 
-  user       User                    @relation("PrescriptionOwner", fields: [userId], references: [id], onDelete: Cascade)
-  reviewedBy User?                   @relation("PrescriptionReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
-  doctor     Doctor?                 @relation(fields: [doctorId], references: [id], onDelete: SetNull)
-  previous   Prescription?           @relation("Reupload", fields: [previousPrescriptionId], references: [id], onDelete: SetNull)
-  reuploads  Prescription[]          @relation("Reupload")
-  medicines  PrescriptionMedicine[]
-  tests      PrescriptionTest[]
+  user        User                   @relation("PrescriptionOwner", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy  User?                  @relation("PrescriptionReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  uploadedBy  User?                  @relation("PrescriptionUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  confirmedBy User?                  @relation("PrescriptionConfirmer", fields: [confirmedById], references: [id], onDelete: SetNull)
+  doctor      Doctor?                @relation(fields: [doctorId], references: [id], onDelete: SetNull)
+  previous    Prescription?          @relation("Reupload", fields: [previousPrescriptionId], references: [id], onDelete: SetNull)
+  reuploads   Prescription[]         @relation("Reupload")
+  medicines   PrescriptionMedicine[]
+  tests       PrescriptionTest[]
 
   @@index([userId, status])
   // Admin queues: filter by status, newest first, cursor-paginated.
@@ -331,15 +342,15 @@ model PrescriptionMedicine {
 }
 
 model MedicineRoutine {
-  id                     String    @id @default(uuid()) @db.Uuid
-  userId                 String    @db.Uuid
-  prescriptionMedicineId String?   @db.Uuid
+  id                     String        @id @default(uuid()) @db.Uuid
+  userId                 String        @db.Uuid
+  prescriptionMedicineId String?       @db.Uuid
   medicineName           String
   dosage                 String
   frequency              String
   startDate              DateTime
   endDate                DateTime?
-  active                 Boolean   @default(true)
+  active                 Boolean       @default(true)
   source                 RoutineSource @default(PRESCRIPTION)
   strength               String?
   doseAmount             String?
@@ -351,15 +362,18 @@ model MedicineRoutine {
   // Doses exist up to (excluding) this instant; the rolling job continues here.
   generatedUntil         DateTime?
   // Set when someone other than the pharmacist changed it ("edited by you").
-  lastEditedById         String?   @db.Uuid
+  lastEditedById         String?       @db.Uuid
   lastEditedAt           DateTime?
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
+  // Who added it: the patient or their caregiver (null = from a prescription).
+  createdById            String?       @db.Uuid
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
 
   user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   prescriptionMedicine PrescriptionMedicine? @relation(fields: [prescriptionMedicineId], references: [id], onDelete: SetNull)
   mealTiming           MealTiming?           @relation(fields: [mealTimingId], references: [id], onDelete: Restrict)
   lastEditedBy         User?                 @relation("RoutineEditor", fields: [lastEditedById], references: [id], onDelete: SetNull)
+  createdBy            User?                 @relation("RoutineCreator", fields: [createdById], references: [id], onDelete: SetNull)
   doses                MedicineDose[]
   healthSuggestions    HealthSuggestion[]
 
@@ -368,18 +382,18 @@ model MedicineRoutine {
 }
 
 model MedicineDose {
-  id          String     @id @default(uuid()) @db.Uuid
-  routineId   String     @db.Uuid
-  userId      String     @db.Uuid
-  scheduledAt DateTime
-  status      DoseStatus @default(PENDING)
-  takenAt     DateTime?
+  id                     String     @id @default(uuid()) @db.Uuid
+  routineId              String     @db.Uuid
+  userId                 String     @db.Uuid
+  scheduledAt            DateTime
+  status                 DoseStatus @default(PENDING)
+  takenAt                DateTime?
   // Set exactly once, atomically, when the missed-dose pipeline has handled
   // this dose (alert created, or deliberately skipped). Guarantees one
   // family alert per missed dose even with overlapping job runs.
   familyAlertProcessedAt DateTime?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
 
   routine MedicineRoutine @relation(fields: [routineId], references: [id], onDelete: Cascade)
   user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -391,16 +405,16 @@ model MedicineDose {
 }
 
 model HealthReminder {
-  id           String                @id @default(uuid()) @db.Uuid
-  userId       String                @db.Uuid
-  sourceRuleId String?               @db.Uuid
+  id           String               @id @default(uuid()) @db.Uuid
+  userId       String               @db.Uuid
+  sourceRuleId String?              @db.Uuid
   title        String
   description  String?
   scheduledAt  DateTime
-  status       HealthReminderStatus  @default(PENDING)
+  status       HealthReminderStatus @default(PENDING)
   completedAt  DateTime?
-  createdAt    DateTime              @default(now())
-  updatedAt    DateTime              @updatedAt
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
 
   user       User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   sourceRule HealthSuggestionRule? @relation(fields: [sourceRuleId], references: [id], onDelete: SetNull)
@@ -459,24 +473,24 @@ model HealthSuggestionRule {
 // generated. Never shown to the user until an admin reviews and
 // publishes it.
 model HealthSuggestion {
-  id              String            @id @default(uuid()) @db.Uuid
-  userId          String            @db.Uuid
+  id              String           @id @default(uuid()) @db.Uuid
+  userId          String           @db.Uuid
   // The routine this suggestion was requested for (admin-initiated, one
   // medicine). Null only for older, per-user auto-generated rows.
-  routineId       String?           @db.Uuid
+  routineId       String?          @db.Uuid
   itemsEn         Json
   itemsBn         Json
   // Snapshot of the medicine names sent to the model for this
   // generation, kept for admin context/audit -- not re-derived later.
   sourceMedicines String
-  status          SuggestionStatus  @default(DRAFT)
-  publishedById   String?           @db.Uuid
+  status          SuggestionStatus @default(DRAFT)
+  publishedById   String?          @db.Uuid
   publishedAt     DateTime?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
-  user        User  @relation("SuggestionSubject", fields: [userId], references: [id], onDelete: Cascade)
-  publishedBy User? @relation("SuggestionPublisher", fields: [publishedById], references: [id], onDelete: SetNull)
+  user        User             @relation("SuggestionSubject", fields: [userId], references: [id], onDelete: Cascade)
+  publishedBy User?            @relation("SuggestionPublisher", fields: [publishedById], references: [id], onDelete: SetNull)
   routine     MedicineRoutine? @relation(fields: [routineId], references: [id], onDelete: SetNull)
 
   @@index([userId, status])
@@ -485,23 +499,25 @@ model HealthSuggestion {
 }
 
 model Notice {
-  id          String         @id @default(uuid()) @db.Uuid
-  title       String
-  content     String
-  status      NoticeStatus   @default(DRAFT)
-  audience    NoticeAudience @default(ALL)
-  publishedAt DateTime?
-  expiresAt   DateTime?
+  id           String         @id @default(uuid()) @db.Uuid
+  title        String
+  content      String
+  status       NoticeStatus   @default(DRAFT)
+  audience     NoticeAudience @default(ALL)
+  publishedAt  DateTime?
+  expiresAt    DateTime?
   // Where the information comes from, shown with the notice (e.g. "DGHS").
-  source      String?
-  sourceUrl   String?
+  source       String?
+  sourceUrl    String?
   // Scheduled publishing: not shown before this time.
-  startsAt    DateTime?
-  approvedById String?       @db.Uuid
-  approvedAt  DateTime?
-  createdById String?        @db.Uuid
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  startsAt     DateTime?
+  approvedById String?        @db.Uuid
+  approvedAt   DateTime?
+  // An admin's note when sending a pharmacist's notice back to draft.
+  reviewNote   String?
+  createdById  String?        @db.Uuid
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
   createdBy  User?            @relation("NoticeCreator", fields: [createdById], references: [id], onDelete: SetNull)
   approvedBy User?            @relation("NoticeApprover", fields: [approvedById], references: [id], onDelete: SetNull)
@@ -724,17 +740,17 @@ model TestCategory {
 
 /// A record missing specialty, chamber or district counts as incomplete.
 model Doctor {
-  id          String           @id @default(uuid()) @db.Uuid
+  id          String   @id @default(uuid()) @db.Uuid
   name        String
   // BMDC registration number; unique when known (duplicate check).
-  bmdcNumber  String?          @unique
+  bmdcNumber  String?  @unique
   specialtyId Int?
   chamber     String?
   phone       String?
   districtId  Int?
-  createdById String?          @db.Uuid
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   specialty     DoctorSpecialty? @relation(fields: [specialtyId], references: [id], onDelete: Restrict)
   district      District?        @relation(fields: [districtId], references: [id], onDelete: Restrict)

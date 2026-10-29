@@ -18,7 +18,46 @@ export interface MessageCopy {
 const clip = (value: string, max: number) =>
   value.length <= max ? value : `${value.slice(0, max - 1).trimEnd()}…`;
 
+/** Things a caregiver can do for a member (see CaregiverAccessService). */
+export type CaregiverAction =
+  | 'prescription_uploaded'
+  | 'prescription_confirmed'
+  | 'routine_added'
+  | 'routine_updated'
+  | 'routine_removed';
+
+const CAREGIVER_BODY: Record<CaregiverAction, { en: string; bn: string }> = {
+  prescription_uploaded: {
+    en: 'Your caregiver uploaded a prescription for you.',
+    bn: 'আপনার পরিচর্যাকারী আপনার জন্য একটি প্রেসক্রিপশন আপলোড করেছেন।',
+  },
+  prescription_confirmed: {
+    en: 'Your caregiver confirmed your prescription. Your reminders have started.',
+    bn: 'আপনার পরিচর্যাকারী আপনার প্রেসক্রিপশন নিশ্চিত করেছেন। আপনার রিমাইন্ডার শুরু হয়েছে।',
+  },
+  routine_added: {
+    en: 'Your caregiver added a medicine to your routine.',
+    bn: 'আপনার পরিচর্যাকারী আপনার রুটিনে একটি ওষুধ যোগ করেছেন।',
+  },
+  routine_updated: {
+    en: 'Your caregiver changed one of your medicines.',
+    bn: 'আপনার পরিচর্যাকারী আপনার একটি ওষুধ পরিবর্তন করেছেন।',
+  },
+  routine_removed: {
+    en: 'Your caregiver removed a medicine from your routine.',
+    bn: 'আপনার পরিচর্যাকারী আপনার রুটিন থেকে একটি ওষুধ সরিয়েছেন।',
+  },
+};
+
 export const messages = {
+  /** Neutral: never names the medicine (lock screens, shared phones). */
+  caregiverAction(lang: Language, action: CaregiverAction): MessageCopy {
+    const body = CAREGIVER_BODY[action];
+    return lang === Language.BN
+      ? { title: 'পরিচর্যাকারীর আপডেট', body: body.bn }
+      : { title: 'Update from your caregiver', body: body.en };
+  },
+
   missedDoseFamily(lang: Language, memberName: string): MessageCopy {
     const name = clip(memberName, 40);
     return lang === Language.BN

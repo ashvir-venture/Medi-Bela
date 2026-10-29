@@ -30,10 +30,11 @@ class AppTheme {
           fontWeight: FontWeight.w700,
         ),
         titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-        titleMedium: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-        bodyLarge: TextStyle(fontSize: 16, height: 1.4),
-        bodyMedium: TextStyle(fontSize: 15, height: 1.4),
-        labelLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        // Round 6: one step larger throughout for older eyes.
+        titleMedium: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        bodyLarge: TextStyle(fontSize: 17, height: 1.4),
+        bodyMedium: TextStyle(fontSize: 16, height: 1.4),
+        labelLarge: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
       ),
       appBarTheme: const AppBarTheme(
         centerTitle: false,
@@ -72,6 +73,28 @@ class AppTheme {
             borderRadius: BorderRadius.circular(12),
           ),
         ),
+      ),
+      // Filled buttons sit inside rows (e.g. "Mark as taken"), so they get a
+      // tall minimum instead of full width.
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(64, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(minimumSize: const Size(48, 48)),
+      ),
+      listTileTheme: const ListTileThemeData(
+        minVerticalPadding: 12,
+        titleTextStyle: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: Colors.black87),
+        subtitleTextStyle: TextStyle(fontSize: 15, height: 1.35, color: Colors.black87),
+      ),
+      chipTheme: const ChipThemeData(
+        labelStyle: TextStyle(fontSize: 15),
+        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(

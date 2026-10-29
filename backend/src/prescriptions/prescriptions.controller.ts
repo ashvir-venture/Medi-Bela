@@ -24,6 +24,8 @@ import { SaveMedicinesDto } from './dto/save-medicines.dto';
 import { SavePrescriptionDetailsDto } from './dto/save-details.dto';
 import { QueueQueryDto } from './dto/queue-query.dto';
 import { RejectPrescriptionDto } from './dto/reject-prescription.dto';
+import { ConfirmPrescriptionDto } from './dto/confirm-prescription.dto';
+import { CaregiverAccessService } from '../family/caregiver-access.service';
 import { prescriptionImageMulterOptions } from './lib/prescription-image.storage';
 import { PrescriptionImageUrlInterceptor } from './lib/prescription-image-url.interceptor';
 import 'multer';
@@ -31,38 +33,68 @@ import 'multer';
 @Controller('prescriptions')
 @UseInterceptors(PrescriptionImageUrlInterceptor)
 export class PrescriptionsController {
-  constructor(private readonly prescriptions: PrescriptionsService) {}
+  constructor(
+    private readonly prescriptions: PrescriptionsService,
+    private readonly caregivers: CaregiverAccessService,
+  ) {}
 
   // --- User ---------------------------------------------------------
+  // `?forUserId=` = the family caregiver acting for that member.
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(FileInterceptor('image', prescriptionImageMulterOptions))
-  upload(
+  async upload(
     @CurrentUser('id') userId: string,
     @UploadedFile() image: Express.Multer.File | undefined,
     @Body() dto: CreatePrescriptionDto,
+    @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
   ) {
     if (!image) {
       throw new BadRequestException('Prescription image is required');
     }
-    return this.prescriptions.create(
-      userId,
+    const acting = await this.caregivers.resolve(userId, forUserId);
+    const created = await this.prescriptions.create(
+      acting.subjectId,
       image.buffer,
       image.originalname,
       dto.clientId,
       dto.previousPrescriptionId,
+      acting.actorId,
     );
+    await this.caregivers.notifyMember(acting, 'prescription_uploaded', created.id);
+    return created;
   }
 
   @Get('mine')
-  getMine(@CurrentUser('id') userId: string) {
-    return this.prescriptions.getMyHistory(userId);
+  async getMine(
+    @CurrentUser('id') userId: string,
+    @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
+  ) {
+    const acting = await this.caregivers.resolve(userId, forUserId);
+    return this.prescriptions.getMyHistory(acting.subjectId);
   }
 
   @Get(':id')
-  getOne(@CurrentUser('id') userId: string, @Param('id', ParseUUIDPipe) id: string) {
-    return this.prescriptions.getMyPrescriptionDetail(userId, id);
+  async getOne(
+    @CurrentUser('id') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
+  ) {
+    const acting = await this.caregivers.resolve(userId, forUserId);
+    return this.prescriptions.getMyPrescriptionDetail(acting.subjectId, id);
+  }
+
+  /** Confirm or Edit: routines and reminders start here. */
+  @Post(':id/confirm')
+  async confirm(
+    @CurrentUser('id') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ConfirmPrescriptionDto,
+    @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
+  ) {
+    const acting = await this.caregivers.resolve(userId, forUserId);
+    return this.prescriptions.confirm(acting, id, dto);
   }
 
   // --- Admin / Pharmacist --------------------------------------------

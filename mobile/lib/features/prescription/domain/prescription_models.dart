@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 /// Parses the medicine line items nested inside a prescription response.
 class PrescriptionMedicineModel {
   const PrescriptionMedicineModel({
@@ -7,6 +9,14 @@ class PrescriptionMedicineModel {
     required this.frequency,
     required this.duration,
     this.instructions,
+    this.strength,
+    this.doseAmount,
+    this.timesPerDay,
+    this.scheduleTimes = const [],
+    this.mealTimingId,
+    this.durationDays,
+    this.continuous = false,
+    this.startDate,
   });
 
   final String id;
@@ -15,6 +25,15 @@ class PrescriptionMedicineModel {
   final String frequency;
   final String duration;
   final String? instructions;
+  // Structured fields the pharmacist filled (used by Confirm or Edit).
+  final String? strength;
+  final String? doseAmount;
+  final int? timesPerDay;
+  final List<String> scheduleTimes; // "HH:mm"
+  final int? mealTimingId;
+  final int? durationDays;
+  final bool continuous;
+  final DateTime? startDate;
 
   factory PrescriptionMedicineModel.fromJson(Map<String, dynamic> json) {
     return PrescriptionMedicineModel(
@@ -24,7 +43,27 @@ class PrescriptionMedicineModel {
       frequency: json['frequency'] as String,
       duration: json['duration'] as String,
       instructions: json['instructions'] as String?,
+      strength: json['strength'] as String?,
+      doseAmount: json['doseAmount'] as String?,
+      timesPerDay: json['timesPerDay'] as int?,
+      scheduleTimes: parseScheduleTimes(json['scheduleTimes']),
+      mealTimingId: json['mealTimingId'] as int?,
+      durationDays: json['durationDays'] as int?,
+      continuous: json['continuous'] as bool? ?? false,
+      startDate: json['startDate'] == null ? null : DateTime.parse(json['startDate'] as String),
     );
+  }
+}
+
+/// The server stores dose times as a JSON string (`["08:00","20:00"]`).
+List<String> parseScheduleTimes(Object? raw) {
+  if (raw is List) return raw.cast<String>();
+  if (raw is! String || raw.isEmpty) return const [];
+  try {
+    final decoded = jsonDecode(raw);
+    return decoded is List ? decoded.cast<String>() : const [];
+  } on FormatException {
+    return const [];
   }
 }
 
@@ -37,6 +76,8 @@ class PrescriptionSummaryModel {
     this.rejectionReason,
     required this.createdAt,
     required this.medicines,
+    this.uploadedByCaregiver = false,
+    this.confirmedByCaregiver = false,
   });
 
   final String id;
@@ -45,6 +86,10 @@ class PrescriptionSummaryModel {
   final String? rejectionReason;
   final DateTime createdAt;
   final List<PrescriptionMedicineModel> medicines;
+  final bool uploadedByCaregiver;
+  final bool confirmedByCaregiver;
+
+  bool get awaitsConfirmation => status == 'AWAITING_CONFIRMATION';
 
   factory PrescriptionSummaryModel.fromJson(Map<String, dynamic> json) {
     final medicinesJson = json['medicines'] as List<dynamic>? ?? [];
@@ -57,6 +102,8 @@ class PrescriptionSummaryModel {
       medicines: medicinesJson
           .map((m) => PrescriptionMedicineModel.fromJson(m as Map<String, dynamic>))
           .toList(),
+      uploadedByCaregiver: json['uploadedByCaregiver'] as bool? ?? false,
+      confirmedByCaregiver: json['confirmedByCaregiver'] as bool? ?? false,
     );
   }
 }
@@ -70,6 +117,8 @@ class PrescriptionDetailModel extends PrescriptionSummaryModel {
     super.rejectionReason,
     required super.createdAt,
     required super.medicines,
+    super.uploadedByCaregiver,
+    super.confirmedByCaregiver,
     this.reviewedByName,
   });
 
@@ -88,6 +137,8 @@ class PrescriptionDetailModel extends PrescriptionSummaryModel {
           .map((m) => PrescriptionMedicineModel.fromJson(m as Map<String, dynamic>))
           .toList(),
       reviewedByName: reviewedBy?['name'] as String?,
+      uploadedByCaregiver: json['uploadedByCaregiver'] as bool? ?? false,
+      confirmedByCaregiver: json['confirmedByCaregiver'] as bool? ?? false,
     );
   }
 }

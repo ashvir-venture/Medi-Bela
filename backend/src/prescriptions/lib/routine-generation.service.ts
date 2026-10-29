@@ -53,6 +53,31 @@ export function generationLimit(endDate: Date | null, now: Date): Date {
   return afterEnd < horizonEnd ? afterEnd : horizonEnd;
 }
 
+export interface PlannedSchedule {
+  startDate: Date;
+  endDate: Date | null;
+  generatedUntil: Date;
+  doses: GeneratedDose[];
+}
+
+/**
+ * Start, end and first doses of a schedule. The start defaults to today;
+ * endDate is inclusive of the last dosing day (none when continuous).
+ * Shared by prescription routines and self-added ones.
+ */
+export function planSchedule(
+  input: { scheduleTimes: string[]; startDate: Date | null; durationDays: number | null; continuous: boolean },
+  now: Date,
+): PlannedSchedule {
+  const startDate = startOfAppDay(input.startDate ?? now);
+  const endDate =
+    input.continuous || !input.durationDays ? null : addAppDays(startDate, input.durationDays - 1);
+  const limit = generationLimit(endDate, now);
+  // A start beyond the horizon: nothing yet, the rolling job begins there.
+  const generatedUntil = limit > startDate ? limit : startDate;
+  return { startDate, endDate, generatedUntil, doses: dosesForDays(input.scheduleTimes, startDate, generatedUntil) };
+}
+
 export function parseScheduleTimes(raw: string | null): string[] {
   if (!raw) return [];
   try {
@@ -103,12 +128,10 @@ export class RoutineGenerationService {
       );
     }
 
-    const startDate = startOfAppDay(medicine.startDate ?? completedAt);
-    // endDate is inclusive of the last dosing day; none for a continuous line.
-    const endDate = medicine.continuous || !durationDays ? null : addAppDays(startDate, durationDays - 1);
-    const limit = generationLimit(endDate, completedAt);
-    // A start beyond the horizon: nothing yet, the rolling job begins there.
-    const generatedUntil = limit > startDate ? limit : startDate;
+    const { startDate, endDate, generatedUntil, doses } = planSchedule(
+      { scheduleTimes, startDate: medicine.startDate, durationDays, continuous: medicine.continuous },
+      completedAt,
+    );
 
     return {
       medicineName: medicine.medicineName,
@@ -122,7 +145,7 @@ export class RoutineGenerationService {
       mealTimingId: medicine.mealTimingId,
       scheduleTimes: JSON.stringify(scheduleTimes),
       generatedUntil,
-      doses: dosesForDays(scheduleTimes, startDate, generatedUntil),
+      doses,
     };
   }
 }

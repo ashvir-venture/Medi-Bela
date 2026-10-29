@@ -8,7 +8,8 @@ class InboxApi {
 
   final Dio _dio;
 
-  Future<InboxPage> getPage({String? before, int limit = 30}) async {
+  /// 10 per page: user lists load 10 rows at a time ("Load more").
+  Future<InboxPage> getPage({String? before, int limit = 10}) async {
     final response = await _dio.get<Map<String, dynamic>>(
       ApiEndpoints.notifications,
       queryParameters: {'limit': limit, if (before != null) 'before': before},

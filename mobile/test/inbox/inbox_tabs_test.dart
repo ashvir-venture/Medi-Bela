@@ -24,6 +24,10 @@ void main() {
     expect(inboxTabFor(_item('SYSTEM', {'kind': 'family_invitation'})), InboxTab.family);
   });
 
+  test("the caregiver's updates for me go to Family", () {
+    expect(inboxTabFor(_item('SYSTEM', {'kind': 'caregiver_action', 'action': 'dose_taken'})), InboxTab.family);
+  });
+
   test('notices go to General', () {
     expect(inboxTabFor(_item('NOTICE')), InboxTab.general);
   });

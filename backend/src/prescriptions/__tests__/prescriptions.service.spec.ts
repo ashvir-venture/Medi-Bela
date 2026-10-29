@@ -124,6 +124,7 @@ describe('PrescriptionsService', () => {
   let fakeNotifications: { notify: jest.Mock };
   let fakeAudit: { record: jest.Mock };
   let fakeCatalog: { findOrCreateMedicineStub: jest.Mock; createDoctor: jest.Mock };
+  let fakeCaregivers: { notifyMember: jest.Mock };
 
   beforeEach(() => {
     prisma = makeFakePrisma();
@@ -136,6 +137,7 @@ describe('PrescriptionsService', () => {
     fakeRuleEvaluation = { evaluateForMedicine: jest.fn().mockResolvedValue(undefined) };
     fakeNotifications = { notify: jest.fn().mockResolvedValue(undefined) };
     fakeAudit = { record: jest.fn().mockResolvedValue(undefined) };
+    fakeCaregivers = { notifyMember: jest.fn().mockResolvedValue(undefined) };
     fakeCatalog = {
       findOrCreateMedicineStub: jest.fn().mockResolvedValue('catalog-medicine-1'),
       createDoctor: jest.fn().mockResolvedValue({ id: 'doctor-new' }),
@@ -148,6 +150,7 @@ describe('PrescriptionsService', () => {
       fakeNotifications as any,
       fakeAudit as any,
       fakeCatalog as any,
+      fakeCaregivers as any,
     );
   });
 

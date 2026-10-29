@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/locale_controller.dart';
+import '../../../widgets/load_more_list.dart';
 import '../../../widgets/state_views.dart';
 import '../domain/health_models.dart';
 import 'health_controller.dart';
@@ -50,7 +51,7 @@ class _HealthRecordsScreenState extends ConsumerState<HealthRecordsScreen> {
                 ],
               );
             }
-            return ListView.builder(
+            return LoadMoreListView(
               padding: const EdgeInsets.all(16),
               itemCount: records.length,
               itemBuilder: (context, index) => _RecordTile(record: records[index]),

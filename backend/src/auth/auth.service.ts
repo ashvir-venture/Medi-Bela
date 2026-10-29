@@ -17,6 +17,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from '../common/interfaces/jwt-payload.interface';
 import { sanitizeUser, SafeUser } from '../common/utils/sanitize-user';
 import { RegisterDto } from './dto/register.dto';
+import { assertValidDetails, dateOfBirthColumn } from '../users/lib/profile-details';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/forgot-password.dto';
@@ -53,6 +54,7 @@ export class AuthService {
   async register(
     dto: RegisterDto,
   ): Promise<{ user: SafeUser; tokens: TokenPair }> {
+    await assertValidDetails(this.prisma, dto);
     const passwordHash = await argon2.hash(dto.password);
 
     let user: User;
@@ -64,6 +66,11 @@ export class AuthService {
           address: dto.address,
           passwordHash,
           languagePreference: dto.languagePreference,
+          dateOfBirth: dateOfBirthColumn(dto.dateOfBirth),
+          genderId: dto.genderId,
+          divisionId: dto.divisionId,
+          districtId: dto.districtId,
+          upazilaId: dto.upazilaId,
         },
       });
     } catch (err) {

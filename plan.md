@@ -19,6 +19,8 @@ Workflow: during development only backend/prisma/schema.prisma changes (no migra
 2. 002_round4_schema.sql - Round 4 tables and columns. Converts existing COMPLETED prescriptions to ACTIVE in the same step.
 3. 003_round4_reference_data.sql - dropdown data (divisions/districts/upazilas from github.com/nuhil/bangladesh-geocode, genders, doctor specialties, medicine forms and categories, meal timings, test categories). Safe to re-run.
 4. 004_round5_search_indexes.sql - prefix-search indexes for doctor / medicine / test autosuggest (expression indexes, not in schema.prisma). Safe to re-run.
+5. 005_round6_caregiver.sql - family role OWNER renamed to CAREGIVER (in place, existing rows convert), and who-acted columns (prescriptions.uploadedById/confirmedById/confirmedAt, medicine_routines.createdById).
+6. 006_round7_notice_review_note.sql - notices.reviewNote (admin's note when sending a notice back).
 Until these run, the deployed API's queries on the new columns fail, so don't deploy Round 3+ backend code before the SQL is applied.
 
 Rounds
@@ -99,17 +101,44 @@ Not done / open:
 - Clearing an already-set doctor field (e.g. a wrong BMDC number) isn't possible from the doctor page; only filling in. Doctors/medicines can't be merged when duplicates appear.
 - Health rules stay editable by pharmacists (backend allows both roles); only pharmacists see the page.
 - Admin `next lint` still has no ESLint setup (see CLAUDE.md [ASK]).
-Round 6: User app
-The Confirm or Edit screen. Routines and doses are created at confirm (call PrescriptionsService.activate(); it already validates, generates routines + doses, runs health rules, audits and notifies).
+Round 6: User app - CODE DONE 2026-10-29, device testing pending
+The Confirm or Edit screen. Routines and doses are created at confirm.
 Manual routine create, edit and remove, with “self-added” and “edited by you” labels.
 Caregiver actions with audit entries, the invitation warning, the privacy flag, and the new registration fields.
 Larger buttons and basic colors, and 10-row “Load more” lists.
 Done when: a user and a caregiver can complete the whole flow end to end.
+Decisions (2026-10-29):
+- Confirm or Edit allows dose times (same count), start date, meal timing and removing a medicine; dose amount, strength and duration stay as the pharmacist set them.
+- The family "owner" is called caregiver everywhere, including the database and API (FamilyRole.CAREGIVER). The caregiver can confirm/edit prescriptions, manage routines and upload prescriptions for members; each item shows "by caregiver" and the member gets a push.
+- Changed later the same day: the caregiver must NOT mark doses taken. Only the patient marks their own doses (Taken / Later); the caregiver only views them and gets missed-dose alerts like every family member. The dose "marked by" column (server and app cache) was removed again.
+- Pharmacist edits of an already-active prescription (revisions) are deferred to a later round.
+- Signup requires date of birth, gender, division, district and upazila (no existing users to migrate). Profile gets an "Edit your details" button that opens its own page.
+- Self-added medicines use the catalog autosuggest plus free text (a new name becomes a stub for pharmacists).
+- Look: app-wide theme only (larger text, 48dp+ targets, same green brand color); no per-screen redesign.
+Built: POST /prescriptions/:id/confirm, caregiver access via ?forUserId= (CaregiverAccessService), routines create/edit/remove (RoutineManagementService), who-acted columns + labels, audit rows and neutral member pushes, required signup details with address-chain checks, public /lookups, medicine search open to patients. App: Confirm or Edit screen, "Review and confirm" on prepared prescriptions (also ones the caregiver uploaded), My medicines with labels, add/edit/remove form, caregiver tools on a member's page (medicines, prescriptions with upload; today's doses read-only), signup details, Edit your details page, invitation warning, "Caregiver" wording, caregiver pushes on the Family tab, theme, Load more on prescriptions, health records, notices and conversations (inbox 10 per page). Dose cache now drops doses the server removed (changed/stopped medicines stop ringing).
+Checked: backend unit tests, all DB-backed specs incl. new caregiver-flow.int.spec on a disposable Postgres (only the known stale ones fail), pending SQL 001-005 replayed with an OWNER row and diffed (no differences), mobile tests (31) + analyze + release build.
+Not done / open:
+- Not run on a phone yet (device testing deferred): the new screens are checked by analyze and unit tests only.
+- Caregiver screens need internet (the member's data isn't cached on the caregiver's phone).
+- Pharmacist revisions of active prescriptions (pendingRevision prompt) are deferred.
+- The admin panel doesn't show who uploaded/confirmed (Round 7 can add it).
+- rolling-dose.int.spec failed once in a full run that stalled for 18 minutes and passed on every rerun; watch for flakiness.
 Round 7: Notices and admin shell 
 One login that redirects by role. Pharmacists go to the current dashboard and admins to different dashboard protected by unique url extension, with server-side checks.
 Notice form with source display. A pharmacist drafts, an admin approves, and admin-created notices publish directly.
 A start-date job, division filtering, and General-tab polish (the notice push switch and the General tab shipped in Round 3).
 Done when: draft, approval, scheduled publish and the user’s tab all work.
+Status: CODE DONE 2026-10-29, device testing pending. (Login redirect by role and the admin path were built in Round 5.)
+Decisions (2026-10-29):
+- An admin sends a pharmacist's notice back with a required note (new column, SQL 006); the pharmacist may withdraw a pending notice to draft. Pharmacists change only drafts.
+- Source (name and https link) is optional; the app shows the source name only, no link.
+- Divisions: one rule for the user's Notices list and the push: nationwide notices plus their own division's.
+- General tab: source on notice cards, a notice push/inbox entry opens that notice (shown first, highlighted), and an "All notices" button.
+Built: submit / withdraw / send-back endpoints, publish = approve (admin), scheduled publishing via NoticeScheduleJob (NOTICE_SCHEDULE_JOB_ENABLED), division filter on list and push, audit rows for notice actions, user notices carry the source; admin panel notice form (source, link, show-from, expiry, divisions) with role-based actions and a "Waiting for approval" tab; app changes above. Admin dashboard "live notices" no longer counts scheduled ones.
+Checked: notice role spec + notices-flow.int.spec (approval, send-back, schedule once, divisions) on a disposable Postgres, SQL 006 diffed (no differences), mobile tests (33) + analyze, admin build.
+Not done / open:
+- Not run on a phone; admin pages not clicked through in a browser this round.
+- A notice already published can't be re-targeted to divisions after its push went out (the push isn't repeated); edit before publishing.
 Round 8: Admin analytics
 Dashboard with users by area, age and gender, total families, doctors with the most patients, and most-used medicines.
 The madeBy view, a count of incomplete doctor and medicine records, and read-only doctor and medicine lists.

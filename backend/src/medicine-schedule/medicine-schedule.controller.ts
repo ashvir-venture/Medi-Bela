@@ -2,28 +2,83 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
 import { MedicineScheduleService } from './medicine-schedule.service';
+import { RoutineManagementService } from './routine-management.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { MarkDoseTakenDto } from './dto/mark-dose-taken.dto';
+import { CreateRoutineDto, UpdateRoutineDto } from './dto/routine.dto';
+import { CaregiverAccessService } from '../family/caregiver-access.service';
 
+/**
+ * `?forUserId=` (where accepted) = the family caregiver acting for that
+ * member; see CaregiverAccessService. Marking a dose taken is the
+ * patient's own action only: a caregiver views doses but never marks them.
+ */
 @Controller('medicine-schedule')
 export class MedicineScheduleController {
-  constructor(private readonly schedule: MedicineScheduleService) {}
+  constructor(
+    private readonly schedule: MedicineScheduleService,
+    private readonly routines: RoutineManagementService,
+    private readonly caregivers: CaregiverAccessService,
+  ) {}
 
+  /** Active routines with labels (selfAdded, addedBy, editedBy). */
   @Get('routines')
-  getActiveRoutines(@CurrentUser('id') userId: string) {
-    return this.schedule.getActiveRoutines(userId);
+  async getActiveRoutines(
+    @CurrentUser('id') userId: string,
+    @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
+  ) {
+    const acting = await this.caregivers.resolve(userId, forUserId);
+    return this.routines.listRoutines(acting.subjectId);
+  }
+
+  @Post('routines')
+  async createRoutine(
+    @CurrentUser('id') userId: string,
+    @Body() dto: CreateRoutineDto,
+    @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
+  ) {
+    const acting = await this.caregivers.resolve(userId, forUserId);
+    return this.routines.createRoutine(acting, dto);
+  }
+
+  @Patch('routines/:id')
+  async updateRoutine(
+    @CurrentUser('id') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateRoutineDto,
+    @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
+  ) {
+    const acting = await this.caregivers.resolve(userId, forUserId);
+    return this.routines.updateRoutine(acting, id, dto);
+  }
+
+  @Delete('routines/:id')
+  async removeRoutine(
+    @CurrentUser('id') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
+  ) {
+    const acting = await this.caregivers.resolve(userId, forUserId);
+    return this.routines.removeRoutine(acting, id);
   }
 
   @Get('routines/:id')
-  getRoutine(@CurrentUser('id') userId: string, @Param('id', ParseUUIDPipe) id: string) {
-    return this.schedule.getRoutineDetail(userId, id);
+  async getRoutine(
+    @CurrentUser('id') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
+  ) {
+    const acting = await this.caregivers.resolve(userId, forUserId);
+    return this.schedule.getRoutineDetail(acting.subjectId, id);
   }
 
   @Get('today')

@@ -37,6 +37,7 @@ class AuthRepository {
     required String password,
     String? address,
     String? languagePreference,
+    Map<String, dynamic> details = const {},
   }) async {
     try {
       final (user, tokens) = await _api.register(
@@ -45,6 +46,7 @@ class AuthRepository {
         password: password,
         address: address,
         languagePreference: languagePreference,
+        details: details,
       );
       await _persistSession(user, tokens);
       return Result.success(user);

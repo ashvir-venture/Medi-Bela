@@ -3,7 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../../app.module';
 import { PrismaService } from '../../prisma/prisma.service';
-import { makeTestPrisma, resetDb } from '../../test-utils/test-prisma';
+import { makeTestPrisma, resetDb, signupDetails } from '../../test-utils/test-prisma';
 
 const prisma = makeTestPrisma();
 const d = prisma ? describe : describe.skip;
@@ -18,7 +18,7 @@ d('Phase 4B over HTTP (real AppModule + Postgres)', () => {
   async function account(role: 'USER' | 'ADMIN' | 'PHARMACIST', name = role) {
     seq += 1;
     const phone = `+88017100${String(seq).padStart(5, '0')}`;
-    const res = await http().post('/api/v1/auth/register').send({ phone, name: `${name} ${seq}`, password: 'pass1234' }).expect(201);
+    const res = await http().post('/api/v1/auth/register').send({ phone, name: `${name} ${seq}`, password: 'pass1234', ...(await signupDetails(prisma)) }).expect(201);
     if (role !== 'USER') await prisma.user.update({ where: { id: res.body.user.id }, data: { role } });
     return { token: res.body.tokens.accessToken as string, id: res.body.user.id as string };
   }
@@ -98,7 +98,7 @@ d('Phase 4B over HTTP (real AppModule + Postgres)', () => {
       const admin = await account('ADMIN');
       const u1 = await account('USER'); const u2 = await account('USER');
       await account('PHARMACIST');
-      const fam = await prisma.family.create({ data: { members: { create: [{ userId: u1.id, role: 'OWNER' }, { userId: u2.id }] } } });
+      const fam = await prisma.family.create({ data: { members: { create: [{ userId: u1.id, role: 'CAREGIVER' }, { userId: u2.id }] } } });
       expect(fam.id).toBeTruthy();
       const mk = (userId: string, status: string, minsAgo: number) =>
         prisma.prescription.create({ data: { userId, imageUrl: 'https://img/x.jpg', status, createdAt: new Date(Date.now() - minsAgo * 60_000) } });

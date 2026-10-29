@@ -3,12 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/locale_controller.dart';
 import '../../../core/utils/error_mapper.dart';
+import '../../../widgets/load_more_list.dart';
 import '../../../widgets/state_views.dart';
 import '../domain/notice_models.dart';
 import 'notices_controller.dart';
 
 class NoticesScreen extends ConsumerWidget {
-  const NoticesScreen({super.key});
+  const NoticesScreen({super.key, this.highlightId});
+
+  /// Opened from a push or the inbox: this notice is shown first, highlighted.
+  final String? highlightId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -40,10 +44,18 @@ class NoticesScreen extends ConsumerWidget {
                 ],
               );
             }
-            return ListView.builder(
+            final ordered = [
+              ...notices.where((n) => n.id == highlightId),
+              ...notices.where((n) => n.id != highlightId),
+            ];
+            return LoadMoreListView(
               padding: const EdgeInsets.all(16),
-              itemCount: notices.length,
-              itemBuilder: (context, index) => _NoticeCard(notice: notices[index]),
+              itemCount: ordered.length,
+              itemBuilder: (context, index) => _NoticeCard(
+                notice: ordered[index],
+                highlighted: ordered[index].id == highlightId,
+                sourceLabel: strings.noticeSource,
+              ),
             );
           },
         ),
@@ -53,9 +65,11 @@ class NoticesScreen extends ConsumerWidget {
 }
 
 class _NoticeCard extends StatelessWidget {
-  const _NoticeCard({required this.notice});
+  const _NoticeCard({required this.notice, required this.sourceLabel, this.highlighted = false});
 
   final NoticeModel notice;
+  final String sourceLabel;
+  final bool highlighted;
 
   static const _months = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -71,8 +85,15 @@ class _NoticeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
+      shape: highlighted
+          ? RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: primary, width: 2),
+            )
+          : null,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -89,6 +110,13 @@ class _NoticeCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(notice.content, style: Theme.of(context).textTheme.bodyMedium),
+            if (notice.source != null && notice.source!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                '$sourceLabel: ${notice.source}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ],
             if (notice.publishedAt != null) ...[
               const SizedBox(height: 10),
               Text(

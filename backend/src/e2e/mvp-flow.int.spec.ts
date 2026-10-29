@@ -8,7 +8,7 @@ import { PushService } from '../notifications/push.service';
 import { CloudinaryService } from '../prescriptions/lib/cloudinary.service';
 import { MissedDoseAlertService } from '../medicine-schedule/missed-dose-alert.service';
 import { PrescriptionsService } from '../prescriptions/prescriptions.service';
-import { makeTestPrisma, resetDb } from '../test-utils/test-prisma';
+import { makeTestPrisma, resetDb, signupDetails } from '../test-utils/test-prisma';
 
 const prisma = makeTestPrisma();
 const d = prisma ? describe : describe.skip;
@@ -42,7 +42,7 @@ d('MVP end-to-end flow', () => {
   async function account(role: 'USER' | 'ADMIN' | 'PHARMACIST', name: string) {
     seq += 1;
     const phone = `+88017200${String(seq).padStart(5, '0')}`;
-    const res = await http().post('/api/v1/auth/register').send({ phone, name, password: 'pass1234' }).expect(201);
+    const res = await http().post('/api/v1/auth/register').send({ phone, name, password: 'pass1234', ...(await signupDetails(prisma)) }).expect(201);
     if (role !== 'USER') await prisma.user.update({ where: { id: res.body.user.id }, data: { role } });
     return { token: res.body.tokens.accessToken as string, id: res.body.user.id as string, phone };
   }
@@ -287,7 +287,7 @@ d('MVP end-to-end flow', () => {
     });
 
     it('login: generic failure, brute force throttled (429), good password blocked while throttled, passwords >= 8 chars', async () => {
-      await http().post('/api/v1/auth/register').send({ phone: '+8801730000001', name: 'Short Pw', password: 'abc1234' }).expect(400);
+      await http().post('/api/v1/auth/register').send({ phone: '+8801730000001', name: 'Short Pw', password: 'abc1234', ...(await signupDetails(prisma)) }).expect(400);
       const u = await account('USER', 'Victim');
       const wrong = (phone: string) => http().post('/api/v1/auth/login').send({ phone, password: 'wrong-password' });
       const unknown = await wrong('+8801799999999').expect(401);

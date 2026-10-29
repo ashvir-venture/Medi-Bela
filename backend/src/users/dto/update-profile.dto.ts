@@ -1,4 +1,14 @@
-import { IsBoolean, IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 import { Language } from '@prisma/client';
 
 // Intentionally excludes `phone` and `role`: phone changes affect family
@@ -37,4 +47,31 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsBoolean()
   noticesEnabled?: boolean;
+
+  // "Edit your details". Address levels change together (all three).
+
+  /** YYYY-MM-DD */
+  @IsOptional()
+  @IsDateString({ strict: true })
+  dateOfBirth?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  genderId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  divisionId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  districtId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  upazilaId?: number;
 }

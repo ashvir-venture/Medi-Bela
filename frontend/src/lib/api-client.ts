@@ -561,17 +561,32 @@ export interface Notice {
   audience: 'ALL' | 'USER' | 'ADMIN';
   status: 'DRAFT' | 'PENDING_APPROVAL' | 'PUBLISHED' | 'ARCHIVED';
   expiresAt: string | null;
+  /** Null while a published notice waits for its start time (scheduled). */
   publishedAt: string | null;
+  startsAt: string | null;
+  source: string | null;
+  sourceUrl: string | null;
+  /** An admin's note when sending a pharmacist's notice back. */
+  reviewNote: string | null;
+  approvedAt: string | null;
   createdAt: string;
   createdBy: { id: string; name: string } | null;
+  approvedBy: { id: string; name: string } | null;
+  /** None = nationwide. */
+  divisions: { divisionId: number; division: LookupRow }[];
 }
 
 export interface NoticeInput {
   title: string;
   content: string;
   audience?: 'ALL' | 'USER' | 'ADMIN';
-  /** ISO date to set an expiry; on update, `null` removes it. */
+  /** ISO dates; on update, `null` removes them. */
   expiresAt?: string | null;
+  startsAt?: string | null;
+  source?: string | null;
+  sourceUrl?: string | null;
+  /** [] = nationwide. */
+  divisionIds?: number[];
 }
 
 export function listNotices() {
@@ -590,8 +605,24 @@ export function updateNotice(id: string, input: Partial<NoticeInput>) {
   return request<Notice>(`/admin/notices/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
 }
 
+/** Admin: publish (or approve a pending one); schedules it when startsAt is in the future. */
 export function publishNotice(id: string) {
   return request<Notice>(`/admin/notices/${id}/publish`, { method: 'POST' });
+}
+
+/** Pharmacist: send a draft for an admin's approval. */
+export function submitNotice(id: string) {
+  return request<Notice>(`/admin/notices/${id}/submit`, { method: 'POST' });
+}
+
+/** Pharmacist: take a pending notice back to draft. */
+export function withdrawNotice(id: string) {
+  return request<Notice>(`/admin/notices/${id}/withdraw`, { method: 'POST' });
+}
+
+/** Admin: return a pending notice to draft with a note for the pharmacist. */
+export function sendBackNotice(id: string, note: string) {
+  return request<Notice>(`/admin/notices/${id}/send-back`, { method: 'POST', body: JSON.stringify({ note }) });
 }
 
 export function archiveNotice(id: string) {

@@ -31,6 +31,36 @@ export function makeUser(prisma: any, name: string, extra: Record<string, unknow
   });
 }
 
+/**
+ * The registration fields required since Round 6, valid against the lookup
+ * tables (pending SQL 003 seeds them; minimal rows are created if absent).
+ */
+let detailsPromise: Promise<Record<string, unknown>> | null = null;
+export function signupDetails(prisma: any): Promise<Record<string, unknown>> {
+  if (!detailsPromise) {
+    detailsPromise = (async () => {
+      const gender = (await prisma.gender.findFirst()) ?? (await prisma.gender.create({ data: { name: 'Test gender' } }));
+      let upazila = await prisma.upazila.findFirst({ include: { district: true } });
+      if (!upazila) {
+        const division = await prisma.division.create({ data: { name: 'Test division' } });
+        const district = await prisma.district.create({ data: { name: 'Test district', divisionId: division.id } });
+        upazila = await prisma.upazila.create({
+          data: { name: 'Test upazila', districtId: district.id },
+          include: { district: true },
+        });
+      }
+      return {
+        dateOfBirth: '1960-05-20',
+        genderId: gender.id,
+        divisionId: upazila.district.divisionId,
+        districtId: upazila.districtId,
+        upazilaId: upazila.id,
+      };
+    })();
+  }
+  return detailsPromise;
+}
+
 export const FAKE_KEY_CONFIG = {
   getOrThrow: () => Buffer.alloc(32, 7).toString('base64'),
   get: () => undefined,

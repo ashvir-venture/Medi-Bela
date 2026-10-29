@@ -21,8 +21,19 @@ describe('notice roles', () => {
     expect(allowed('publish', Role.USER)).toBe(false);
   });
 
-  it('pharmacists can still draft and edit', () => {
+  it('pharmacists can still draft and edit (the service limits them to drafts)', () => {
     expect(allowed('create', Role.PHARMACIST)).toBe(true);
     expect(allowed('update', Role.PHARMACIST)).toBe(true);
+  });
+
+  it('pharmacists submit and withdraw; admins send back and archive', () => {
+    for (const h of ['submit', 'withdraw'] as const) {
+      expect(allowed(h, Role.PHARMACIST)).toBe(true);
+      expect(allowed(h, Role.ADMIN)).toBe(false);
+    }
+    for (const h of ['sendBack', 'archive'] as const) {
+      expect(allowed(h, Role.ADMIN)).toBe(true);
+      expect(allowed(h, Role.PHARMACIST)).toBe(false);
+    }
   });
 });

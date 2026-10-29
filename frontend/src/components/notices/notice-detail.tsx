@@ -9,47 +9,59 @@ import {
   deleteNotice,
   getNotice,
   publishNotice,
+  sendBackNotice,
+  submitNotice,
   updateNotice,
+  withdrawNotice,
 } from '@/lib/api-client';
 import { Topbar } from '@/components/topbar';
+import { NoticeFields, NoticeFormValue, EMPTY_NOTICE, formToInput, noticeToForm } from '@/components/notices/notice-fields';
 
-/** ISO string -> value for <input type="datetime-local"> in the browser's timezone. */
-function toLocalInput(iso: string | null) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+export const NOTICE_STATUS: Record<Notice['status'], { label: string; badge: string }> = {
+  DRAFT: { label: 'Draft', badge: 'badge-draft' },
+  PENDING_APPROVAL: { label: 'Waiting for approval', badge: 'badge-pending' },
+  PUBLISHED: { label: 'Published', badge: 'badge-completed' },
+  ARCHIVED: { label: 'Archived', badge: 'badge-rejected' },
+};
+
+/** Published but its start time hasn't come yet. */
+export function isScheduled(n: Notice) {
+  return n.status === 'PUBLISHED' && n.publishedAt === null;
 }
 
-/** Only admins see Publish (the backend refuses it for pharmacists anyway). */
-export function NoticeDetail({ basePath, canPublish }: { basePath: string; canPublish: boolean }) {
+/**
+ * One notice. Pharmacists edit their drafts, submit them for approval and
+ * may withdraw a pending one; admins edit anything, approve/publish, send
+ * back with a note, archive and delete. The backend enforces the same.
+ */
+export function NoticeDetail({ basePath, role }: { basePath: string; role: 'ADMIN' | 'PHARMACIST' }) {
   const router = useRouter();
-  const params = useParams<{ id: string }>();
-  const id = params.id;
+  const { id } = useParams<{ id: string }>();
+  const isAdmin = role === 'ADMIN';
 
   const [notice, setNotice] = useState<Notice | null>(null);
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [audience, setAudience] = useState<'ALL' | 'USER' | 'ADMIN'>('ALL');
-  const [expiresAt, setExpiresAt] = useState(''); // datetime-local value; empty = no expiry
+  const [value, setValue] = useState<NoticeFormValue>(EMPTY_NOTICE);
+  const [note, setNote] = useState('');
+  const [showSendBack, setShowSendBack] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  function apply(n: Notice) {
+    setNotice(n);
+    setValue(noticeToForm(n));
+  }
 
   async function load() {
     setIsLoading(true);
     setError(null);
     try {
-      const n = await getNotice(id);
-      setNotice(n);
-      setTitle(n.title);
-      setContent(n.content);
-      setAudience(n.audience);
-      setExpiresAt(toLocalInput(n.expiresAt));
+      apply(await getNotice(id));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to load notice');
     } finally {
@@ -57,69 +69,45 @@ export function NoticeDetail({ basePath, canPublish }: { basePath: string; canPu
     }
   }
 
-  function applyNotice(n: Notice) {
-    setNotice(n);
-    setExpiresAt(toLocalInput(n.expiresAt));
-  }
-
-  // Empty field => null => the backend removes the expiry.
-  function payload() {
-    return {
-      title: title.trim(),
-      content: content.trim(),
-      audience,
-      expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
-    };
-  }
-
-  async function handleSave() {
+  async function run(fallback: string, action: () => Promise<Notice | void>) {
     setIsSaving(true);
     setError(null);
     try {
-      applyNotice(await updateNotice(id, payload()));
+      const result = await action();
+      if (result) apply(result);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save');
+      setError(err instanceof ApiError ? err.message : fallback);
     } finally {
       setIsSaving(false);
     }
   }
 
-  async function handlePublish() {
-    setIsSaving(true);
-    setError(null);
-    try {
-      await updateNotice(id, payload());
-      applyNotice(await publishNotice(id));
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to publish');
-    } finally {
-      setIsSaving(false);
+  // Edits are saved before a status change, so the reviewer sees the latest text.
+  const save = () => updateNotice(id, formToInput(value));
+  const handleSave = () => run('Failed to save', save);
+  const handleSubmit = () => run('Failed to submit', async () => (await save(), submitNotice(id)));
+  const handleWithdraw = () => run('Failed to withdraw', () => withdrawNotice(id));
+  const handlePublish = () => run('Failed to publish', async () => (await save(), publishNotice(id)));
+  const handleArchive = () => run('Failed to archive', () => archiveNotice(id));
+  const handleRestore = () => run('Failed to publish', () => publishNotice(id));
+  function handleSendBack() {
+    if (note.trim().length < 3) {
+      setError('Write a short note for the pharmacist.');
+      return;
     }
+    return run('Failed to send back', async () => {
+      const n = await sendBackNotice(id, note.trim());
+      setShowSendBack(false);
+      setNote('');
+      return n;
+    });
   }
-
-  async function handleArchive() {
-    setIsSaving(true);
-    setError(null);
-    try {
-      applyNotice(await archiveNotice(id));
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to archive');
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
   async function handleDelete() {
     if (!confirm('Delete this notice? This cannot be undone.')) return;
-    setIsSaving(true);
-    setError(null);
-    try {
+    await run('Failed to delete', async () => {
       await deleteNotice(id);
       router.push(basePath);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to delete');
-      setIsSaving(false);
-    }
+    });
   }
 
   if (isLoading || !notice) {
@@ -134,86 +122,116 @@ export function NoticeDetail({ basePath, canPublish }: { basePath: string; canPu
     );
   }
 
+  const s = notice.status;
+  const pharmacistCanEdit = s === 'DRAFT';
+  const canEdit = isAdmin || pharmacistCanEdit;
+  const status = isScheduled(notice)
+    ? { label: `Scheduled for ${new Date(notice.startsAt!).toLocaleString()}`, badge: 'badge-pending' }
+    : NOTICE_STATUS[s];
+  const expired = s === 'PUBLISHED' && notice.expiresAt && new Date(notice.expiresAt).getTime() <= Date.now();
+
   return (
     <>
-      <Topbar title={notice.title} />
+      <Topbar
+        title={notice.title}
+        actions={
+          <button className="btn" onClick={() => router.push(basePath)}>
+            ← Notices
+          </button>
+        }
+      />
       <div className="page">
-        <button className="btn" style={{ marginBottom: 16 }} onClick={() => router.push(basePath)}>
-          ← Back
-        </button>
-
         {error && <div className="error-banner">{error}</div>}
+        {notice.reviewNote && s === 'DRAFT' && (
+          <div className="info-banner" style={{ margin: '0 0 16px' }}>
+            Sent back by an admin: “{notice.reviewNote}”
+          </div>
+        )}
 
         <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <span
-              className={`badge ${notice.status === 'PUBLISHED' ? 'badge-completed' : notice.status === 'ARCHIVED' ? 'badge-rejected' : 'badge-draft'}`}
-            >
-              {notice.status.replace('_', ' ')}
-            </span>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn" onClick={handleSave} disabled={isSaving}>
-                Save
-              </button>
-              {canPublish && notice.status !== 'PUBLISHED' && (
-                <button className="btn btn-primary" onClick={handlePublish} disabled={isSaving}>
-                  Publish
+          <div className="card-head" style={{ justifyContent: 'space-between', marginBottom: 16 }}>
+            <div>
+              <span className={`badge ${status.badge}`}>{status.label}</span>
+              <div className="muted" style={{ marginTop: 6 }}>
+                {notice.createdBy ? `By ${notice.createdBy.name}` : ''}
+                {notice.approvedBy ? ` · approved by ${notice.approvedBy.name}` : ''}
+              </div>
+            </div>
+            <div className="button-row">
+              {canEdit && (
+                <button className="btn" onClick={handleSave} disabled={isSaving}>
+                  Save
                 </button>
               )}
-              {notice.status !== 'ARCHIVED' && (
+              {!isAdmin && s === 'DRAFT' && (
+                <button className="btn btn-primary" onClick={handleSubmit} disabled={isSaving}>
+                  Submit for approval
+                </button>
+              )}
+              {!isAdmin && s === 'PENDING_APPROVAL' && (
+                <button className="btn" onClick={handleWithdraw} disabled={isSaving}>
+                  Withdraw to draft
+                </button>
+              )}
+              {isAdmin && (s === 'DRAFT' || s === 'PENDING_APPROVAL') && (
+                <button className="btn btn-primary" onClick={handlePublish} disabled={isSaving}>
+                  {s === 'PENDING_APPROVAL' ? 'Approve and publish' : 'Publish'}
+                </button>
+              )}
+              {isAdmin && s === 'PENDING_APPROVAL' && (
+                <button className="btn btn-danger" onClick={() => setShowSendBack((v) => !v)} disabled={isSaving}>
+                  Send back
+                </button>
+              )}
+              {isAdmin && s === 'PUBLISHED' && (
                 <button className="btn" onClick={handleArchive} disabled={isSaving}>
                   Archive
                 </button>
               )}
-              <button className="btn" onClick={handleDelete} disabled={isSaving}>
-                Delete
-              </button>
+              {isAdmin && s === 'ARCHIVED' && (
+                <button className="btn" onClick={handleRestore} disabled={isSaving}>
+                  Publish again
+                </button>
+              )}
+              {(isAdmin || s === 'DRAFT') && (
+                <button className="btn" onClick={handleDelete} disabled={isSaving}>
+                  Delete
+                </button>
+              )}
             </div>
           </div>
 
-          <div className="field">
-            <label>Title</label>
-            <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} />
-          </div>
-          <div className="field">
-            <label>Content</label>
-            <textarea rows={6} value={content} onChange={(e) => setContent(e.target.value)} />
-          </div>
-          <div className="row">
+          {showSendBack && (
             <div className="field">
-              <label>Audience</label>
-              <select value={audience} onChange={(e) => setAudience(e.target.value as typeof audience)}>
-                <option value="ALL">Everyone</option>
-                <option value="USER">Patients only</option>
-                <option value="ADMIN">Admins/pharmacists only</option>
-              </select>
+              <label htmlFor="send-back-note">Note for the pharmacist</label>
+              <textarea
+                id="send-back-note"
+                rows={2}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                maxLength={500}
+                placeholder="What should change before it can be published?"
+              />
+              <button className="btn btn-danger" style={{ marginTop: 8 }} onClick={handleSendBack} disabled={isSaving}>
+                Send back to draft
+              </button>
             </div>
-            <div className="field">
-              <label>Expires (leave empty for no expiry)</label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input
-                  type="datetime-local"
-                  className="input"
-                  value={expiresAt}
-                  onChange={(e) => setExpiresAt(e.target.value)}
-                />
-                {expiresAt && (
-                  <button type="button" className="btn" onClick={() => setExpiresAt('')}>
-                    Clear
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-          {notice.status === 'PUBLISHED' && notice.expiresAt && new Date(notice.expiresAt).getTime() <= Date.now() && (
+          )}
+
+          <NoticeFields value={value} onChange={setValue} disabled={isSaving || !canEdit} />
+
+          {expired && (
             <p className="muted" style={{ color: 'var(--color-warning)' }}>
               This notice has expired, so users no longer see it. Change or clear the expiry and Save to bring it back.
             </p>
           )}
-          {notice.status !== 'PUBLISHED' && (
+          {!canEdit && (
             <p className="muted">
-              Users cannot see this notice until {canPublish ? 'it is published' : 'an admin publishes it'}.
+              {s === 'PENDING_APPROVAL' ? 'Withdraw it to draft to make changes.' : 'Only an admin can change it now.'}
             </p>
+          )}
+          {s !== 'PUBLISHED' && (
+            <p className="muted">Users cannot see this notice until an admin publishes it.</p>
           )}
         </div>
       </div>

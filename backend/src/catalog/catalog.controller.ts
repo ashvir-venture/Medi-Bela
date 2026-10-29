@@ -29,7 +29,9 @@ export class CatalogController {
     return this.catalog.searchDoctors(query.q);
   }
 
+  /** Also open to patients: the app's "Add a medicine" form suggests from the catalog. */
   @Get('medicines/search')
+  @Roles(Role.ADMIN, Role.PHARMACIST, Role.USER)
   searchMedicines(@Query() query: SearchQueryDto) {
     return this.catalog.searchMedicines(query.q);
   }

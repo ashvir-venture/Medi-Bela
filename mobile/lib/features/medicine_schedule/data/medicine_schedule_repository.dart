@@ -147,7 +147,13 @@ class MedicineScheduleRepository {
     List<MedicineDoseModel> doses,
   ) async {
     final now = DateTime.now();
+    final keepIds = doses.map((d) => d.id).toList();
     await _db.transaction(() async {
+      // A routine edited or removed (by the patient or their caregiver) has
+      // new dose ids on the server; old cached doses must not keep ringing.
+      await (_db.delete(_db.cachedMedicineDoses)
+            ..where((t) => t.id.isNotIn(keepIds) & t.syncState.equals('synced')))
+          .go();
       await _db.delete(_db.cachedMedicineRoutines).go();
       for (final r in routines) {
         await _db.into(_db.cachedMedicineRoutines).insert(

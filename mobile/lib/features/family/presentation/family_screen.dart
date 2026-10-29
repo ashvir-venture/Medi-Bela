@@ -17,9 +17,9 @@ class FamilyScreen extends ConsumerWidget {
     final membersState = ref.watch(familyMembersControllerProvider);
     final myId = ref.watch(authControllerProvider).value?.id;
     final members = membersState.value ?? const <FamilyMemberModel>[];
-    // Only the owner may invite (the server enforces this too; the button is
-    // hidden so members aren't offered an action that would be refused).
-    final isOwner = members.any((m) => m.userId == myId && m.role == 'OWNER');
+    // Only the caregiver may invite (the server enforces this too; the button
+    // is hidden so members aren't offered an action that would be refused).
+    final isCaregiver = members.any((m) => m.userId == myId && m.role == 'CAREGIVER');
 
     return Scaffold(
       appBar: AppBar(title: Text(strings.myFamily)),
@@ -44,7 +44,7 @@ class FamilyScreen extends ConsumerWidget {
           data: (members) => _FamilyContent(members: members, myId: myId),
         ),
       ),
-      floatingActionButton: isOwner
+      floatingActionButton: isCaregiver
           ? FloatingActionButton.extended(
               onPressed: () => _showInviteDialog(context, ref),
               icon: const Icon(Icons.person_add_alt_1),
@@ -184,7 +184,7 @@ class _MemberTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final strings = ref.watch(stringsProvider);
     final theme = Theme.of(context);
-    final isOwner = member.role == 'OWNER';
+    final isCaregiver = member.role == 'CAREGIVER';
     // Summary failures (offline, etc.) must never break the member list: the
     // tile simply shows no status chips.
     final summary = isMe
@@ -217,7 +217,7 @@ class _MemberTile extends ConsumerWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (isOwner)
+            if (isCaregiver)
               Chip(
                 label: Text(strings.familyOwner),
                 visualDensity: VisualDensity.compact,
@@ -342,6 +342,21 @@ class _InvitationTile extends ConsumerWidget {
                       '${strings.invitedBy} ${invitation.invitedByName!}',
                       style: TextStyle(color: Colors.grey.shade600),
                     ),
+                  const SizedBox(height: 6),
+                  // What joining means: the inviter becomes this person's caregiver.
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.info_outline, size: 18, color: Colors.orange.shade800),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          strings.invitationWarning,
+                          style: TextStyle(fontSize: 13, color: Colors.orange.shade900),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),

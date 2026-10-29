@@ -3,5 +3,5 @@
 import { NoticeList } from '@/components/notices/notice-list';
 
 export default function NoticesPage() {
-  return <NoticeList basePath={'/notices'} />;
+  return <NoticeList basePath={'/notices'} role="PHARMACIST" />;
 }

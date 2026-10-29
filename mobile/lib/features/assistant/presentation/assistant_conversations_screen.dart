@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/localization/app_strings.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../router/app_router.dart';
+import '../../../widgets/load_more_list.dart';
 import '../domain/assistant_models.dart';
 import 'assistant_conversations_controller.dart';
 
@@ -116,7 +117,7 @@ class _AssistantConversationsScreenState
         ),
       );
     } else {
-      body = ListView.separated(
+      body = LoadMoreListView(
         padding: const EdgeInsets.only(bottom: 88),
         itemCount: state.items.length,
         separatorBuilder: (_, __) => const Divider(height: 1),

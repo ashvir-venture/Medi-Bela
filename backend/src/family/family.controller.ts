@@ -56,7 +56,7 @@ export class FamilyController {
 
   /**
    * `type=incoming` (default): pending invitations addressed to me.
-   * `type=sent`: pending invitations sent by my family (owner only).
+   * `type=sent`: pending invitations sent by my family (caregiver only).
    */
   @Get('invitations')
   listInvitations(

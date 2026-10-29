@@ -12,6 +12,7 @@ import { CloudinaryService } from '../prescriptions/lib/cloudinary.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { sanitizeUser, SafeUser } from '../common/utils/sanitize-user';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { assertValidDetails, dateOfBirthColumn } from './lib/profile-details';
 
 @Injectable()
 export class UsersService {
@@ -34,9 +35,10 @@ export class UsersService {
     userId: string,
     dto: UpdateProfileDto,
   ): Promise<SafeUser> {
+    await assertValidDetails(this.prisma, dto);
     const user = await this.prisma.user.update({
       where: { id: userId },
-      data: dto,
+      data: { ...dto, dateOfBirth: dateOfBirthColumn(dto.dateOfBirth) },
     });
     return sanitizeUser(user);
   }

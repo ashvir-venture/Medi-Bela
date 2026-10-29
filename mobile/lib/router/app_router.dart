@@ -19,9 +19,14 @@ import '../features/health/presentation/health_reminders_screen.dart';
 import '../features/health/presentation/health_screen.dart';
 import '../features/health/presentation/health_suggestions_screen.dart';
 import '../features/home/presentation/home_screen.dart';
+import '../features/medicine_schedule/presentation/my_medicines_screen.dart';
+import '../features/medicine_schedule/presentation/routine_form_screen.dart';
 import '../features/medicine_schedule/presentation/today_medicine_screen.dart';
 import '../features/notices/presentation/notices_screen.dart';
+import '../features/prescription/presentation/confirm_prescription_screen.dart';
+import '../features/prescription/presentation/member_prescriptions_screen.dart';
 import '../features/prescription/presentation/prescription_screen.dart';
+import '../features/profile/presentation/edit_details_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/reminders/presentation/reminder_check_screen.dart';
 import '../widgets/main_scaffold.dart';
@@ -52,6 +57,23 @@ class AppRoutes {
   static const diabetes = '/diabetes';
   static const profile = '/profile';
   static const reminderCheck = '/profile/reminders';
+  static const editDetails = '/profile/details';
+
+  // Round 6. `for` = the family member a caregiver acts for.
+  static const medicines = '/medicines';
+  static String medicinesPath({String? forUserId, String? name}) => Uri(
+        path: medicines,
+        queryParameters: {if (forUserId != null) 'for': forUserId, if (name != null) 'name': name},
+      ).toString();
+  static const medicineForm = '/medicines/form';
+  static const confirmPrescription = '/prescription/confirm/:id';
+  static String confirmPrescriptionPath(String id, {String? forUserId}) => Uri(
+        path: '/prescription/confirm/$id',
+        queryParameters: {if (forUserId != null) 'for': forUserId},
+      ).toString();
+  static const memberPrescriptions = '/family/member/:userId/prescriptions';
+  static String memberPrescriptionsPath(String userId, String name) =>
+      Uri(path: '/family/member/$userId/prescriptions', queryParameters: {'name': name}).toString();
 }
 
 /// Bridges Riverpod's [sessionNotifierProvider] to GoRouter's
@@ -168,7 +190,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.notices,
-            builder: (context, state) => const NoticesScreen(),
+            // ?id= (from a push or the inbox) shows that notice first, highlighted.
+            builder: (context, state) => NoticesScreen(highlightId: state.uri.queryParameters['id']),
           ),
           GoRoute(
             path: AppRoutes.diabetes,
@@ -181,6 +204,36 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.reminderCheck,
             builder: (context, state) => const ReminderCheckScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.editDetails,
+            builder: (context, state) => const EditDetailsScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.medicines,
+            builder: (context, state) => MyMedicinesScreen(
+              forUserId: state.uri.queryParameters['for'],
+              memberName: state.uri.queryParameters['name'],
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.medicineForm,
+            builder: (context, state) =>
+                RoutineFormScreen(args: state.extra as RoutineFormArgs? ?? const RoutineFormArgs()),
+          ),
+          GoRoute(
+            path: AppRoutes.confirmPrescription,
+            builder: (context, state) => ConfirmPrescriptionScreen(
+              prescriptionId: state.pathParameters['id']!,
+              forUserId: state.uri.queryParameters['for'],
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.memberPrescriptions,
+            builder: (context, state) => MemberPrescriptionsScreen(
+              userId: state.pathParameters['userId']!,
+              memberName: state.uri.queryParameters['name'] ?? '',
+            ),
           ),
         ],
       ),

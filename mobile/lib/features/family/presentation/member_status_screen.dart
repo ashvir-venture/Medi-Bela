@@ -5,11 +5,14 @@ import 'package:go_router/go_router.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../router/app_router.dart';
 import '../../../widgets/state_views.dart';
+import '../../auth/presentation/auth_controller.dart';
 import '../domain/family_models.dart';
 import 'family_controller.dart';
 
-/// A family member's medicine status for today. Read-only, online-only, and
-/// limited to name / time / status — the server decides what is shareable.
+/// A family member's medicine status for today, read-only and online-only:
+/// name / time / status (the server decides what is shareable). The
+/// caregiver also gets shortcuts to manage the member's medicines and
+/// prescriptions. Nobody but the member marks their doses taken.
 class MemberStatusScreen extends ConsumerWidget {
   const MemberStatusScreen({super.key, required this.userId});
 
@@ -19,6 +22,9 @@ class MemberStatusScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final strings = ref.watch(stringsProvider);
     final state = ref.watch(memberStatusProvider(userId));
+    final myId = ref.watch(authControllerProvider).value?.id;
+    final members = ref.watch(familyMembersControllerProvider).value ?? const <FamilyMemberModel>[];
+    final iAmCaregiver = members.any((m) => m.userId == myId && m.role == 'CAREGIVER');
 
     return Scaffold(
       appBar: AppBar(
@@ -30,7 +36,8 @@ class MemberStatusScreen extends ConsumerWidget {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          await ref.refresh(memberStatusProvider(userId).future);
+          ref.invalidate(memberStatusProvider(userId));
+          await ref.read(memberStatusProvider(userId).future);
         },
         child: state.when(
           loading: () => const LoadingView(),
@@ -53,32 +60,73 @@ class MemberStatusScreen extends ConsumerWidget {
                 ),
               ]);
             }
-            if (detail.doses.isEmpty) {
-              return ListView(children: [
-                const SizedBox(height: 60),
-                EmptyView(
-                  message: strings.noDosesToday,
-                  icon: Icons.medication_outlined,
-                ),
-              ]);
-            }
-            return ListView.separated(
+            return ListView(
               padding: const EdgeInsets.all(16),
-              itemCount: detail.doses.length + 1,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  return Text(
-                    strings.todaysMedicine,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  );
-                }
-                return _DoseTile(dose: detail.doses[index - 1]);
-              },
+              children: [
+                if (iAmCaregiver) ...[
+                  _CaregiverShortcuts(userId: userId, name: detail.name),
+                  const SizedBox(height: 20),
+                ],
+                Text(
+                  strings.todaysMedicine,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                if (detail.doses.isEmpty)
+                  EmptyView(
+                    message: strings.noDosesToday,
+                    icon: Icons.medication_outlined,
+                  )
+                else
+                  for (final dose in detail.doses)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _DoseTile(dose: dose),
+                    ),
+              ],
             );
           },
         ),
       ),
+    );
+  }
+}
+
+/// The caregiver's shortcuts to a member's medicines and prescriptions.
+class _CaregiverShortcuts extends ConsumerWidget {
+  const _CaregiverShortcuts({required this.userId, required this.name});
+
+  final String userId;
+  final String name;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final strings = ref.watch(stringsProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(strings.caregiverActingHint, style: TextStyle(color: Colors.grey.shade700)),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => context.push(AppRoutes.medicinesPath(forUserId: userId, name: name)),
+                icon: const Icon(Icons.medication_outlined),
+                label: Text(strings.medicinesButton),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => context.push(AppRoutes.memberPrescriptionsPath(userId, name)),
+                icon: const Icon(Icons.description_outlined),
+                label: Text(strings.prescriptionsButton),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

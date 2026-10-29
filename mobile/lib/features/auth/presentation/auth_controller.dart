@@ -65,6 +65,7 @@ class AuthController extends StateNotifier<AsyncValue<UserModel?>> {
     required String password,
     String? address,
     String? languagePreference,
+    Map<String, dynamic> details = const {},
   }) async {
     final result = await _repository.register(
       phone: phone,
@@ -72,6 +73,7 @@ class AuthController extends StateNotifier<AsyncValue<UserModel?>> {
       password: password,
       address: address,
       languagePreference: languagePreference,
+      details: details,
     );
     result.when(
       success: (user) {

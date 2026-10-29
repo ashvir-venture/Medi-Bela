@@ -20,6 +20,9 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { messages } from '../notifications/notification-messages';
 import { AuditService } from '../audit/audit.service';
 import { CatalogService } from '../catalog/catalog.service';
+import { ActingFor, CaregiverAccessService } from '../family/caregiver-access.service';
+import { ConfirmLineDto, ConfirmPrescriptionDto } from './dto/confirm-prescription.dto';
+import { startOfAppDay } from '../common/utils/time.util';
 import {
   ADMIN_PAGE_SIZE,
   CURSOR_ORDER,
@@ -52,6 +55,18 @@ const PRESCRIPTION_INCLUDE = {
 
 type ReviewOutcome = 'READY_TO_CONFIRM' | 'ACTIVE' | 'REJECTED';
 
+/** Adds "done by caregiver" flags; ids of who acted stay server-side. */
+function withActorFlags<T extends { userId: string; uploadedById?: string | null; confirmedById?: string | null }>(
+  p: T,
+) {
+  const { uploadedById, confirmedById, ...rest } = p;
+  return {
+    ...rest,
+    uploadedByCaregiver: Boolean(uploadedById && uploadedById !== p.userId),
+    confirmedByCaregiver: Boolean(confirmedById && confirmedById !== p.userId),
+  };
+}
+
 /** YYYY-MM-DD (validated by the DTO) -> Date for a @db.Date column; null clears. */
 function toDateColumn(value: string | null | undefined): Date | null | undefined {
   if (value === undefined) return undefined;
@@ -68,6 +83,7 @@ export class PrescriptionsService {
     private readonly notifications: NotificationsService,
     private readonly audit: AuditService,
     private readonly catalog: CatalogService,
+    private readonly caregivers: CaregiverAccessService,
   ) {}
 
   // ---------------------------------------------------------------------
@@ -82,6 +98,7 @@ export class PrescriptionsService {
    *
    * `previousPrescriptionId` links a re-upload to the user's own REJECTED
    * prescription so the pharmacist sees the earlier feedback.
+   * `uploadedById` differs from `userId` when a caregiver uploads for them.
    */
   async create(
     userId: string,
@@ -89,6 +106,7 @@ export class PrescriptionsService {
     originalFilename: string,
     clientId?: string,
     previousPrescriptionId?: string,
+    uploadedById: string = userId,
   ) {
     if (clientId) {
       const existing = await this.prisma.prescription.findUnique({
@@ -130,6 +148,7 @@ export class PrescriptionsService {
           imageUrl,
           clientUploadId: clientId ?? null,
           previousPrescriptionId: previousPrescriptionId ?? null,
+          uploadedById,
         },
       });
     } catch (e) {
@@ -147,11 +166,12 @@ export class PrescriptionsService {
   }
 
   async getMyHistory(userId: string) {
-    return this.prisma.prescription.findMany({
+    const rows = await this.prisma.prescription.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
       include: { medicines: { orderBy: { createdAt: 'asc' } } },
     });
+    return rows.map(withActorFlags);
   }
 
   async getMyPrescriptionDetail(userId: string, id: string) {
@@ -162,7 +182,58 @@ export class PrescriptionsService {
     if (!prescription || prescription.userId !== userId) {
       throw new NotFoundException('Prescription not found');
     }
-    return prescription;
+    return withActorFlags(prescription);
+  }
+
+  /**
+   * The patient's Confirm or Edit step (or their caregiver's, acting for
+   * them). Allowed edits per line: dose times (same count), start date,
+   * meal timing, or removing the line; everything else stays as the
+   * pharmacist set it. Then routines and doses are created ([activate]).
+   */
+  async confirm(acting: ActingFor, prescriptionId: string, dto: ConfirmPrescriptionDto) {
+    const prescription = await this.prisma.prescription.findUnique({
+      where: { id: prescriptionId },
+      include: { medicines: true },
+    });
+    if (!prescription || prescription.userId !== acting.subjectId) {
+      throw new NotFoundException('Prescription not found');
+    }
+    if (prescription.status !== PrescriptionStatus.AWAITING_CONFIRMATION) {
+      throw new ConflictException(`Prescription is ${prescription.status}, not awaiting confirmation`);
+    }
+
+    const lines = prescription.medicines.filter((m) => m.revision === prescription.currentRevision);
+    const byId = new Map(lines.map((m) => [m.id, m]));
+    const edits = dto.lines ?? [];
+    const seen = new Set<string>();
+    const today = startOfAppDay(new Date());
+    for (const edit of edits) {
+      const line = byId.get(edit.id);
+      if (!line) throw new BadRequestException(`Medicine ${edit.id} is not on this prescription`);
+      if (seen.has(edit.id)) throw new BadRequestException(`Medicine ${edit.id} is listed twice`);
+      seen.add(edit.id);
+      if (edit.scheduleTimes && edit.scheduleTimes.length !== line.timesPerDay) {
+        throw new BadRequestException(
+          `"${line.medicineName}": choose exactly ${line.timesPerDay} dose time(s)`,
+        );
+      }
+      if (edit.startDate && startOfAppDay(new Date(`${edit.startDate}T00:00:00.000Z`)) < today) {
+        throw new BadRequestException(`"${line.medicineName}": the start date can't be in the past`);
+      }
+    }
+    if (edits.filter((e) => e.remove).length >= lines.length) {
+      throw new BadRequestException('Keep at least one medicine to confirm this prescription');
+    }
+    const mealIds = [...new Set(edits.map((e) => e.mealTimingId).filter((v): v is number => typeof v === 'number'))];
+    if (mealIds.length) {
+      const found = await this.prisma.mealTiming.count({ where: { id: { in: mealIds } } });
+      if (found !== mealIds.length) throw new BadRequestException('Unknown meal timing');
+    }
+
+    const result = await this.activate(acting.actorId, prescriptionId, edits);
+    await this.caregivers.notifyMember(acting, 'prescription_confirmed', prescriptionId);
+    return withActorFlags(result);
   }
 
   // ---------------------------------------------------------------------
@@ -394,11 +465,13 @@ export class PrescriptionsService {
 
   /**
    * AWAITING_CONFIRMATION -> ACTIVE: deterministically generates a
-   * MedicineRoutine (+ its first doses) per medicine line, in one
-   * transaction, then runs the health rules. Called by the user's Confirm
-   * step (Round 6); no route reaches it yet.
+   * MedicineRoutine (+ its first doses) per kept medicine line, in one
+   * transaction, then runs the health rules. Reached through [confirm],
+   * which validates the patient's edits first. Edited lines produce
+   * routines marked as edited by the actor; the pharmacist's line itself
+   * is kept unchanged. Removed lines are deleted.
    */
-  async activate(actorId: string, prescriptionId: string) {
+  async activate(actorId: string, prescriptionId: string, edits: ConfirmLineDto[] = []) {
     const prescription = await this.prisma.prescription.findUnique({
       where: { id: prescriptionId },
       include: { medicines: true },
@@ -407,7 +480,31 @@ export class PrescriptionsService {
     if (prescription.status !== PrescriptionStatus.AWAITING_CONFIRMATION) {
       throw new ConflictException(`Prescription is ${prescription.status}, not awaiting confirmation`);
     }
-    const lines = prescription.medicines.filter((m) => m.revision === prescription.currentRevision);
+    const editById = new Map(edits.map((e) => [e.id, e]));
+    const current = prescription.medicines.filter((m) => m.revision === prescription.currentRevision);
+    const removed = current.filter((m) => editById.get(m.id)?.remove);
+    const editedIds = new Set<string>();
+    const lines = current
+      .filter((m) => !editById.get(m.id)?.remove)
+      .map((m) => {
+        const edit = editById.get(m.id);
+        if (!edit) return m;
+        const changed = { ...m };
+        if (edit.scheduleTimes) changed.scheduleTimes = JSON.stringify(edit.scheduleTimes);
+        if (edit.startDate) changed.startDate = new Date(`${edit.startDate}T00:00:00.000Z`);
+        if (edit.mealTimingId !== undefined) changed.mealTimingId = edit.mealTimingId;
+        if (
+          changed.scheduleTimes !== m.scheduleTimes ||
+          changed.startDate?.getTime() !== m.startDate?.getTime() ||
+          changed.mealTimingId !== m.mealTimingId
+        ) {
+          editedIds.add(m.id);
+        }
+        return changed;
+      });
+    if (lines.length === 0) {
+      throw new BadRequestException('Keep at least one medicine to confirm this prescription');
+    }
     this.assertMedicinesReadyForCompletion(lines);
 
     const activatedAt = new Date();
@@ -416,10 +513,13 @@ export class PrescriptionsService {
     await this.prisma.$transaction(async (tx) => {
       const claimed = await tx.prescription.updateMany({
         where: { id: prescriptionId, status: PrescriptionStatus.AWAITING_CONFIRMATION },
-        data: { status: PrescriptionStatus.ACTIVE },
+        data: { status: PrescriptionStatus.ACTIVE, confirmedById: actorId, confirmedAt: activatedAt },
       });
       if (claimed.count === 0) {
         throw new ConflictException('Prescription is no longer awaiting confirmation');
+      }
+      if (removed.length) {
+        await tx.prescriptionMedicine.deleteMany({ where: { id: { in: removed.map((m) => m.id) } } });
       }
 
       for (const routine of generatedRoutines) {
@@ -438,6 +538,10 @@ export class PrescriptionsService {
             mealTimingId: routine.mealTimingId,
             scheduleTimes: routine.scheduleTimes,
             generatedUntil: routine.generatedUntil,
+            // "Edited by you" / "edited by caregiver" when the patient side changed it.
+            ...(editedIds.has(routine.prescriptionMedicineId)
+              ? { lastEditedById: actorId, lastEditedAt: activatedAt }
+              : {}),
           },
         });
 
@@ -457,8 +561,15 @@ export class PrescriptionsService {
           action: 'prescription.confirm',
           entityType: 'prescription',
           entityId: prescriptionId,
-          before: { status: PrescriptionStatus.AWAITING_CONFIRMATION },
-          after: { status: PrescriptionStatus.ACTIVE, routines: generatedRoutines.length },
+          before: {
+            status: PrescriptionStatus.AWAITING_CONFIRMATION,
+            removedLines: removed.map((m) => ({ id: m.id, medicineName: m.medicineName })),
+          },
+          after: {
+            status: PrescriptionStatus.ACTIVE,
+            routines: generatedRoutines.length,
+            editedLines: [...editedIds],
+          },
         },
         tx,
       );

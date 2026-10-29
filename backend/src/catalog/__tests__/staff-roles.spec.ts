@@ -30,9 +30,11 @@ describe('staff roles (Round 5 split)', () => {
     for (const h of ['createDoctor', 'updateDoctor', 'createMedicine', 'updateMedicine', 'createTest']) {
       expect(roles(CatalogController, h)).toEqual([Role.PHARMACIST]);
     }
-    for (const h of ['searchDoctors', 'searchMedicines', 'searchTests', 'listDoctors', 'listMedicines']) {
+    for (const h of ['searchDoctors', 'searchTests', 'listDoctors', 'listMedicines']) {
       expect(roles(CatalogController, h)).toEqual([Role.ADMIN, Role.PHARMACIST]);
     }
+    // Patients add their own medicines with the same suggestions (read-only).
+    expect(roles(CatalogController, 'searchMedicines')).toEqual([Role.ADMIN, Role.PHARMACIST, Role.USER]);
   });
 
   it('only pharmacists prepare or reject prescriptions; admins can read them', () => {

@@ -45,4 +45,47 @@ class MedicineScheduleApi {
     );
     return MedicineDoseModel.fromJson(response.data!);
   }
+
+  // --- "My medicines" (online). [forUserId] = caregiver acting for a member. ---
+
+  Future<List<ManagedRoutine>> getManagedRoutines({String? forUserId}) async {
+    final response = await _dio.get<List<dynamic>>(
+      ApiEndpoints.medicineRoutines,
+      queryParameters: {if (forUserId != null) 'forUserId': forUserId},
+    );
+    return response.data!.map((r) => ManagedRoutine.fromJson(r as Map<String, dynamic>)).toList();
+  }
+
+  Future<ManagedRoutine> createRoutine(Map<String, dynamic> body, {String? forUserId}) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      ApiEndpoints.medicineRoutines,
+      data: body,
+      queryParameters: {if (forUserId != null) 'forUserId': forUserId},
+    );
+    return ManagedRoutine.fromJson(response.data!);
+  }
+
+  Future<ManagedRoutine> updateRoutine(String id, Map<String, dynamic> body, {String? forUserId}) async {
+    final response = await _dio.patch<Map<String, dynamic>>(
+      ApiEndpoints.medicineRoutine(id),
+      data: body,
+      queryParameters: {if (forUserId != null) 'forUserId': forUserId},
+    );
+    return ManagedRoutine.fromJson(response.data!);
+  }
+
+  Future<void> removeRoutine(String id, {String? forUserId}) async {
+    await _dio.delete(
+      ApiEndpoints.medicineRoutine(id),
+      queryParameters: {if (forUserId != null) 'forUserId': forUserId},
+    );
+  }
+
+  Future<List<CatalogMedicineOption>> searchMedicines(String q) async {
+    final response = await _dio.get<List<dynamic>>(
+      ApiEndpoints.catalogMedicineSearch,
+      queryParameters: {'q': q},
+    );
+    return response.data!.map((m) => CatalogMedicineOption.fromJson(m as Map<String, dynamic>)).toList();
+  }
 }
