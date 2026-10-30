@@ -184,6 +184,12 @@ export function AppShell({ user, area, children }: { user: AdminUser; area: Area
           <button className="btn btn-block" onClick={logout}>
             <Icon name="logout" /> Log out
           </button>
+          {/* The public pages; Support has its own row in the Help section. */}
+          <div className="sidebar-legal">
+            <Link href="/privacy">Privacy &amp; terms</Link>
+            <span aria-hidden="true"> · </span>
+            <Link href="/about">About us</Link>
+          </div>
         </div>
       </aside>
 
