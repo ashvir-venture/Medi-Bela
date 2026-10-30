@@ -88,6 +88,13 @@ describe('HttpExceptionFilter codes and refs', () => {
     expect(m.body).not.toHaveProperty('ref');
   });
 
+  it('only MaintenanceGuard says MAINTENANCE: any other 503 has its own code (apps show "being updated" for MAINTENANCE)', () => {
+    expect(run(new ServiceUnavailableException('AI down')).body.code).toBe('SERVICE_UNAVAILABLE');
+    expect(run(withCode(new ServiceUnavailableException('AI down'), ErrorCode.AI_UNAVAILABLE)).body.code).toBe(
+      'AI_UNAVAILABLE',
+    );
+  });
+
   it('refs avoid look-alike characters', () => {
     for (let i = 0; i < 200; i++) expect(newErrorRef()).not.toMatch(/[01ILO]/);
   });

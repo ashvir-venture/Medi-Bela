@@ -62,6 +62,10 @@ String textForErrorCode(String? code, AppStrings s, {String? serverMessage, Stri
       return s.errorPhotoTooLarge;
     case 'MAINTENANCE':
       return s.maintenanceMessage;
+    case 'AI_UNAVAILABLE':
+      return s.errorAiUnavailable;
+    case 'SERVICE_UNAVAILABLE':
+      return s.errorServiceUnavailable;
     case 'SERVER_ERROR':
       return ref == null ? s.errorGeneric : s.errorServer(ref);
     case 'VALIDATION_FAILED':
@@ -72,6 +76,16 @@ String textForErrorCode(String? code, AppStrings s, {String? serverMessage, Stri
     default:
       return s.errorGeneric;
   }
+}
+
+/// The whole-app "being updated" screen: only MAINTENANCE_MODE (or a 503
+/// without a code, e.g. from a proxy). Any other 503, such as the AI being
+/// down, is a message for that one request.
+bool isMaintenanceResponse(Response<dynamic>? response) {
+  if (response?.statusCode != 503) return false;
+  final data = response!.data;
+  final code = data is Map ? data['code'] : null;
+  return code == null || code == 'MAINTENANCE';
 }
 
 /// For an older server without `code` (and for safety): the status decides.

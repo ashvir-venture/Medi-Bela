@@ -111,6 +111,17 @@ class SupportScreen extends ConsumerWidget {
   }
 }
 
+/// A button label that never wraps: it shrinks to fit instead.
+class _OneLine extends StatelessWidget {
+  const _OneLine(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) =>
+      FittedBox(fit: BoxFit.scaleDown, child: Text(text, maxLines: 1, softWrap: false));
+}
+
 /// A number with Call, WhatsApp and Copy.
 class _ContactCard extends ConsumerWidget {
   const _ContactCard({required this.contact, required this.content});
@@ -128,28 +139,38 @@ class _ContactCard extends ConsumerWidget {
           children: [
             Text(contact.display, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            // Call on its own full-width row (still the filled, main button);
+            // WhatsApp and Copy share the row below, equal widths. Labels stay
+            // on one line and shrink a little on a small phone.
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => openExternal(context, ref, contact.tel, fallbackCopy: contact.display),
+                icon: const Icon(Icons.call_outlined),
+                label: _OneLine(content.callLabel),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
               children: [
-                FilledButton.icon(
-                  onPressed: () => openExternal(context, ref, contact.tel, fallbackCopy: contact.display),
-                  icon: const Icon(Icons.call_outlined),
-                  label: Text(content.callLabel),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => openExternal(context, ref, contact.whatsapp, fallbackCopy: contact.display),
+                    icon: const Icon(Icons.chat_outlined),
+                    label: _OneLine(content.whatsappLabel),
+                  ),
                 ),
-                OutlinedButton.icon(
-                  onPressed: () => openExternal(context, ref, contact.whatsapp, fallbackCopy: contact.display),
-                  icon: const Icon(Icons.chat_outlined),
-                  label: Text(content.whatsappLabel),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    await Clipboard.setData(ClipboardData(text: contact.display));
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(content.copiedLabel)));
-                  },
-                  icon: const Icon(Icons.copy_outlined),
-                  label: Text(content.copyLabel),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      await Clipboard.setData(ClipboardData(text: contact.display));
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(content.copiedLabel)));
+                    },
+                    icon: const Icon(Icons.copy_outlined),
+                    label: _OneLine(content.copyLabel),
+                  ),
                 ),
               ],
             ),

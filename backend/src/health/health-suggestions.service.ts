@@ -2,6 +2,7 @@ import { ConflictException, Injectable, Logger, NotFoundException, ServiceUnavai
 import { Prisma, SuggestionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { ErrorCode, withCode } from '../common/filters/error-codes';
 import { ADMIN_PAGE_SIZE, CURSOR_ORDER, cursorWhere, toCursorPage } from '../common/utils/cursor-pagination';
 import { AiSuggestionService } from './ai-suggestion.service';
 import { UpdateHealthSuggestionDto } from './dto/update-health-suggestion.dto';
@@ -95,7 +96,7 @@ export class HealthSuggestionsService {
     });
     if (!routine) throw new NotFoundException('Routine not found');
     if (!this.aiSuggestion.isConfigured()) {
-      throw new ServiceUnavailableException('AI suggestions are not configured');
+      throw withCode(new ServiceUnavailableException('AI suggestions are not configured'), ErrorCode.AI_UNAVAILABLE);
     }
     if (this.inFlight.has(routineId)) {
       throw new ConflictException('A suggestion is already being generated for this routine');
@@ -105,7 +106,12 @@ export class HealthSuggestionsService {
     this.inFlight.add(routineId);
     try {
       const generated = await this.aiSuggestion.generate([medicine]);
-      if (!generated) throw new ServiceUnavailableException('The AI could not produce a suggestion. Please try again.');
+      if (!generated) {
+        throw withCode(
+          new ServiceUnavailableException('The AI could not produce a suggestion. Please try again.'),
+          ErrorCode.AI_UNAVAILABLE,
+        );
+      }
 
       const data = { itemsEn: generated.en as any, itemsBn: generated.bn as any, sourceMedicines: medicine };
       const draft = await this.prisma.healthSuggestion.findFirst({

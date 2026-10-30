@@ -87,13 +87,13 @@ void main() {
 
   double y(WidgetTester tester, String text) => tester.getTopLeft(find.text(text).first).dy;
 
-  testWidgets('five sections in order, Reminder check first in its section, actions last', (tester) async {
+  testWidgets('sections in order, Reminder check first in its section, actions last', (tester) async {
     await pump(tester, online: true);
     final s = enStrings;
+    // Edit details and Change password live on the Profile page now.
+    expect(find.text(s.editDetails), findsNothing);
+    expect(find.text(s.changePassword), findsNothing);
     final order = [
-      s.accountSection,
-      s.editDetails,
-      s.changePassword,
       s.remindersAndNotifications,
       s.reminderCheckTitle,
       s.pushNotificationsLabel,

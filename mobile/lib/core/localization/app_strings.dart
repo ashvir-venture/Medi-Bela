@@ -326,6 +326,8 @@ class AppStrings {
     required this.errorGeneric,
     required this.sessionEnded,
     required this.maintenanceMessage,
+    required this.errorAiUnavailable,
+    required this.errorServiceUnavailable,
     required this.noInternetTitle,
     required this.noInternetHint,
     required this.tryAgain,
@@ -688,6 +690,8 @@ class AppStrings {
   final String errorGeneric;
   final String sessionEnded;
   final String maintenanceMessage;
+  final String errorAiUnavailable;
+  final String errorServiceUnavailable;
   final String noInternetTitle;
   final String noInternetHint;
   final String tryAgain;
@@ -1028,6 +1032,8 @@ const AppStrings enStrings = AppStrings(
   errorGeneric: 'Something went wrong. Please try again.',
   sessionEnded: 'Your session ended. Please sign in again.',
   maintenanceMessage: 'Medi-Bela is being updated. Please try again in a few minutes.',
+  errorAiUnavailable: 'The assistant is not available right now. Please try again in a minute.',
+  errorServiceUnavailable: 'This is not available right now. Please try again in a few minutes.',
   noInternetTitle: 'No internet connection',
   noInternetHint: 'This screen needs the internet. It opens by itself when you\'re back online.',
   tryAgain: 'Try again',
@@ -1367,6 +1373,8 @@ const AppStrings bnStrings = AppStrings(
   errorGeneric: 'কিছু একটা সমস্যা হয়েছে। আবার চেষ্টা করুন।',
   sessionEnded: 'আপনার সেশন শেষ হয়েছে। আবার সাইন ইন করুন।',
   maintenanceMessage: 'মেডি-বেলা আপডেট হচ্ছে। কয়েক মিনিট পর আবার চেষ্টা করুন।',
+  errorAiUnavailable: 'সহকারী এখন উত্তর দিতে পারছে না। এক মিনিট পর আবার চেষ্টা করুন।',
+  errorServiceUnavailable: 'এটি এখন পাওয়া যাচ্ছে না। কয়েক মিনিট পর আবার চেষ্টা করুন।',
   noInternetTitle: 'ইন্টারনেট সংযোগ নেই',
   noInternetHint: 'এই পাতার জন্য ইন্টারনেট লাগে। সংযোগ ফিরলে নিজেই খুলবে।',
   tryAgain: 'আবার চেষ্টা করুন',

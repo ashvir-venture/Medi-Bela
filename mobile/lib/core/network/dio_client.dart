@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../constants/api_endpoints.dart';
 import '../constants/app_config.dart';
 import '../storage/secure_storage_service.dart';
+import '../utils/error_mapper.dart';
 
 /// Builds the single shared [Dio] instance used by every `*Api` class.
 ///
@@ -48,8 +49,8 @@ class DioClient {
             await _secureStorage.clearTokens();
             await _onSessionExpired();
           }
-          // MAINTENANCE_MODE on the server: every route but /health is 503.
-          if (error.response?.statusCode == 503) _onMaintenance?.call();
+          // MAINTENANCE_MODE on the server: every route but /health is 503 MAINTENANCE.
+          if (isMaintenanceResponse(error.response)) _onMaintenance?.call();
           handler.next(error);
         },
       ),

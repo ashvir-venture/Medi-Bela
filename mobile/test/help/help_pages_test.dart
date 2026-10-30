@@ -96,6 +96,28 @@ void main() {
     expect(find.text(enStrings.couldNotOpenLink), findsOneWidget);
   });
 
+  testWidgets('Support on a phone: Call is a full row, WhatsApp and Copy share the next row equally', (tester) async {
+    tester.view.physicalSize = const Size(360, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(const ProviderScope(child: MaterialApp(home: SupportScreen())));
+    await tester.pumpAndSettle();
+
+    Rect box(String label) => tester.getRect(
+          find.ancestor(of: find.text(label).first, matching: find.byWidgetPredicate((w) => w is ButtonStyleButton)).first,
+        );
+    final call = box(helpContentEn.callLabel);
+    final whatsapp = box(helpContentEn.whatsappLabel);
+    final copy = box(helpContentEn.copyLabel);
+
+    expect(tester.widget(find.ancestor(of: find.text(helpContentEn.callLabel).first, matching: find.byType(FilledButton)).first),
+        isA<FilledButton>()); // keeps its highlighted colour
+    expect(whatsapp.top, greaterThan(call.bottom - 1)); // below Call
+    expect(copy.top, whatsapp.top); // same row
+    expect(whatsapp.width, closeTo(copy.width, 0.5));
+    expect(call.width, closeTo(copy.right - whatsapp.left, 0.5)); // as wide as both together
+  });
+
   testWidgets('About us shows both team members in Bengali', (tester) async {
     SharedPreferences.setMockInitialValues({'pref_language_code': 'bn'});
     await tester.pumpWidget(const ProviderScope(child: MaterialApp(home: AboutUsScreen())));

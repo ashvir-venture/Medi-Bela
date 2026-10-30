@@ -12,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   AssistantReplyKind,
   buildSystemPrompt,
+  candidateBrandWords,
   clean,
   detectEmergency,
   detectRestrictedIntent,
@@ -20,7 +21,12 @@ import {
   refusalReply,
 } from './assistant-safety';
 import { SendMessageDto } from './dto/chat.dto';
-import { ChatTurn, LlmProvider } from './llm.provider';
+import { ChatTurn, LlmProvider, trimToSentence } from './llm.provider';
+import { ErrorCode, withCode } from '../common/filters/error-codes';
+
+/** 503 with its own code, so the apps show a message instead of the maintenance screen. */
+const assistantUnavailable = () =>
+  withCode(new ServiceUnavailableException('The assistant is currently unavailable'), ErrorCode.AI_UNAVAILABLE);
 
 /** One persisted message as returned to the client. */
 export interface MessageView {
@@ -67,7 +73,7 @@ export interface SendMessageResponse {
 /** Per-user cap so the assistant can't be used to run up the AI bill. */
 const MAX_MESSAGES_PER_HOUR = 20;
 const WINDOW_MS = 60 * 60 * 1000;
-const MAX_REPLY_CHARS = 700;
+const MAX_REPLY_CHARS = 1000; // ~120 words
 
 /** Keep in sync with the CHECK constraint in the assistant_conversations migration. */
 export const MAX_USER_MESSAGES = 10;
@@ -297,14 +303,16 @@ export class AssistantService {
     if (intent) return { content: refusalReply(intent, lang), kind: 'REFUSAL' };
 
     // 2. Model: system prompt + (at most) the last 3 complete exchanges + the new message, once.
-    if (!this.llm.isConfigured()) throw new ServiceUnavailableException('The assistant is currently unavailable');
-    const context = await this.loadContext(userId);
+    if (!this.llm.isConfigured()) throw assistantUnavailable();
+    const context = await this.loadContext(userId, message);
     const turns: ChatTurn[] = [...history, { role: 'user', content: message }];
     const text = await this.llm.complete(buildSystemPrompt(lang, context), turns);
     // An empty/failed completion is never stored as a reply.
-    if (!text) throw new ServiceUnavailableException('The assistant is currently unavailable');
+    if (!text) throw assistantUnavailable();
 
-    return { content: text.slice(0, MAX_REPLY_CHARS), kind: 'ANSWER' };
+    // Over the cap: cut back to the last whole sentence, never mid-word.
+    const content = text.length > MAX_REPLY_CHARS ? trimToSentence(text.slice(0, MAX_REPLY_CHARS)) : text;
+    return { content, kind: 'ANSWER' };
   }
 
   /** Transaction 2. Idempotent: a reply for this user message is stored at most once. */
@@ -410,9 +418,14 @@ export class AssistantService {
     return user?.languagePreference ?? Language.EN;
   }
 
-  /** The user's OWN verified routine and upcoming reminders. No name, phone or address. */
-  private async loadContext(userId: string) {
-    const [routines, reminders] = await Promise.all([
+  /**
+   * The user's OWN verified routine and upcoming reminders, plus catalog
+   * entries for brand names in the message (so "Napa" reaches the model as
+   * paracetamol). No name, phone or address.
+   */
+  private async loadContext(userId: string, message: string) {
+    const words = candidateBrandWords(message);
+    const [routines, reminders, catalog] = await Promise.all([
       this.prisma.medicineRoutine.findMany({
         where: { userId, active: true },
         orderBy: { createdAt: 'desc' },
@@ -430,6 +443,13 @@ export class AssistantService {
         take: 10,
         select: { title: true, scheduledAt: true },
       }),
+      words.length
+        ? this.prisma.medicine.findMany({
+            where: { brandName: { in: words, mode: 'insensitive' }, genericId: { not: null } },
+            take: 5,
+            select: { brandName: true, generic: { select: { name: true } }, form: { select: { name: true } } },
+          })
+        : Promise.resolve([]),
     ]);
     return {
       routines: routines.map((r: any) => ({
@@ -441,6 +461,11 @@ export class AssistantService {
       reminders: reminders.map((r: any) => ({
         title: clean(r.title, 120),
         when: new Date(r.scheduledAt).toISOString().slice(0, 10),
+      })),
+      catalog: catalog.map((m: any) => ({
+        brand: clean(m.brandName, 60),
+        generic: clean(m.generic?.name, 80),
+        form: m.form?.name ? clean(m.form.name, 30) : null,
       })),
     };
   }

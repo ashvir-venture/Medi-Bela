@@ -1,4 +1,4 @@
-import { AiSuggestionService } from '../ai-suggestion.service';
+import { AiSuggestionService, UNKNOWN_MEDICINE_SUGGESTION } from '../ai-suggestion.service';
 
 function make(response: any) {
   const config = { get: (k: string, d?: string) => ({ LLM_API_BASE_URL: 'http://llm', LLM_API_KEY: 'k' } as any)[k] ?? d };
@@ -33,7 +33,15 @@ describe('AiSuggestionService', () => {
   });
 
   it('returns null for unusable output and for no medicines', async () => {
-    expect(await make({ en: [], bn: [] }).service.generate(['A'])).toBeNull();
+    expect(await make({}).service.generate(['A'])).toBeNull();
+    expect(await make({ en: 'x', bn: 'y' }).service.generate(['A'])).toBeNull();
     expect(await make({}).service.generate([])).toBeNull();
+  });
+
+  it('a medicine the model does not know gets a fixed "consult the doctor or manufacturer" note, not an error', async () => {
+    const out = (await make({ en: [], bn: [] }).service.generate(['nn 20, 1']))!;
+    expect(out).toEqual(UNKNOWN_MEDICINE_SUGGESTION);
+    expect(out.en[0].text).toMatch(/doctor or the manufacturer/);
+    expect(out.bn[0].text).toMatch(/ডাক্তার/);
   });
 });

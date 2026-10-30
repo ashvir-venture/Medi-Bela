@@ -65,7 +65,7 @@ export class ApiError extends Error {
   }
 }
 
-/** Raised on window when the API answers 503: MaintenanceGate shows its screen. */
+/** Raised on window when the API answers 503 MAINTENANCE: MaintenanceGate shows its screen. */
 export const MAINTENANCE_EVENT = 'medibela:maintenance';
 
 const GENERIC_ERROR = 'Something went wrong. Please try again.';
@@ -89,6 +89,10 @@ export function errorText(code: string | undefined, serverMessage: string | unde
       return "You don't have access to this.";
     case 'MAINTENANCE':
       return 'Medi-Bela is being updated. Please try again in a few minutes.';
+    case 'AI_UNAVAILABLE':
+      return 'The AI is not available right now. Please try again in a minute.';
+    case 'SERVICE_UNAVAILABLE':
+      return 'This is not available right now. Please try again in a few minutes.';
     case 'SERVER_ERROR':
       return ref ? `Something went wrong. Ref: ${ref}` : GENERIC_ERROR;
     case 'VALIDATION_FAILED':
@@ -153,7 +157,9 @@ async function request<T>(
     } catch {
       // ignore parse failure: the status decides below
     }
-    if (response.status === 503) {
+    // Only MAINTENANCE_MODE (or a 503 with no code, e.g. from a proxy) is
+    // maintenance; an AI or other service being down is just this request.
+    if (response.status === 503 && (code === undefined || code === 'MAINTENANCE')) {
       code = 'MAINTENANCE';
       if (typeof window !== 'undefined') window.dispatchEvent(new Event(MAINTENANCE_EVENT));
     }

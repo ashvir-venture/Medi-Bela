@@ -9,9 +9,11 @@ import '../../../router/app_router.dart';
 import '../../../widgets/state_views.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../family/presentation/family_controller.dart';
+import 'account_dialogs.dart';
 import 'profile_summary_providers.dart';
 
-/// Who is signed in, the way into Settings, and Log out (last, set apart).
+/// Who is signed in, Edit details and Change password right under it, the
+/// way into Settings, and Log out (last, set apart).
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
@@ -123,6 +125,30 @@ class _ProfileContent extends ConsumerWidget {
                 ),
               ],
             ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // ---- My details, right under who I am --------------------------------
+        Card(
+          child: Column(
+            children: [
+              ListTile(
+                minVerticalPadding: 16,
+                leading: const Icon(Icons.edit_outlined),
+                title: Text(strings.editDetails, style: theme.textTheme.titleMedium),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push(AppRoutes.editDetails),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                minVerticalPadding: 16,
+                leading: const Icon(Icons.lock_reset),
+                title: Text(strings.changePassword, style: theme.textTheme.titleMedium),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => showChangePasswordDialog(context),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 16),

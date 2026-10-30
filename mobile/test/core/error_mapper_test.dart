@@ -49,6 +49,18 @@ void main() {
     expect(friendlyErrorMessage(e, bnStrings), bnStrings.errorNetwork);
   });
 
+  test('only MAINTENANCE (or a 503 without a code) is maintenance; an AI outage is a message', () {
+    expect(isMaintenanceResponse(_server(503, {'code': 'MAINTENANCE'}).response), isTrue);
+    expect(isMaintenanceResponse(_server(503, {}).response), isTrue);
+    expect(isMaintenanceResponse(_server(503, {'code': 'AI_UNAVAILABLE'}).response), isFalse);
+    expect(isMaintenanceResponse(_server(503, {'code': 'SERVICE_UNAVAILABLE'}).response), isFalse);
+    expect(isMaintenanceResponse(_server(500, {'code': 'SERVER_ERROR'}).response), isFalse);
+
+    final ai = _server(503, {'code': 'AI_UNAVAILABLE', 'message': 'The assistant is currently unavailable'});
+    expect(friendlyErrorMessage(ai, enStrings), enStrings.errorAiUnavailable);
+    expect(friendlyErrorMessage(ai, bnStrings), bnStrings.errorAiUnavailable);
+  });
+
   test('an older server without code: the status decides', () {
     expect(friendlyErrorMessage(_server(404, {'message': 'Not found'}), enStrings), enStrings.errorNotFound);
     expect(friendlyErrorMessage(_server(502, {}), enStrings), enStrings.errorGeneric);

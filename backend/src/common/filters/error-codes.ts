@@ -22,7 +22,12 @@ export const ErrorCode = {
   CONFLICT: 'CONFLICT',
   PAYLOAD_TOO_LARGE: 'PAYLOAD_TOO_LARGE',
   RATE_LIMITED: 'RATE_LIMITED',
+  /** MAINTENANCE_MODE only (MaintenanceGuard): the apps show their "being updated" screen for it. */
   MAINTENANCE: 'MAINTENANCE',
+  /** The AI provider is unset or gave no usable answer (assistant, AI suggestions). */
+  AI_UNAVAILABLE: 'AI_UNAVAILABLE',
+  /** Any other 503: something the request needs is down for now. */
+  SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
   SERVER_ERROR: 'SERVER_ERROR',
 } as const;
 
@@ -52,7 +57,8 @@ export function codeForStatus(status: number, validation: boolean): ErrorCode {
     case HttpStatus.TOO_MANY_REQUESTS:
       return ErrorCode.RATE_LIMITED;
     case HttpStatus.SERVICE_UNAVAILABLE:
-      return ErrorCode.MAINTENANCE;
+      // Not MAINTENANCE: the apps take that code as "the whole system is down".
+      return ErrorCode.SERVICE_UNAVAILABLE;
     default:
       return ErrorCode.BAD_REQUEST;
   }

@@ -35,6 +35,7 @@ export class LlmProvider {
     const timer = setTimeout(() => controller.abort(), LlmProvider.TIMEOUT_MS);
     try {
       const baseUrl = this.config.get<string>('LLM_API_BASE_URL')!.replace(/\/+$/, '');
+      const model = this.config.get<string>('LLM_MODEL', 'gpt-4o-mini');
       const response = await fetch(`${baseUrl}/chat/completions`, {
         method: 'POST',
         signal: controller.signal,
@@ -43,10 +44,12 @@ export class LlmProvider {
           Authorization: `Bearer ${this.config.get<string>('LLM_API_KEY')}`,
         },
         body: JSON.stringify({
-          model: this.config.get<string>('LLM_MODEL', 'gpt-4o-mini'),
+          model,
           temperature: 0.2,
-          // ~80 words; Bengali needs more tokens per word, hence the headroom.
-          max_tokens: 320,
+          // ~120 words; Bengali needs more tokens per word, and reasoning models
+          // (gpt-oss) spend hidden thinking tokens from this same budget.
+          max_tokens: 900,
+          ...(/gpt-oss/i.test(model) ? { reasoning_effort: 'low' } : {}),
           messages: [{ role: 'system', content: system }, ...turns],
         }),
       });

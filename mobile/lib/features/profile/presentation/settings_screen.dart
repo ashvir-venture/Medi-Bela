@@ -109,22 +109,7 @@ class _SettingsContentState extends ConsumerState<_SettingsContent> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
       children: [
-        // ---- Account --------------------------------------------------------
-        _SectionHeader(strings.accountSection),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.edit_outlined),
-          title: Text(strings.editDetails),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => context.push(AppRoutes.editDetails),
-        ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.lock_reset),
-          title: Text(strings.changePassword),
-          onTap: () => showChangePasswordDialog(context),
-        ),
-
+        // (Edit details and Change password are on the Profile page.)
         // ---- Reminders & notifications --------------------------------------
         _SectionHeader(strings.remindersAndNotifications),
         const ReminderStatusRefresher(child: _ReminderCheckTile()),
