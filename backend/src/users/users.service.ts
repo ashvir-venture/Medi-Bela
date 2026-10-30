@@ -9,6 +9,7 @@ import { AccountStatus, PrescriptionStatus, Role, User } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { randomBytes } from 'crypto';
 import { LoginThrottle } from '../auth/login-throttle';
+import { ErrorCode, withCode } from '../common/filters/error-codes';
 import { AuditService } from '../audit/audit.service';
 import { FamilyMembershipService } from '../family/family-membership.service';
 import { pauseSchedules } from '../medicine-schedule/rolling-dose.job';
@@ -176,7 +177,7 @@ export class UsersService {
     if (!(await argon2.verify(user.passwordHash, password))) {
       this.passwordThrottle.recordFailure(userId);
       // 403, not 401: the app treats any 401 as "session expired" and logs the user out.
-      throw new ForbiddenException('Password is incorrect');
+      throw withCode(new ForbiddenException('Password is incorrect'), ErrorCode.PASSWORD_INCORRECT);
     }
     return user;
   }

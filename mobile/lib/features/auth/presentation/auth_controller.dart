@@ -53,6 +53,7 @@ class AuthController extends StateNotifier<AsyncValue<UserModel?>> {
     return result.when(
       success: (outcome) {
         final (user, reactivated) = outcome;
+        _ref.read(sessionExpiredNoticeProvider.notifier).state = false;
         state = AsyncValue.data(user);
         _ref.read(sessionNotifierProvider.notifier).setLoggedIn(true);
         return Result.success(reactivated);
@@ -68,8 +69,10 @@ class AuthController extends StateNotifier<AsyncValue<UserModel?>> {
     String? address,
     String? languagePreference,
     Map<String, dynamic> details = const {},
+    required bool acceptTerms,
   }) async {
     final result = await _repository.register(
+      acceptTerms: acceptTerms,
       phone: phone,
       name: name,
       password: password,

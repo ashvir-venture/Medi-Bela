@@ -8,6 +8,7 @@ import { Topbar } from '@/components/topbar';
 import { DataList } from '@/components/data-list';
 import { StatusBadge } from '@/components/status-badge';
 import { AnalyticsSection } from '@/components/analytics';
+import { ButtonSpinner, Skeleton } from '@/components/skeleton';
 
 /**
  * Renders GET /admin/dashboard. No business logic here: every count,
@@ -52,7 +53,7 @@ export default function DashboardPage() {
         )}
 
         {isLoading && !data ? (
-          <p className="muted">Loading…</p>
+          <Skeleton kind="dashboard" />
         ) : !data ? null : (
           <>
             <div className="stat-grid">
@@ -141,7 +142,7 @@ export default function DashboardPage() {
             <p className="muted" style={{ fontSize: 12 }}>
               Updated {new Date(data.generatedAt).toLocaleTimeString()} ·{' '}
               <button className="btn" onClick={load} disabled={isLoading}>
-                {isLoading ? 'Refreshing…' : 'Refresh'}
+                {isLoading && <ButtonSpinner />}{isLoading ? 'Refreshing…' : 'Refresh'}
               </button>
             </p>
           </>

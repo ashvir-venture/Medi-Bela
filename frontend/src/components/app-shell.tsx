@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { AdminUser, clearTokens, getDashboard, getPharmacistDashboard } from '@/lib/api-client';
 import { ADMIN_BASE } from '@/lib/paths';
 import { Icon, IconName } from '@/components/icons';
+import { Skeleton } from '@/components/skeleton';
 
 type BadgeKey = 'prescriptions' | 'suggestions' | 'notices';
 
@@ -43,6 +44,7 @@ const NAV: Record<Area, NavSection[]> = {
         { href: '/health-rules', label: 'Health rules', icon: 'rule' },
       ],
     },
+    { label: 'Help', items: [{ href: '/support', label: 'Support', icon: 'help' }] },
   ],
   ADMIN: [
     { label: 'Overview', items: [{ href: `${ADMIN_BASE}/dashboard`, label: 'Dashboard', icon: 'dashboard' }] },
@@ -61,6 +63,7 @@ const NAV: Record<Area, NavSection[]> = {
         { href: `${ADMIN_BASE}/audit-log`, label: 'Audit log', icon: 'audit' },
       ],
     },
+    { label: 'Help', items: [{ href: '/support', label: 'Support', icon: 'help' }] },
   ],
 };
 
@@ -217,7 +220,7 @@ export function ShellGate({ error, onRetry }: { error: string | null; onRetry: (
           </button>
         </div>
       ) : (
-        <p className="muted">Loading…</p>
+        <Skeleton kind="page" />
       )}
     </div>
   );

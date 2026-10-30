@@ -17,6 +17,9 @@ import {
 import { Topbar } from '@/components/topbar';
 import { Pager, useCursorPager } from '@/components/pager';
 import { DataList } from '@/components/data-list';
+import { useToast } from '@/components/toast';
+import { ButtonSpinner, Skeleton } from '@/components/skeleton';
+import { EmptyState } from '@/components/empty-state';
 
 const ROLE_LABEL: Record<AdminUser['role'], string> = {
   USER: 'Patient',
@@ -54,7 +57,7 @@ function UsersList() {
   // The dashboard's status cards open this page with ?status=.
   const [status, setStatus] = useState(searchParams.get('status') ?? '');
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const toast = useToast();
 
   useEffect(() => {
     getLookups()
@@ -87,13 +90,13 @@ function UsersList() {
       : `Unban ${u.name}? They can sign in again.`;
     if (!confirm(question)) return;
     setBusyId(u.id);
-    setActionError(null);
     try {
       if (banning) await banUser(u.id);
       else await unbanUser(u.id);
+      toast.success(banning ? `${u.name} is banned.` : `${u.name} is unbanned.`);
       pager.reload();
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : 'Could not change this account. Try again.');
+      toast.error(err instanceof ApiError ? err.message : 'Could not change this account. Try again.');
     } finally {
       setBusyId(null);
     }
@@ -168,7 +171,6 @@ function UsersList() {
           </button>
         </div>
 
-        {actionError && <div className="error-banner">{actionError}</div>}
         {pager.error && (
           <div className="error-banner">
             {pager.error}{' '}
@@ -179,9 +181,9 @@ function UsersList() {
         )}
 
         {pager.isLoading && pager.items.length === 0 ? (
-          <p className="muted">Loading…</p>
+          <Skeleton kind="table" />
         ) : pager.items.length === 0 ? (
-          <div className="empty-state">No users match these filters.</div>
+          <EmptyState icon="users" message="No users match these filters." />
         ) : (
           <DataList<AdminUserRow>
             rows={pager.items}
@@ -208,7 +210,7 @@ function UsersList() {
                       disabled={busyId === u.id}
                       onClick={() => toggleBan(u)}
                     >
-                      {busyId === u.id ? '…' : u.accountStatus === 'SUSPENDED' ? 'Unban' : 'Ban'}
+                      {busyId === u.id ? <ButtonSpinner /> : u.accountStatus === 'SUSPENDED' ? 'Unban' : 'Ban'}
                     </button>
                   ) : (
                     <span className="muted">—</span>

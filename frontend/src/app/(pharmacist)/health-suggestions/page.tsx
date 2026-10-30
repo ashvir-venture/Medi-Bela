@@ -7,6 +7,9 @@ import { HealthSuggestion, listHealthSuggestions } from '@/lib/api-client';
 import { DataList } from '@/components/data-list';
 import { Topbar } from '@/components/topbar';
 import { Pager, useCursorPager } from '@/components/pager';
+import { Skeleton } from '@/components/skeleton';
+import { EmptyState } from '@/components/empty-state';
+import { ErrorBanner } from '@/components/error-banner';
 
 type Filter = '' | HealthSuggestion['status'];
 
@@ -70,12 +73,12 @@ function SuggestionList() {
           </div>
         </div>
 
-        {pager.error && <div className="error-banner">{pager.error}</div>}
+        {pager.error && <ErrorBanner message={pager.error} onRetry={pager.reload} />}
 
         {pager.isLoading && pager.items.length === 0 ? (
-          <p className="muted">Loading…</p>
+          <Skeleton kind="table" />
         ) : pager.items.length === 0 ? (
-          <div className="empty-state">No AI suggestions found.</div>
+          <EmptyState icon="sparkle" message="No AI suggestions found." />
         ) : (
           <DataList
             rows={pager.items}

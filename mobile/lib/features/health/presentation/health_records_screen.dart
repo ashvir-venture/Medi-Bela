@@ -47,7 +47,12 @@ class _HealthRecordsScreenState extends ConsumerState<HealthRecordsScreen> {
               return ListView(
                 children: [
                   const SizedBox(height: 80),
-                  EmptyView(message: strings.noHealthRecords, icon: Icons.monitor_heart_outlined),
+                  EmptyView(
+                    message: strings.noReadingsYet,
+                    icon: Icons.monitor_heart_outlined,
+                    actionLabel: strings.addRecord,
+                    onAction: () => _openAddRecordSheet(context),
+                  ),
                 ],
               );
             }

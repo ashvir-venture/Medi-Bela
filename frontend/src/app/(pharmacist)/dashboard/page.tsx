@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ApiError, PharmacistDashboardData, getPharmacistDashboard } from '@/lib/api-client';
 import { DataList } from '@/components/data-list';
 import { Topbar } from '@/components/topbar';
+import { ButtonSpinner, Skeleton } from '@/components/skeleton';
 
 /** The pharmacist's overview: what is waiting and what they finished today. */
 export default function PharmacistDashboardPage() {
@@ -34,7 +35,7 @@ export default function PharmacistDashboardPage() {
         title="Dashboard"
         actions={
           <button className="btn" onClick={load} disabled={isLoading}>
-            {isLoading ? 'Refreshing…' : 'Refresh'}
+            {isLoading && <ButtonSpinner />}{isLoading ? 'Refreshing…' : 'Refresh'}
           </button>
         }
       />
@@ -49,7 +50,7 @@ export default function PharmacistDashboardPage() {
         )}
 
         {isLoading && !data ? (
-          <p className="muted">Loading…</p>
+          <Skeleton kind="dashboard" />
         ) : !data ? null : (
           <>
             <h3 className="section-title">Queue</h3>

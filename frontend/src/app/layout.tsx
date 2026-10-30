@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { Hind_Siliguri, IBM_Plex_Sans } from 'next/font/google';
 import { THEME_BOOT_SCRIPT } from '@/lib/theme';
+import { MaintenanceGate, OfflineBanner } from '@/components/status-screens';
+import { ToastProvider } from '@/components/toast';
 import './globals.css';
 
 // Downloaded at build time and served with the panel: no request to Google at runtime.
@@ -29,7 +31,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       </head>
-      <body>{children}</body>
+      <body>
+        <ToastProvider>
+          <OfflineBanner />
+          <MaintenanceGate>{children}</MaintenanceGate>
+        </ToastProvider>
+      </body>
     </html>
   );
 }

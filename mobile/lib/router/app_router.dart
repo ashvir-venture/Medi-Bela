@@ -15,6 +15,7 @@ import '../features/family/presentation/family_screen.dart';
 import '../features/family/presentation/member_status_screen.dart';
 import '../features/inbox/presentation/inbox_screen.dart';
 import '../features/health/presentation/health_records_screen.dart';
+import '../features/help/presentation/help_screens.dart';
 import '../features/health/presentation/health_reminders_screen.dart';
 import '../features/health/presentation/health_screen.dart';
 import '../features/health/presentation/health_suggestions_screen.dart';
@@ -33,6 +34,8 @@ import '../features/profile/presentation/profile_screen.dart';
 import '../features/profile/presentation/settings_screen.dart';
 import '../features/reminders/presentation/reminder_check_screen.dart';
 import '../widgets/main_scaffold.dart';
+import '../widgets/not_found_screen.dart';
+import '../widgets/state_views.dart';
 
 class AppRoutes {
   AppRoutes._();
@@ -64,6 +67,11 @@ class AppRoutes {
   static const settings = '/profile/settings';
   static const deleteAccount = '/profile/settings/delete';
   static const deleteAccountConfirm = '/profile/settings/delete/confirm';
+  // Help & about (Round 11): full-screen pages; Privacy & terms is open while
+  // signed out too (the sign-up consent links to it).
+  static const privacyTerms = '/help/privacy';
+  static const support = '/help/support';
+  static const aboutUs = '/help/about';
 
   // Round 6. `for` = the family member a caregiver acts for.
   // Round 10: without `for`, /medicines is the Medicines tab (?tab=today |
@@ -100,6 +108,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: AppRoutes.splash,
     refreshListenable: refreshNotifier,
+    // An unknown route or a bad deep link: "Page not found" + Go to Home.
+    errorBuilder: (context, state) => const NotFoundScreen(),
     redirect: (context, state) {
       final loggedIn = ref.read(sessionNotifierProvider);
       final goingToAuth = state.matchedLocation == AppRoutes.login ||
@@ -110,6 +120,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Session not yet determined (app just launched): hold on the splash
       // screen so Home is never flashed before the login screen.
       final atSplash = state.matchedLocation == AppRoutes.splash;
+      // Help & about pages open in either state, with nothing to redirect.
+      if (state.matchedLocation.startsWith('/help/')) return null;
       if (loggedIn == null) return atSplash ? null : AppRoutes.splash;
       if (atSplash) return loggedIn ? AppRoutes.home : AppRoutes.login;
 
@@ -135,6 +147,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const ForgotPasswordScreen(),
       ),
       GoRoute(
+        path: AppRoutes.privacyTerms,
+        builder: (context, state) => const PrivacyTermsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.support,
+        builder: (context, state) => const SupportScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.aboutUs,
+        builder: (context, state) => const AboutUsScreen(),
+      ),
+      GoRoute(
         path: AppRoutes.resetPassword,
         // The phone typed on the previous screen (editable there as well).
         builder: (context, state) =>
@@ -149,25 +173,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.family,
-            builder: (context, state) => const FamilyScreen(),
+            builder: (context, state) => const OnlineOnly(child: FamilyScreen()),
           ),
           GoRoute(
             path: AppRoutes.familyMember,
             builder: (context, state) =>
-                MemberStatusScreen(userId: state.pathParameters['userId']!),
+                OnlineOnly(child: MemberStatusScreen(userId: state.pathParameters['userId']!)),
           ),
           GoRoute(
             path: AppRoutes.assistant,
-            builder: (context, state) => const AssistantConversationsScreen(),
+            builder: (context, state) => const OnlineOnly(child: AssistantConversationsScreen()),
           ),
           GoRoute(
             path: AppRoutes.assistantChat,
-            builder: (context, state) => const AssistantScreen(),
+            builder: (context, state) => const OnlineOnly(child: AssistantScreen()),
           ),
           GoRoute(
             path: AppRoutes.assistantConversation,
             builder: (context, state) =>
-                AssistantScreen(conversationId: state.pathParameters['id']),
+                OnlineOnly(child: AssistantScreen(conversationId: state.pathParameters['id'])),
           ),
           GoRoute(
             path: AppRoutes.inbox,
@@ -237,7 +261,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               final forUserId = state.uri.queryParameters['for'];
               // A caregiver's view of a member: its own page (under Family).
               if (forUserId != null) {
-                return MyMedicinesScreen(forUserId: forUserId, memberName: state.uri.queryParameters['name']);
+                return OnlineOnly(
+                  child: MyMedicinesScreen(forUserId: forUserId, memberName: state.uri.queryParameters['name']),
+                );
               }
               return MedicinesTabScreen(segment: MedicinesSegment.parse(state.uri.queryParameters['tab']));
             },
@@ -249,16 +275,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.confirmPrescription,
-            builder: (context, state) => ConfirmPrescriptionScreen(
-              prescriptionId: state.pathParameters['id']!,
-              forUserId: state.uri.queryParameters['for'],
+            builder: (context, state) => OnlineOnly(
+              child: ConfirmPrescriptionScreen(
+                prescriptionId: state.pathParameters['id']!,
+                forUserId: state.uri.queryParameters['for'],
+              ),
             ),
           ),
           GoRoute(
             path: AppRoutes.memberPrescriptions,
-            builder: (context, state) => MemberPrescriptionsScreen(
-              userId: state.pathParameters['userId']!,
-              memberName: state.uri.queryParameters['name'] ?? '',
+            builder: (context, state) => OnlineOnly(
+              child: MemberPrescriptionsScreen(
+                userId: state.pathParameters['userId']!,
+                memberName: state.uri.queryParameters['name'] ?? '',
+              ),
             ),
           ),
         ],

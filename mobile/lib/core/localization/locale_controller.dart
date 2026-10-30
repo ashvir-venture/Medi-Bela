@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/app_config.dart';
+import '../utils/error_mapper.dart';
 import 'app_strings.dart';
 
 const _supportedLanguageCodes = ['en', 'bn'];
@@ -59,5 +60,8 @@ final localeControllerProvider =
 /// `ref.watch(stringsProvider)` and rebuild automatically on language change.
 final stringsProvider = Provider<AppStrings>((ref) {
   final locale = ref.watch(localeControllerProvider);
-  return locale.languageCode == 'bn' ? bnStrings : enStrings;
+  final strings = locale.languageCode == 'bn' ? bnStrings : enStrings;
+  // Error texts are made in repositories, which have no ref.
+  errorStrings = strings;
+  return strings;
 });

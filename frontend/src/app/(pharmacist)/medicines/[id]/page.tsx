@@ -14,6 +14,8 @@ import {
 } from '@/lib/api-client';
 import { Autosuggest } from '@/components/autosuggest';
 import { Topbar } from '@/components/topbar';
+import { ButtonSpinner, Skeleton } from '@/components/skeleton';
+import { useToast } from '@/components/toast';
 
 export default function MedicineDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,7 +23,7 @@ export default function MedicineDetailPage() {
   const [lookups, setLookups] = useState<Lookups | null>(null);
   const [form, setForm] = useState({ brandName: '', genericName: '', formId: '', categoryId: '', manufacturer: '' });
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const toast = useToast();
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -51,7 +53,6 @@ export default function MedicineDetailPage() {
     e.preventDefault();
     setIsSaving(true);
     setError(null);
-    setNotice(null);
     try {
       apply(
         await updateMedicine(id, {
@@ -64,9 +65,9 @@ export default function MedicineDetailPage() {
           manufacturer: form.manufacturer.trim() || undefined,
         }),
       );
-      setNotice('Saved.');
+      toast.success('Saved.');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save');
+      toast.error(err instanceof ApiError ? err.message : 'Failed to save');
     } finally {
       setIsSaving(false);
     }
@@ -84,9 +85,8 @@ export default function MedicineDetailPage() {
       />
       <div className="page">
         {error && <div className="error-banner">{error}</div>}
-        {notice && <div className="success-banner">{notice}</div>}
         {!medicine || !lookups ? (
-          !error && <p className="muted">Loading…</p>
+          !error && <Skeleton kind="detail" />
         ) : (
           <form className="card" onSubmit={handleSave}>
             <div className="form-grid">
@@ -139,7 +139,7 @@ export default function MedicineDetailPage() {
               {medicine._count?.lines ?? 0} prescription line(s).
             </p>
             <button type="submit" className="btn btn-primary" disabled={isSaving}>
-              {isSaving ? 'Saving…' : 'Save'}
+              {isSaving && <ButtonSpinner />}{isSaving ? 'Saving…' : 'Save'}
             </button>
           </form>
         )}

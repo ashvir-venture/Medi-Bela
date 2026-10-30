@@ -16,3 +16,11 @@ class SessionNotifier extends StateNotifier<bool?> {
 final sessionNotifierProvider = StateNotifierProvider<SessionNotifier, bool?>(
   (ref) => SessionNotifier(),
 );
+
+/// True after the server rejected the session (401): Login says "Your
+/// session ended. Please sign in again." until the next sign-in.
+final sessionExpiredNoticeProvider = StateProvider<bool>((ref) => false);
+
+/// True while the API answers 503 (maintenance): the app shows its
+/// "being updated" screen over everything until Try again succeeds.
+final maintenanceProvider = StateProvider<bool>((ref) => false);

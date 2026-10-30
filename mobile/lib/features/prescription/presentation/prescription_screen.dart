@@ -55,8 +55,10 @@ class _PrescriptionScreenState extends ConsumerState<PrescriptionScreen> {
               .toList();
           if (drafts.isEmpty && fromCaregiver.isEmpty) {
             return EmptyView(
-              message: strings.noItemsYet,
-              icon: Icons.medication_outlined,
+              message: strings.noPrescriptionsYet,
+              icon: Icons.description_outlined,
+              actionLabel: strings.uploadPrescription,
+              onAction: () => openPrescriptionEntryForm(context),
             );
           }
           return RefreshIndicator(

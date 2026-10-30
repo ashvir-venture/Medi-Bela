@@ -51,7 +51,7 @@ class InboxScreen extends ConsumerWidget {
             return Padding(
               padding: const EdgeInsets.only(top: 48),
               child: EmptyView(
-                message: strings.noNotificationsYet,
+                message: strings.inboxEmpty,
                 icon: Icons.notifications_none,
               ),
             );

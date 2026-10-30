@@ -16,6 +16,9 @@ import {
 } from '@/lib/api-client';
 import { Topbar } from '@/components/topbar';
 import { NoticeFields, NoticeFormValue, EMPTY_NOTICE, formToInput, noticeToForm } from '@/components/notices/notice-fields';
+import { Skeleton } from '@/components/skeleton';
+import { useToast } from '@/components/toast';
+import { ErrorBanner } from '@/components/error-banner';
 
 export const NOTICE_STATUS: Record<Notice['status'], { label: string; badge: string }> = {
   DRAFT: { label: 'Draft', badge: 'badge-draft' },
@@ -44,6 +47,7 @@ export function NoticeDetail({ basePath, role }: { basePath: string; role: 'ADMI
   const [note, setNote] = useState('');
   const [showSendBack, setShowSendBack] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -76,7 +80,7 @@ export function NoticeDetail({ basePath, role }: { basePath: string; role: 'ADMI
       const result = await action();
       if (result) apply(result);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : fallback);
+      toast.error(err instanceof ApiError ? err.message : fallback);
     } finally {
       setIsSaving(false);
     }
@@ -115,8 +119,8 @@ export function NoticeDetail({ basePath, role }: { basePath: string; role: 'ADMI
       <>
         <Topbar title="Notice" />
         <div className="page">
-          {error && <div className="error-banner">{error}</div>}
-          {isLoading && <p className="muted">Loading…</p>}
+          {error && <ErrorBanner message={error} onRetry={load} />}
+          {isLoading && <Skeleton kind="detail" />}
         </div>
       </>
     );

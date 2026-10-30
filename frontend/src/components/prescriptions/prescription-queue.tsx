@@ -7,6 +7,8 @@ import { DataList } from '@/components/data-list';
 import { Topbar } from '@/components/topbar';
 import { StatusBadge } from '@/components/status-badge';
 import { Pager, useCursorPager } from '@/components/pager';
+import { Skeleton } from '@/components/skeleton';
+import { EmptyState } from '@/components/empty-state';
 
 const TABS: [QueueStatus, string][] = [
   ['PENDING', 'To review'],
@@ -17,7 +19,7 @@ const TABS: [QueueStatus, string][] = [
 ];
 
 const EMPTY: Record<QueueStatus, string> = {
-  PENDING: 'Nothing to review right now.',
+  PENDING: 'Queue is clear',
   AWAITING_CONFIRMATION: 'No prescriptions are waiting for a patient.',
   REJECTED: 'No rejected prescriptions.',
   ACTIVE: 'No active prescriptions.',
@@ -62,9 +64,9 @@ export function PrescriptionQueue({ basePath, intro }: { basePath: string; intro
         )}
 
         {pager.isLoading && pager.items.length === 0 ? (
-          <p className="muted">Loading…</p>
+          <Skeleton kind="table" />
         ) : pager.items.length === 0 ? (
-          <div className="empty-state">{EMPTY[status]}</div>
+          <EmptyState icon={status === 'PENDING' ? 'check' : 'prescription'} message={EMPTY[status]} />
         ) : (
           <DataList
             rows={pager.items}

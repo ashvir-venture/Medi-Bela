@@ -6,6 +6,7 @@ import { ApiError, SuggestionRule, listSuggestionRules } from '@/lib/api-client'
 import { useRequireAuth } from '@/lib/use-require-auth';
 import { DataList } from '@/components/data-list';
 import { Topbar } from '@/components/topbar';
+import { Skeleton } from '@/components/skeleton';
 
 export default function HealthRulesPage() {
   const ready = useRequireAuth();
@@ -77,7 +78,7 @@ export default function HealthRulesPage() {
         )}
 
         {isLoading ? (
-          <p className="muted">Loading…</p>
+          <Skeleton kind="table" />
         ) : rules.length === 0 ? (
           <p className="muted">No rules yet. Create one to get started.</p>
         ) : visible.length === 0 ? (

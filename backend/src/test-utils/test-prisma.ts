@@ -55,6 +55,8 @@ export function signupDetails(prisma: any): Promise<Record<string, unknown>> {
         divisionId: upazila.district.divisionId,
         districtId: upazila.districtId,
         upazilaId: upazila.id,
+        // Round 11: sign-up requires the Privacy & terms box.
+        acceptTerms: true,
       };
     })();
   }

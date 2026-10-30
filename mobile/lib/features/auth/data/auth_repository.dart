@@ -38,9 +38,11 @@ class AuthRepository {
     String? address,
     String? languagePreference,
     Map<String, dynamic> details = const {},
+    required bool acceptTerms,
   }) async {
     try {
       final (user, tokens) = await _api.register(
+        acceptTerms: acceptTerms,
         phone: phone,
         name: name,
         password: password,

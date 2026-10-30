@@ -3,6 +3,7 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { MaintenanceGuard } from './common/guards/maintenance.guard';
 import { AppController } from './app.controller';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -54,6 +55,8 @@ import { rateLimitOptions } from './common/rate-limit/rate-limit.config';
   ],
   controllers: [AppController],
   providers: [
+    // MAINTENANCE_MODE=true: 503 everywhere but /health, before anything else.
+    { provide: APP_GUARD, useClass: MaintenanceGuard },
     // Every route requires a valid access token unless marked @Public().
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     // Runs after JwtAuthGuard; only restricts routes with @Roles(...).

@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ApiError, Doctor, Lookups, getDoctor, getLookups, updateDoctor } from '@/lib/api-client';
 import { Topbar } from '@/components/topbar';
+import { ButtonSpinner, Skeleton } from '@/components/skeleton';
+import { useToast } from '@/components/toast';
 
 export default function DoctorDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -12,7 +14,7 @@ export default function DoctorDetailPage() {
   const [lookups, setLookups] = useState<Lookups | null>(null);
   const [form, setForm] = useState({ name: '', bmdcNumber: '', specialtyId: '', chamber: '', phone: '', districtId: '' });
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const toast = useToast();
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -43,7 +45,6 @@ export default function DoctorDetailPage() {
     e.preventDefault();
     setIsSaving(true);
     setError(null);
-    setNotice(null);
     try {
       // Only send what is filled: clearing a set field isn't needed for completing records.
       apply(
@@ -56,9 +57,9 @@ export default function DoctorDetailPage() {
           districtId: form.districtId ? Number(form.districtId) : undefined,
         }),
       );
-      setNotice('Saved.');
+      toast.success('Saved.');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save');
+      toast.error(err instanceof ApiError ? err.message : 'Failed to save');
     } finally {
       setIsSaving(false);
     }
@@ -76,9 +77,8 @@ export default function DoctorDetailPage() {
       />
       <div className="page">
         {error && <div className="error-banner">{error}</div>}
-        {notice && <div className="success-banner">{notice}</div>}
         {!doctor || !lookups ? (
-          !error && <p className="muted">Loading…</p>
+          !error && <Skeleton kind="detail" />
         ) : (
           <form className="card" onSubmit={handleSave}>
             <div className="form-grid">
@@ -123,7 +123,7 @@ export default function DoctorDetailPage() {
             </div>
             <p className="muted">Used on {doctor._count?.prescriptions ?? 0} prescription(s).</p>
             <button type="submit" className="btn btn-primary" disabled={isSaving}>
-              {isSaving ? 'Saving…' : 'Save'}
+              {isSaving && <ButtonSpinner />}{isSaving ? 'Saving…' : 'Save'}
             </button>
           </form>
         )}

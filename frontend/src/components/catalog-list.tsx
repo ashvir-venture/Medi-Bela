@@ -7,6 +7,9 @@ import { CatalogListParams, CursorPage } from '@/lib/api-client';
 import { DataList } from '@/components/data-list';
 import { Topbar } from '@/components/topbar';
 import { Pager, useCursorPager } from '@/components/pager';
+import { Skeleton } from '@/components/skeleton';
+import { EmptyState } from '@/components/empty-state';
+import { ErrorBanner } from '@/components/error-banner';
 
 /**
  * Doctors / medicines list: name prefix search, "incomplete only" filter
@@ -64,12 +67,12 @@ export function CatalogList<T extends { id: string }>({
           </label>
         </div>
 
-        {pager.error && <div className="error-banner">{pager.error}</div>}
+        {pager.error && <ErrorBanner message={pager.error} onRetry={pager.reload} />}
 
         {pager.isLoading && pager.items.length === 0 ? (
-          <p className="muted">Loading…</p>
+          <Skeleton kind="table" />
         ) : pager.items.length === 0 ? (
-          <div className="empty-state">Nothing found.</div>
+          <EmptyState icon="search" message="Nothing found." />
         ) : (
           <DataList<T>
             rows={pager.items}

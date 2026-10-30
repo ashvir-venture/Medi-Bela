@@ -9,6 +9,7 @@ import {
 } from '@/lib/api-client';
 import { useRequireAuth } from '@/lib/use-require-auth';
 import { Topbar } from '@/components/topbar';
+import { ButtonSpinner } from '@/components/skeleton';
 
 export default function NewHealthRulePage() {
   const ready = useRequireAuth();
@@ -104,7 +105,7 @@ export default function NewHealthRulePage() {
           </div>
 
           <button type="submit" className="btn btn-primary" disabled={isSaving}>
-            {isSaving ? 'Creating…' : 'Create draft'}
+            {isSaving && <ButtonSpinner />}{isSaving ? 'Creating…' : 'Create draft'}
           </button>
         </form>
       </div>

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ApiError, createNotice, publishNotice, submitNotice } from '@/lib/api-client';
 import { Topbar } from '@/components/topbar';
 import { EMPTY_NOTICE, NoticeFields, formToInput } from '@/components/notices/notice-fields';
+import { ButtonSpinner } from '@/components/skeleton';
 
 /**
  * New notice. Both roles can keep it as a draft; a pharmacist can also send
@@ -78,7 +79,7 @@ export function NoticeNew({ basePath, role }: { basePath: string; role: 'ADMIN' 
               Save draft
             </button>
             <button type="submit" className="btn btn-primary" disabled={isSaving}>
-              {isSaving ? 'Saving…' : isAdmin ? 'Publish' : 'Submit for approval'}
+              {isSaving && <ButtonSpinner />}{isSaving ? 'Saving…' : isAdmin ? 'Publish' : 'Submit for approval'}
             </button>
           </div>
         </form>

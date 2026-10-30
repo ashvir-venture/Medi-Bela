@@ -10,6 +10,7 @@ import '../domain/assistant_models.dart';
 import 'assistant_controller.dart';
 import 'assistant_conversations_controller.dart';
 import 'assistant_conversations_screen.dart' show confirmDeleteConversation;
+import '../../../widgets/state_views.dart';
 
 /// One conversation. [conversationId] is a saved conversation to open (loaded
 /// from the server, read-only once closed), or null to start a new one.
@@ -166,7 +167,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
           ),
           Expanded(
             child: state.isLoading && state.messages.isEmpty
-                ? const Center(child: CircularProgressIndicator())
+                ? const LoadingView(rows: 3)
                 : showEmptyState
                     ? _EmptyState(strings: strings, onPick: _submit)
                     : ListView.builder(

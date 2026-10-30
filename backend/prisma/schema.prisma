@@ -172,6 +172,8 @@ model User {
   suspendedAt              DateTime?
   // Set on delete from dateOfBirth (which is erased), so age bands stay right.
   birthYear                Int?
+  // When the user ticked "I agree to the Privacy & terms" at sign-up (Round 11).
+  termsAcceptedAt          DateTime?
 
   familyMemberships      FamilyMember[]
   sentInvitations        FamilyInvitation[]      @relation("InvitationSender")

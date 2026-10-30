@@ -13,6 +13,8 @@ import {
 } from '@/lib/api-client';
 import { useRequireAuth } from '@/lib/use-require-auth';
 import { Topbar } from '@/components/topbar';
+import { Skeleton } from '@/components/skeleton';
+import { useToast } from '@/components/toast';
 
 export default function HealthRuleDetailPage() {
   const ready = useRequireAuth();
@@ -28,7 +30,7 @@ export default function HealthRuleDetailPage() {
   const [suggestedAction, setSuggestedAction] = useState('');
 
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const toast = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -63,7 +65,6 @@ export default function HealthRuleDetailPage() {
   async function handleSave() {
     setIsSaving(true);
     setError(null);
-    setNotice(null);
     try {
       const updated = await updateSuggestionRule(id, {
         name: name.trim(),
@@ -73,9 +74,9 @@ export default function HealthRuleDetailPage() {
         suggestedAction: suggestedAction.trim(),
       });
       applyToForm(updated);
-      setNotice('Saved.');
+      toast.success('Saved.');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save changes');
+      toast.error(err instanceof ApiError ? err.message : 'Failed to save changes');
     } finally {
       setIsSaving(false);
     }
@@ -84,17 +85,16 @@ export default function HealthRuleDetailPage() {
   async function handlePublish() {
     setIsSaving(true);
     setError(null);
-    setNotice(null);
     try {
       const { rule: updated, remindersCreated } = await publishSuggestionRule(id);
       applyToForm(updated);
-      setNotice(
+      toast.success(
         remindersCreated > 0
           ? `Activated — ${remindersCreated} reminder(s) created for existing users right now.`
           : 'Activated — no existing verified medicines matched yet; it will apply to new prescriptions going forward.',
       );
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to publish rule');
+      toast.error(err instanceof ApiError ? err.message : 'Failed to publish rule');
     } finally {
       setIsSaving(false);
     }
@@ -103,13 +103,12 @@ export default function HealthRuleDetailPage() {
   async function handleUnpublish() {
     setIsSaving(true);
     setError(null);
-    setNotice(null);
     try {
       const updated = await unpublishSuggestionRule(id);
       applyToForm(updated);
-      setNotice('Disabled. Reminders it already created are unaffected.');
+      toast.success('Disabled. Reminders it already created are unaffected.');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to unpublish rule');
+      toast.error(err instanceof ApiError ? err.message : 'Failed to unpublish rule');
     } finally {
       setIsSaving(false);
     }
@@ -126,14 +125,9 @@ export default function HealthRuleDetailPage() {
         </button>
 
         {error && <div className="error-banner">{error}</div>}
-        {notice && (
-          <div className="card" style={{ background: 'var(--color-success-soft)', borderColor: 'var(--color-success-border)' }}>
-            {notice}
-          </div>
-        )}
 
         {isLoading || !rule ? (
-          <p className="muted">Loading…</p>
+          <Skeleton kind="detail" />
         ) : (
           <>
             <div className="card">

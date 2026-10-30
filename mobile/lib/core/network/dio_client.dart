@@ -17,8 +17,10 @@ class DioClient {
   DioClient({
     required SecureStorageService secureStorage,
     required Future<void> Function() onSessionExpired,
+    void Function()? onMaintenance,
   })  : _secureStorage = secureStorage,
-        _onSessionExpired = onSessionExpired {
+        _onSessionExpired = onSessionExpired,
+        _onMaintenance = onMaintenance {
     _dio = Dio(
       BaseOptions(
         baseUrl: AppConfig.apiBaseUrl,
@@ -46,6 +48,8 @@ class DioClient {
             await _secureStorage.clearTokens();
             await _onSessionExpired();
           }
+          // MAINTENANCE_MODE on the server: every route but /health is 503.
+          if (error.response?.statusCode == 503) _onMaintenance?.call();
           handler.next(error);
         },
       ),
@@ -55,6 +59,7 @@ class DioClient {
   late final Dio _dio;
   final SecureStorageService _secureStorage;
   final Future<void> Function() _onSessionExpired;
+  final void Function()? _onMaintenance;
 
   Dio get dio => _dio;
 }

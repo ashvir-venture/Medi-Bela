@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/localization/locale_controller.dart';
 import '../core/lookups/lookups.dart';
+import 'state_views.dart';
 
 /// The personal details asked at signup and in "Edit your details":
 /// date of birth, gender and the division -> district -> upazila chain.
@@ -69,10 +70,7 @@ class PersonalDetailsFields extends ConsumerWidget {
     final lookupsAsync = ref.watch(lookupsProvider);
 
     return lookupsAsync.when(
-      loading: () => const Padding(
-        padding: EdgeInsets.symmetric(vertical: 16),
-        child: Center(child: CircularProgressIndicator()),
-      ),
+      loading: () => const SkeletonLines(lines: 4),
       error: (_, __) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(

@@ -19,6 +19,7 @@ import '../../../widgets/app_logo.dart';
 import '../../../widgets/sponsored_ad_banner.dart';
 import '../../prescription/presentation/prescription_screen.dart';
 import '../../reminders/presentation/reminder_status_banner.dart';
+import '../../../widgets/state_views.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -175,10 +176,7 @@ class _TodaysMedicineSection extends ConsumerWidget {
             onSeeAll: () => context.go(AppRoutes.todaysMedicine),
             seeAllLabel: strings.seeAll,
           ),
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Center(child: CircularProgressIndicator()),
-          ),
+          const SkeletonLines(),
         ],
       );
     }

@@ -7,6 +7,7 @@ import '../../../router/app_router.dart';
 import '../../../widgets/details_fields.dart';
 import '../../../widgets/language_switcher.dart';
 import 'auth_controller.dart';
+import '../../help/presentation/help_screens.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -26,6 +27,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   String? _errorMessage;
   // Required since Round 6: date of birth, gender and address.
   PersonalDetails _details = const PersonalDetails();
+  // Round 11: Register stays disabled until the Privacy & terms box is ticked.
+  bool _acceptedTerms = false;
 
   @override
   void dispose() {
@@ -55,6 +58,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               : _addressController.text.trim(),
           languagePreference: locale.languageCode.toUpperCase(),
           details: _details.toJson(),
+          acceptTerms: _acceptedTerms,
         );
 
     if (!mounted) return;
@@ -160,9 +164,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
+                    TermsConsent(
+                      value: _acceptedTerms,
+                      onChanged: (v) => setState(() => _acceptedTerms = v),
+                    ),
+                    const SizedBox(height: 16),
                     ElevatedButton(
-                      onPressed: _isSubmitting ? null : _submit,
+                      key: const Key('registerButton'),
+                      onPressed: _isSubmitting || !_acceptedTerms ? null : _submit,
                       child: _isSubmitting
                           ? const SizedBox(
                               height: 20,
@@ -221,6 +231,57 @@ class _ErrorBanner extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// "I agree to the Privacy & terms": a required checkbox, with the title as
+/// a link to the page (open while signed out).
+class TermsConsent extends ConsumerWidget {
+  const TermsConsent({super.key, required this.value, required this.onChanged});
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final strings = ref.watch(stringsProvider);
+    final title = ref.watch(helpContentProvider).privacyTitle;
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Checkbox(
+          key: const Key('termsCheckbox'),
+          value: value,
+          onChanged: (v) => onChanged(v ?? false),
+        ),
+        Expanded(
+          child: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              GestureDetector(
+                onTap: () => onChanged(!value),
+                child: Text(strings.agreeToTermsPrefix),
+              ),
+              InkWell(
+                onTap: () => context.push(AppRoutes.privacyTerms),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ),
+              if (strings.agreeToTermsSuffix.isNotEmpty) Text(strings.agreeToTermsSuffix),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

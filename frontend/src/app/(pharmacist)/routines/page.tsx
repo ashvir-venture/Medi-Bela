@@ -7,6 +7,9 @@ import { PatientName } from '@/components/patient-name';
 import { DataList } from '@/components/data-list';
 import { Topbar } from '@/components/topbar';
 import { Pager, useCursorPager } from '@/components/pager';
+import { Skeleton } from '@/components/skeleton';
+import { EmptyState } from '@/components/empty-state';
+import { ErrorBanner } from '@/components/error-banner';
 
 type Filter = 'active' | 'all';
 
@@ -58,12 +61,12 @@ export default function RoutinesPage() {
           </div>
         </div>
 
-        {pager.error && <div className="error-banner">{pager.error}</div>}
+        {pager.error && <ErrorBanner message={pager.error} onRetry={pager.reload} />}
 
         {pager.isLoading && pager.items.length === 0 ? (
-          <p className="muted">Loading…</p>
+          <Skeleton kind="table" />
         ) : pager.items.length === 0 ? (
-          <div className="empty-state">No routines found.</div>
+          <EmptyState icon="routine" message="No routines found." />
         ) : (
           <DataList
             rows={pager.items}

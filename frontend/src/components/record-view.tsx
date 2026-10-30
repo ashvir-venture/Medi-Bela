@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ApiError } from '@/lib/api-client';
 import { Topbar } from '@/components/topbar';
+import { Skeleton } from '@/components/skeleton';
 
 /**
  * Read-only record page for the admin area: label / value rows, with
@@ -50,7 +51,7 @@ export function RecordView<T>({
       <div className="page">
         {error && <div className="error-banner">{error}</div>}
         {!record ? (
-          !error && <p className="muted">Loading…</p>
+          !error && <Skeleton kind="detail" />
         ) : (
           <div className="card">
             <div className="card-head" style={{ marginBottom: 12 }}>

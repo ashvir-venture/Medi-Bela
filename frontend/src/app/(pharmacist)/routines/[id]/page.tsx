@@ -16,6 +16,9 @@ import {
 import { useRequireAuth } from '@/lib/use-require-auth';
 import { PatientName } from '@/components/patient-name';
 import { Topbar } from '@/components/topbar';
+import { Skeleton } from '@/components/skeleton';
+import { useToast } from '@/components/toast';
+import { ErrorBanner } from '@/components/error-banner';
 
 function Items({ label, items }: { label: string; items: SuggestionItem[] }) {
   return (
@@ -50,6 +53,7 @@ export default function RoutineDetailPage() {
 
   const [routine, setRoutine] = useState<RoutineDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [busy, setBusy] = useState<null | 'request' | string>(null);
 
@@ -77,7 +81,7 @@ export default function RoutineDetailPage() {
       await action();
       setRoutine(await getRoutine(id));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : failMsg);
+      toast.error(err instanceof ApiError ? err.message : failMsg);
     } finally {
       setBusy(null);
     }
@@ -89,7 +93,7 @@ export default function RoutineDetailPage() {
       <>
         <Topbar title="Routine" />
         <div className="page">
-          <p className="muted">Loading…</p>
+          <Skeleton kind="detail" />
         </div>
       </>
     );
@@ -98,7 +102,7 @@ export default function RoutineDetailPage() {
     return (
       <>
         <Topbar title="Routine" />
-        <div className="page">{error && <div className="error-banner">{error}</div>}</div>
+        <div className="page">{error && <ErrorBanner message={error} onRetry={load} />}</div>
       </>
     );
   }

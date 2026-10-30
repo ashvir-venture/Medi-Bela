@@ -8,6 +8,7 @@ import '../../../router/app_router.dart';
 import '../../../widgets/load_more_list.dart';
 import '../domain/assistant_models.dart';
 import 'assistant_conversations_controller.dart';
+import '../../../widgets/state_views.dart';
 
 /// Asks before anything is deleted. Shared by this list and the chat screen.
 Future<bool> confirmDeleteConversation(
@@ -83,7 +84,7 @@ class _AssistantConversationsScreenState
 
     Widget body;
     if (state.isLoading && state.items.isEmpty) {
-      body = const Center(child: CircularProgressIndicator());
+      body = const LoadingView();
     } else if (state.loadFailed && state.items.isEmpty) {
       body = Center(
         child: Padding(

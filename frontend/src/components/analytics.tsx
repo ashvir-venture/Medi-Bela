@@ -12,6 +12,7 @@ import {
   getDivisionAnalytics,
 } from '@/lib/api-client';
 import { ADMIN_BASE } from '@/lib/paths';
+import { Skeleton } from '@/components/skeleton';
 
 /**
  * The admin dashboard's analytics (GET /admin/analytics). Every number is
@@ -28,7 +29,7 @@ export function AnalyticsSection() {
   }, []);
 
   if (error) return <div className="error-banner">{error}</div>;
-  if (!data) return <p className="muted">Loading analytics…</p>;
+  if (!data) return <Skeleton kind="dashboard" rows={3} />;
 
   const { users } = data;
   return (
@@ -177,7 +178,7 @@ function DivisionCard({ data }: { data: AnalyticsData }) {
         <div className="analytics-sub">
           {error && <div className="error-banner">{error}</div>}
           {!division ? (
-            !error && <p className="muted">Loading districts…</p>
+            !error && <Skeleton kind="table" rows={4} />
           ) : (
             <>
               <h2>Districts in {division.division.name}</h2>

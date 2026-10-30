@@ -34,6 +34,9 @@ import {
   rowProblems,
   rowToEntry,
 } from '@/components/medicine-form';
+import { ButtonSpinner, Skeleton } from '@/components/skeleton';
+import { useToast } from '@/components/toast';
+import { ErrorBanner } from '@/components/error-banner';
 
 let tmpRowCounter = 0;
 
@@ -100,7 +103,7 @@ export function PrescriptionWorkspace({
   const [rows, setRows] = useState<MedicineFormRow[]>([]);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const toast = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
@@ -184,11 +187,10 @@ export function PrescriptionWorkspace({
   async function run(fallback: string, action: () => Promise<void>) {
     setIsSaving(true);
     setError(null);
-    setNotice(null);
     try {
       await action();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : fallback);
+      toast.error(err instanceof ApiError ? err.message : fallback);
     } finally {
       setIsSaving(false);
     }
@@ -209,12 +211,11 @@ export function PrescriptionWorkspace({
   function handleSave() {
     return run('Failed to save', async () => {
       apply(await saveAll());
-      setNotice('Saved.');
+      toast.success('Saved.');
     });
   }
 
   function handleComplete() {
-    setNotice(null);
     const incomplete = rows.filter((r) => rowProblems(r).length > 0);
     if (rows.length === 0) {
       setError('Add at least one medicine first.');
@@ -229,7 +230,7 @@ export function PrescriptionWorkspace({
     return run('Failed to send prescription', async () => {
       await saveAll();
       apply(await completePrescription(id));
-      setNotice('Sent. The patient will confirm it in the app; reminders start after that.');
+      toast.success('Sent. The patient will confirm it in the app; reminders start after that.');
     });
   }
 
@@ -249,7 +250,7 @@ export function PrescriptionWorkspace({
       <>
         <Topbar title="Prescription" />
         <div className="page">
-          <p className="muted">Loading…</p>
+          <Skeleton kind="detail" />
         </div>
       </>
     );
@@ -259,7 +260,7 @@ export function PrescriptionWorkspace({
       <>
         <Topbar title="Prescription" />
         <div className="page">
-          {error && <div className="error-banner">{error}</div>}
+          {error && <ErrorBanner message={error} onRetry={load} />}
           <Link href={back.href} className="btn">
             ← Back to {back.label.toLowerCase()}
           </Link>
@@ -282,7 +283,6 @@ export function PrescriptionWorkspace({
       />
       <div className="page page-wide">
         {error && <div className="error-banner">{error}</div>}
-        {notice && <div className="success-banner">{notice}</div>}
 
         <div className="workspace">
           <section className="workspace-image">
@@ -474,7 +474,7 @@ export function PrescriptionWorkspace({
               <div className="card decision-bar">
                 <div className="button-row">
                   <button className="btn" onClick={handleSave} disabled={isSaving}>
-                    {isSaving ? 'Saving…' : 'Save draft'}
+                    {isSaving && <ButtonSpinner />}{isSaving ? 'Saving…' : 'Save draft'}
                   </button>
                   <button className="btn btn-primary" onClick={handleComplete} disabled={isSaving}>
                     Send for confirmation

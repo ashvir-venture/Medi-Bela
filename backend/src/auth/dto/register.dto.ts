@@ -1,4 +1,6 @@
 import {
+  Equals,
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
@@ -62,4 +64,9 @@ export class RegisterDto {
   @IsInt()
   @Min(1)
   upazilaId: number;
+
+  /** Round 11: the Privacy & terms box, ticked. Recorded as users.termsAcceptedAt. */
+  @IsBoolean()
+  @Equals(true, { message: 'You must agree to the Privacy & terms' })
+  acceptTerms: boolean;
 }

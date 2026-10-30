@@ -19,11 +19,14 @@ class AuthApi {
     String? address,
     String? languagePreference,
     Map<String, dynamic> details = const {},
+    required bool acceptTerms,
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       ApiEndpoints.register,
       data: {
         'phone': phone,
+        // The Privacy & terms box; the server records when it was ticked.
+        'acceptTerms': acceptTerms,
         'name': name,
         'password': password,
         if (address != null && address.isNotEmpty) 'address': address,

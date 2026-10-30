@@ -339,10 +339,7 @@ class _FamilyActivitySection extends ConsumerWidget {
         Text(strings.familyActivity, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         if (feed.items.isEmpty && feed.isLoading)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Center(child: CircularProgressIndicator()),
-          )
+          const SkeletonLines()
         else if (feed.items.isEmpty && feed.error != null)
           Text(feed.error!, style: TextStyle(color: Theme.of(context).colorScheme.error))
         else if (feed.items.isEmpty)
@@ -409,10 +406,7 @@ class _PendingInvitationsSection extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           invitationsState.when(
-            loading: () => const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Center(child: CircularProgressIndicator()),
-            ),
+            loading: () => const SkeletonLines(lines: 2),
             error: (error, _) => Text(
               error.toString(),
               style: TextStyle(color: Theme.of(context).colorScheme.error),

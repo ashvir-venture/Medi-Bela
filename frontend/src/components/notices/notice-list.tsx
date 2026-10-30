@@ -6,6 +6,9 @@ import { ApiError, Notice, listNotices } from '@/lib/api-client';
 import { DataList } from '@/components/data-list';
 import { Topbar } from '@/components/topbar';
 import { NOTICE_STATUS, isScheduled } from '@/components/notices/notice-detail';
+import { Skeleton } from '@/components/skeleton';
+import { EmptyState } from '@/components/empty-state';
+import { ErrorBanner } from '@/components/error-banner';
 
 const AUDIENCE_LABEL: Record<Notice['audience'], string> = {
   ALL: 'Everyone',
@@ -107,12 +110,12 @@ export function NoticeList({ basePath, role }: { basePath: string; role: 'ADMIN'
           ))}
         </div>
 
-        {error && <div className="error-banner">{error}</div>}
+        {error && <ErrorBanner message={error} onRetry={load} />}
 
         {isLoading ? (
-          <p className="muted">Loading…</p>
+          <Skeleton kind="table" />
         ) : visible.length === 0 ? (
-          <div className="empty-state">No notices here.</div>
+          <EmptyState icon="notice" message="No notices here." />
         ) : (
           <DataList<Notice>
             rows={visible}

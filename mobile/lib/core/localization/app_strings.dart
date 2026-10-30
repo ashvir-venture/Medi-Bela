@@ -317,6 +317,33 @@ class AppStrings {
     required this.signinCardMissed,
     required this.signinCardFamily,
     required this.signinTagline,
+    required this.errorNetwork,
+    required this.errorPasswordIncorrect,
+    required this.errorInvalidCredentials,
+    required this.errorAccountNotActive,
+    required this.errorResetCode,
+    required this.errorPhoneTaken,
+    required this.errorNotFound,
+    required this.errorForbidden,
+    required this.errorRequestFailed,
+    required this.errorRateLimited,
+    required this.errorPhotoTooLarge,
+    required this.errorServerTemplate,
+    required this.errorGeneric,
+    required this.sessionEnded,
+    required this.maintenanceMessage,
+    required this.noInternetTitle,
+    required this.noInternetHint,
+    required this.tryAgain,
+    required this.pageNotFound,
+    required this.goToHome,
+    required this.helpAndAbout,
+    required this.agreeToTermsPrefix,
+    required this.agreeToTermsSuffix,
+    required this.couldNotOpenLink,
+    required this.noReadingsYet,
+    required this.inboxEmpty,
+    required this.checkInvitations,
   });
 
   final String appName;
@@ -633,6 +660,8 @@ class AppStrings {
   final String eventCreatedTemplate;
   final String assistantCardSubtitle;
 
+  String errorServer(String ref) => errorServerTemplate.replaceAll('{ref}', ref);
+
   String removeMemberConfirm(String name) => removeMemberConfirmTemplate.replaceAll('{name}', name);
 
   /// Family activity feed lines.
@@ -655,6 +684,35 @@ class AppStrings {
   final String signinCardMissed;
   final String signinCardFamily;
   final String signinTagline;
+  /// Error texts by server code (core/utils/error_mapper.dart).
+  final String errorNetwork;
+  final String errorPasswordIncorrect;
+  final String errorInvalidCredentials;
+  final String errorAccountNotActive;
+  final String errorResetCode;
+  final String errorPhoneTaken;
+  final String errorNotFound;
+  final String errorForbidden;
+  final String errorRequestFailed;
+  final String errorRateLimited;
+  final String errorPhotoTooLarge;
+  final String errorServerTemplate;
+  final String errorGeneric;
+  final String sessionEnded;
+  final String maintenanceMessage;
+  final String noInternetTitle;
+  final String noInternetHint;
+  final String tryAgain;
+  final String pageNotFound;
+  final String goToHome;
+  final String helpAndAbout;
+  /// Sign-up consent: prefix + link (the Privacy & terms title) + suffix.
+  final String agreeToTermsPrefix;
+  final String agreeToTermsSuffix;
+  final String couldNotOpenLink;
+  final String noReadingsYet;
+  final String inboxEmpty;
+  final String checkInvitations;
 }
 
 const AppStrings enStrings = AppStrings(
@@ -973,6 +1031,33 @@ const AppStrings enStrings = AppStrings(
   signinCardMissed: 'Missed dose',
   signinCardFamily: 'Family notified',
   signinTagline: 'Right time, healthy life',
+  errorNetwork: 'Couldn\'t connect. Check your connection and try again.',
+  errorPasswordIncorrect: 'The password is not correct.',
+  errorInvalidCredentials: 'Wrong phone number or password.',
+  errorAccountNotActive: 'This account is not active.',
+  errorResetCode: 'The code is wrong or has expired.',
+  errorPhoneTaken: 'This phone number already has an account.',
+  errorNotFound: 'This was not found. It may have been removed.',
+  errorForbidden: 'You don\'t have permission to do this.',
+  errorRequestFailed: 'This couldn\'t be done. Check the details and try again.',
+  errorRateLimited: 'Too many tries. Wait a minute and try again.',
+  errorPhotoTooLarge: 'The photo is too large. Take it again or choose a smaller one.',
+  errorServerTemplate: 'Something went wrong. Ref: {ref}',
+  errorGeneric: 'Something went wrong. Please try again.',
+  sessionEnded: 'Your session ended. Please sign in again.',
+  maintenanceMessage: 'Medi-Bela is being updated. Please try again in a few minutes.',
+  noInternetTitle: 'No internet connection',
+  noInternetHint: 'This screen needs the internet. It opens by itself when you\'re back online.',
+  tryAgain: 'Try again',
+  pageNotFound: 'Page not found',
+  goToHome: 'Go to Home',
+  helpAndAbout: 'Help & about',
+  agreeToTermsPrefix: 'I agree to the ',
+  agreeToTermsSuffix: '',
+  couldNotOpenLink: 'Couldn\'t open this. The number is copied instead.',
+  noReadingsYet: 'No readings yet',
+  inboxEmpty: 'Inbox is empty',
+  checkInvitations: 'Check invitations',
 );
 
 const AppStrings bnStrings = AppStrings(
@@ -1291,4 +1376,31 @@ const AppStrings bnStrings = AppStrings(
   signinCardMissed: 'ডোজ বাদ পড়েছে',
   signinCardFamily: 'পরিবারকে জানানো হয়েছে',
   signinTagline: 'সঠিক সময়, সুস্থ জীবন',
+  errorNetwork: 'সংযোগ করা যায়নি। ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।',
+  errorPasswordIncorrect: 'পাসওয়ার্ড সঠিক নয়।',
+  errorInvalidCredentials: 'ফোন নম্বর বা পাসওয়ার্ড ভুল।',
+  errorAccountNotActive: 'এই অ্যাকাউন্টটি সক্রিয় নয়।',
+  errorResetCode: 'কোডটি ভুল বা এর মেয়াদ শেষ।',
+  errorPhoneTaken: 'এই ফোন নম্বরে আগেই একটি অ্যাকাউন্ট আছে।',
+  errorNotFound: 'এটি পাওয়া যায়নি। হয়তো সরিয়ে ফেলা হয়েছে।',
+  errorForbidden: 'এটি করার অনুমতি আপনার নেই।',
+  errorRequestFailed: 'কাজটি করা যায়নি। তথ্য দেখে আবার চেষ্টা করুন।',
+  errorRateLimited: 'অনেকবার চেষ্টা হয়েছে। এক মিনিট পর আবার চেষ্টা করুন।',
+  errorPhotoTooLarge: 'ছবিটি অনেক বড়। আবার তুলুন বা ছোট একটি বেছে নিন।',
+  errorServerTemplate: 'কিছু একটা সমস্যা হয়েছে। রেফ: {ref}',
+  errorGeneric: 'কিছু একটা সমস্যা হয়েছে। আবার চেষ্টা করুন।',
+  sessionEnded: 'আপনার সেশন শেষ হয়েছে। আবার সাইন ইন করুন।',
+  maintenanceMessage: 'মেডি-বেলা আপডেট হচ্ছে। কয়েক মিনিট পর আবার চেষ্টা করুন।',
+  noInternetTitle: 'ইন্টারনেট সংযোগ নেই',
+  noInternetHint: 'এই পাতার জন্য ইন্টারনেট লাগে। সংযোগ ফিরলে নিজেই খুলবে।',
+  tryAgain: 'আবার চেষ্টা করুন',
+  pageNotFound: 'পাতাটি পাওয়া যায়নি',
+  goToHome: 'হোমে যান',
+  helpAndAbout: 'সাহায্য ও পরিচিতি',
+  agreeToTermsPrefix: 'আমি ',
+  agreeToTermsSuffix: 'তে সম্মত',
+  couldNotOpenLink: 'খোলা যায়নি। নম্বরটি কপি করা হয়েছে।',
+  noReadingsYet: 'এখনো কোনো রিডিং নেই',
+  inboxEmpty: 'ইনবক্স খালি',
+  checkInvitations: 'আমন্ত্রণ দেখুন',
 );

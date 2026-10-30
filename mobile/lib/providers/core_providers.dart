@@ -61,8 +61,10 @@ final dioClientProvider = Provider<DioClient>((ref) {
   return DioClient(
     secureStorage: secureStorage,
     onSessionExpired: () async {
+      ref.read(sessionExpiredNoticeProvider.notifier).state = true;
       ref.read(sessionNotifierProvider.notifier).setLoggedIn(false);
     },
+    onMaintenance: () => ref.read(maintenanceProvider.notifier).state = true,
   );
 });
 

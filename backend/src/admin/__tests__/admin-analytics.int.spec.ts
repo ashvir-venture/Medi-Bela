@@ -103,7 +103,8 @@ d('Admin analytics over HTTP (real AppModule + Postgres)', () => {
   it('breaks patients down by division, district, gender and age, matching the users table', async () => {
     const admin = await account('ADMIN');
     await account('PHARMACIST');
-    const signup: any = await signupDetails(prisma);
+    // acceptTerms is a sign-up field, not a column.
+    const { acceptTerms: _accepted, ...signup }: any = await signupDetails(prisma);
     const details = {
       ...signup,
       dateOfBirth: new Date(`${signup.dateOfBirth}T00:00:00Z`),

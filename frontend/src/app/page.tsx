@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { clearTokens, getAccessToken, getMe } from '@/lib/api-client';
 import { homeFor, isStaffRole } from '@/lib/paths';
+import { Skeleton } from '@/components/skeleton';
 
 /** Sends a signed-in staff member to their own dashboard, everyone else to login. */
 export default function HomePage() {
@@ -28,7 +29,7 @@ export default function HomePage() {
 
   return (
     <div className="login-wrapper">
-      <p className="muted">Loading…</p>
+      <Skeleton kind="page" />
     </div>
   );
 }

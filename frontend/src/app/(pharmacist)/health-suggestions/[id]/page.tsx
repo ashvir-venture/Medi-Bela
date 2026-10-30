@@ -14,6 +14,9 @@ import {
 import { useRequireAuth } from '@/lib/use-require-auth';
 import { PatientName } from '@/components/patient-name';
 import { Topbar } from '@/components/topbar';
+import { Skeleton } from '@/components/skeleton';
+import { useToast } from '@/components/toast';
+import { ErrorBanner } from '@/components/error-banner';
 
 function ItemsEditor({
   label,
@@ -79,6 +82,7 @@ export default function HealthSuggestionDetailPage() {
   const [itemsEn, setItemsEn] = useState<SuggestionItem[]>([]);
   const [itemsBn, setItemsBn] = useState<SuggestionItem[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -109,7 +113,7 @@ export default function HealthSuggestionDetailPage() {
       const updated = await updateHealthSuggestion(id, { itemsEn, itemsBn });
       setSuggestion(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save');
+      toast.error(err instanceof ApiError ? err.message : 'Failed to save');
     } finally {
       setIsSaving(false);
     }
@@ -123,7 +127,7 @@ export default function HealthSuggestionDetailPage() {
       await updateHealthSuggestion(id, { itemsEn, itemsBn });
       setSuggestion(await publishHealthSuggestion(id));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to publish');
+      toast.error(err instanceof ApiError ? err.message : 'Failed to publish');
     } finally {
       setIsSaving(false);
     }
@@ -135,7 +139,7 @@ export default function HealthSuggestionDetailPage() {
     try {
       setSuggestion(await unpublishHealthSuggestion(id));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to unpublish');
+      toast.error(err instanceof ApiError ? err.message : 'Failed to unpublish');
     } finally {
       setIsSaving(false);
     }
@@ -147,7 +151,7 @@ export default function HealthSuggestionDetailPage() {
       <>
         <Topbar title="AI Suggestion" />
         <div className="page">
-          <p className="muted">Loading…</p>
+          <Skeleton kind="detail" />
         </div>
       </>
     );
@@ -157,7 +161,7 @@ export default function HealthSuggestionDetailPage() {
       <>
         <Topbar title="AI Suggestion" />
         <div className="page">
-          {error && <div className="error-banner">{error}</div>}
+          {error && <ErrorBanner message={error} onRetry={load} />}
         </div>
       </>
     );

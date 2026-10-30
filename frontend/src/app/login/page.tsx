@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ApiError, login, rememberMe, saveTokens } from '@/lib/api-client';
 import { homeFor, isStaffRole } from '@/lib/paths';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { ButtonSpinner } from '@/components/skeleton';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -113,10 +115,15 @@ export default function LoginPage() {
               />
             </div>
             <button type="submit" className="btn btn-primary btn-block signin-submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Signing in…' : 'Sign in'}
+              {isSubmitting && <ButtonSpinner />}{isSubmitting ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
         </div>
+        <nav className="signin-links" aria-label="About Medi-Bela">
+          <Link href="/privacy">Privacy &amp; terms</Link>
+          <span aria-hidden="true">·</span>
+          <Link href="/about">About us</Link>
+        </nav>
       </main>
     </div>
   );

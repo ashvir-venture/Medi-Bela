@@ -27,6 +27,7 @@ import { ForgotPasswordDto, ResetPasswordDto } from './dto/forgot-password.dto';
 import { SmsService } from './sms.service';
 import { TokenPair } from './types/tokens.type';
 import { LoginThrottle } from './login-throttle';
+import { ErrorCode, withCode } from '../common/filters/error-codes';
 
 // Verified against when the phone is unknown, so "no such user" costs the same
 // time as "wrong password" (no timing oracle for registered numbers).
@@ -79,6 +80,8 @@ export class AuthService {
           divisionId: dto.divisionId,
           districtId: dto.districtId,
           upazilaId: dto.upazilaId,
+          // Proof of consent: when the Privacy & terms box was ticked.
+          termsAcceptedAt: new Date(),
         },
       });
     } catch (err) {
@@ -86,7 +89,7 @@ export class AuthService {
         err instanceof Prisma.PrismaClientKnownRequestError &&
         err.code === 'P2002'
       ) {
-        throw new ConflictException('Phone number is already registered');
+        throw withCode(new ConflictException('Phone number is already registered'), ErrorCode.PHONE_TAKEN);
       }
       throw err;
     }
@@ -119,12 +122,12 @@ export class AuthService {
     );
     if (!user || !passwordMatches) {
       this.throttle.recordFailure(throttleKey);
-      throw new UnauthorizedException('Invalid phone number or password');
+      throw withCode(new UnauthorizedException('Invalid phone number or password'), ErrorCode.INVALID_CREDENTIALS);
     }
 
     if (user.accountStatus === AccountStatus.SUSPENDED) {
       // Login never lifts a ban.
-      throw new ForbiddenException(SUSPENDED_MESSAGE);
+      throw withCode(new ForbiddenException(SUSPENDED_MESSAGE), ErrorCode.ACCOUNT_SUSPENDED);
     }
     let reactivated = false;
     let current = user;
@@ -132,7 +135,7 @@ export class AuthService {
       current = await this.reactivate(user.id);
       reactivated = true;
     } else if (user.accountStatus !== AccountStatus.ACTIVE) {
-      throw new ForbiddenException('Account is not active');
+      throw withCode(new ForbiddenException('Account is not active'), ErrorCode.ACCOUNT_NOT_ACTIVE);
     }
 
     this.throttle.reset(throttleKey);
@@ -172,7 +175,7 @@ export class AuthService {
     if (!currentMatches) {
       this.passwordThrottle.recordFailure(userId);
       // 403, not 401: the app treats any 401 as "session expired" and logs the user out.
-      throw new ForbiddenException('Current password is incorrect');
+      throw withCode(new ForbiddenException('Current password is incorrect'), ErrorCode.PASSWORD_INCORRECT);
     }
     this.passwordThrottle.reset(userId);
 
@@ -238,7 +241,7 @@ export class AuthService {
     }
     const fail = (): never => {
       this.resetThrottle.recordFailure(throttleKey);
-      throw new BadRequestException(RESET_GENERIC_ERROR);
+      throw withCode(new BadRequestException(RESET_GENERIC_ERROR), ErrorCode.RESET_CODE_INVALID);
     };
 
     const user = await this.findUserByPhone(dto.phone);
@@ -257,7 +260,7 @@ export class AuthService {
     await this.prisma.$transaction(async (tx) => {
       // Consume the code exactly once, even if the same code is submitted twice at once.
       const consumed = await tx.passwordResetCode.deleteMany({ where: { id: row.id } });
-      if (consumed.count !== 1) throw new BadRequestException(RESET_GENERIC_ERROR);
+      if (consumed.count !== 1) throw withCode(new BadRequestException(RESET_GENERIC_ERROR), ErrorCode.RESET_CODE_INVALID);
       await tx.user.update({ where: { id: user.id }, data: { passwordHash, passwordChangedAt: new Date() } });
     });
     this.resetThrottle.reset(throttleKey);

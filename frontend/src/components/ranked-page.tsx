@@ -5,6 +5,8 @@ import { CursorPage } from '@/lib/api-client';
 import { ADMIN_BASE } from '@/lib/paths';
 import { Topbar } from '@/components/topbar';
 import { Pager, useCursorPager } from '@/components/pager';
+import { Skeleton } from '@/components/skeleton';
+import { ErrorBanner } from '@/components/error-banner';
 
 /** A full ranking from the analytics (20 per page, Next / Previous). */
 export function RankedPage<T extends { rank: number }>({
@@ -33,8 +35,8 @@ export function RankedPage<T extends { rank: number }>({
         <p className="muted" style={{ marginTop: 0 }}>
           {intro}
         </p>
-        {pager.error && <div className="error-banner">{pager.error}</div>}
-        {pager.isLoading && pager.items.length === 0 ? <p className="muted">Loading…</p> : renderRows(pager.items)}
+        {pager.error && <ErrorBanner message={pager.error} onRetry={pager.reload} />}
+        {pager.isLoading && pager.items.length === 0 ? <Skeleton kind="table" /> : renderRows(pager.items)}
         <Pager
           pageNumber={pager.pageNumber}
           hasNext={pager.hasNext}

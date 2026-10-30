@@ -8,10 +8,8 @@ import '../../../widgets/app_logo.dart';
 import '../../../widgets/double_back_to_exit.dart';
 import '../../../widgets/language_switcher.dart';
 import 'auth_controller.dart';
+import 'session_notifier.dart';
 import 'signin_visual.dart';
-
-/// The server's ban message (English); shown in the app's language instead.
-const _suspendedMessagePrefix = 'This account is under suspension';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -62,11 +60,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         }
         context.go(AppRoutes.home);
       },
-      failure: (message) => setState(
-        () => _errorMessage = message.startsWith(_suspendedMessagePrefix)
-            ? strings.accountSuspended
-            : message,
-      ),
+      // Already in the app's language (core/utils/error_mapper.dart).
+      failure: (message) => setState(() => _errorMessage = message),
     );
   }
 
@@ -121,6 +116,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       const SizedBox(height: 32),
                       if (_errorMessage != null) ...[
                         _ErrorBanner(message: _errorMessage!),
+                        const SizedBox(height: 16),
+                      ] else if (ref.watch(sessionExpiredNoticeProvider)) ...[
+                        _ErrorBanner(message: strings.sessionEnded),
                         const SizedBox(height: 16),
                       ],
                       TextFormField(

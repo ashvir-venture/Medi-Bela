@@ -7,11 +7,16 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { codeForStatus, ErrorCode, newErrorRef } from './error-codes';
 
 /**
  * Normalizes every error response (validation errors, thrown HttpExceptions,
  * and anything unexpected) into a single consistent JSON shape so API
- * consumers never have to branch on error format.
+ * consumers never have to branch on error format. Every response carries a
+ * machine-readable `code` (see error-codes.ts); an unexpected error (5xx) also
+ * carries a short `ref` that is logged with the stack trace, so support can
+ * find it. The log line has the path only (no query string: it can hold a
+ * phone number) and no request body.
  */
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -25,9 +30,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: string | string[] = 'Internal server error';
     let error = 'Internal Server Error';
+    let code: ErrorCode | undefined;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
+      code = (exception as HttpException & { errorCode?: ErrorCode }).errorCode;
       const body = exception.getResponse();
       if (typeof body === 'string') {
         message = body;
@@ -37,14 +44,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
         message = (asObj.message as string | string[]) ?? exception.message;
         error = (asObj.error as string) ?? exception.name;
       }
-    } else if (exception instanceof Error) {
-      // Unhandled/unexpected error — log full detail, never leak it to the client.
-      this.logger.error(exception.message, exception.stack);
     }
 
-    if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+    const ref = status >= HttpStatus.INTERNAL_SERVER_ERROR && status !== HttpStatus.SERVICE_UNAVAILABLE ? newErrorRef() : null;
+    if (ref) {
+      // Unexpected: log full detail under the ref, never leak it to the client.
       this.logger.error(
-        `${request.method} ${request.url} -> ${status}`,
+        `ref=${ref} ${request.method} ${request.path} -> ${status}`,
         exception instanceof Error ? exception.stack : undefined,
       );
     }
@@ -53,7 +59,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
       statusCode: status,
       error,
       message,
-      path: request.url,
+      code: code ?? codeForStatus(status, Array.isArray(message)),
+      ...(ref ? { ref } : {}),
+      path: request.path,
       timestamp: new Date().toISOString(),
     });
   }

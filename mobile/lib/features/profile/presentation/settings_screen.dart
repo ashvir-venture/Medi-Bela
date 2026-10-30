@@ -12,6 +12,7 @@ import '../../../widgets/state_views.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../family/presentation/family_controller.dart';
 import '../../reminders/presentation/reminder_status_controller.dart';
+import '../../help/presentation/help_screens.dart';
 import 'account_dialogs.dart';
 
 /// Settings, in five sections: Account; Reminders & notifications; Privacy &
@@ -197,6 +198,30 @@ class _SettingsContentState extends ConsumerState<_SettingsContent> {
           selected: {ref.watch(themeModeControllerProvider)},
           onSelectionChanged: (selection) =>
               ref.read(themeModeControllerProvider.notifier).setMode(selection.first),
+        ),
+
+        // ---- Help & about (text ships with the app: works offline) -----------------
+        _SectionHeader(strings.helpAndAbout),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.support_agent_outlined),
+          title: Text(ref.watch(helpContentProvider).supportTitle),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push(AppRoutes.support),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.privacy_tip_outlined),
+          title: Text(ref.watch(helpContentProvider).privacyTitle),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push(AppRoutes.privacyTerms),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.info_outline),
+          title: Text(ref.watch(helpContentProvider).aboutTitle),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push(AppRoutes.aboutUs),
         ),
 
         // ---- Account actions (only Delete is red) ---------------------------------

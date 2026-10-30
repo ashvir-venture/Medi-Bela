@@ -56,8 +56,53 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
+    /** The backend's machine-readable code (NETWORK when the server wasn't reached). */
+    public code?: string,
+    /** Support reference of an unexpected server error, e.g. "7KQ2-M9". */
+    public ref?: string,
   ) {
     super(message);
+  }
+}
+
+/** Raised on window when the API answers 503: MaintenanceGate shows its screen. */
+export const MAINTENANCE_EVENT = 'medibela:maintenance';
+
+const GENERIC_ERROR = 'Something went wrong. Please try again.';
+
+/**
+ * The text shown for an error code. The panel is English only. Codes whose
+ * server message is already specific (validation, conflicts, wrong sign-in)
+ * keep it; the rest get a short, friendly line with a way out.
+ */
+export function errorText(code: string | undefined, serverMessage: string | undefined, ref?: string): string {
+  switch (code) {
+    case 'NETWORK':
+      return "Couldn't reach the server. Check your connection and try again.";
+    case 'PASSWORD_INCORRECT':
+      return 'The password is not correct.';
+    case 'RATE_LIMITED':
+      return 'Too many requests. Wait a minute and try again.';
+    case 'NOT_FOUND':
+      return 'This item was not found. It may have been removed.';
+    case 'FORBIDDEN':
+      return "You don't have access to this.";
+    case 'MAINTENANCE':
+      return 'Medi-Bela is being updated. Please try again in a few minutes.';
+    case 'SERVER_ERROR':
+      return ref ? `Something went wrong. Ref: ${ref}` : GENERIC_ERROR;
+    case 'VALIDATION_FAILED':
+    case 'BAD_REQUEST':
+    case 'CONFLICT':
+    case 'INVALID_CREDENTIALS':
+    case 'ACCOUNT_SUSPENDED':
+    case 'ACCOUNT_NOT_ACTIVE':
+    case 'PHONE_TAKEN':
+    case 'RESET_CODE_INVALID':
+    case 'PAYLOAD_TOO_LARGE':
+      return serverMessage || GENERIC_ERROR;
+    default:
+      return GENERIC_ERROR;
   }
 }
 
@@ -68,14 +113,20 @@ async function request<T>(
   const token = getAccessToken();
   const isFormData = options.body instanceof FormData;
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers: {
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers,
+      },
+    });
+  } catch {
+    // Offline, DNS, CORS or the server down: no HTTP answer at all.
+    throw new ApiError(errorText('NETWORK', undefined), 0, 'NETWORK');
+  }
 
   // A 401 from login means the credentials were rejected, not that an
   // existing session expired. Let the normal error handler read its message.
@@ -91,14 +142,23 @@ async function request<T>(
   }
 
   if (!response.ok) {
-    let message = `Request failed (${response.status})`;
+    let serverMessage: string | undefined;
+    let code: string | undefined;
+    let ref: string | undefined;
     try {
       const body = await response.json();
-      message = Array.isArray(body.message) ? body.message.join(', ') : body.message ?? message;
+      serverMessage = Array.isArray(body.message) ? body.message.join(', ') : body.message;
+      code = body.code;
+      ref = body.ref;
     } catch {
-      // ignore parse failure, use default message
+      // ignore parse failure: the status decides below
     }
-    throw new ApiError(message, response.status);
+    if (response.status === 503) {
+      code = 'MAINTENANCE';
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event(MAINTENANCE_EVENT));
+    }
+    code ??= response.status >= 500 ? 'SERVER_ERROR' : undefined;
+    throw new ApiError(errorText(code, serverMessage, ref), response.status, code, ref);
   }
 
   if (response.status === 204) return undefined as T;

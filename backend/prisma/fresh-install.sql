@@ -1909,3 +1909,12 @@ ALTER TABLE "family_events" ADD CONSTRAINT "family_events_subjectUserId_fkey" FO
 -- AddForeignKey
 ALTER TABLE "family_events" ADD CONSTRAINT "family_events_actorUserId_fkey" FOREIGN KEY ("actorUserId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
+
+-- ===== prisma/pending-sql/010_round11_terms_consent.sql =====
+-- Round 11: when the user ticked "I agree to the Privacy & terms" at sign-up
+-- (proof of consent). Existing users keep NULL and are not asked again.
+-- Additive only.
+
+-- AlterTable
+ALTER TABLE "users" ADD COLUMN     "termsAcceptedAt" TIMESTAMP(3);
+
