@@ -3,12 +3,13 @@ import { Prisma } from '@prisma/client';
 type Db = { $queryRaw: <T = unknown>(query: Prisma.Sql) => Promise<T> };
 
 /**
- * "Patients" of a doctor or medicine = distinct patients (role USER, not
- * deleted) on confirmed prescriptions (ACTIVE or ENDED). Medicines count the
+ * "Patients" of a doctor or medicine = distinct patients (role USER, deleted
+ * accounts included: their prescriptions are kept) on confirmed
+ * prescriptions (ACTIVE or ENDED). Medicines count the
  * lines of the prescription's current revision only; self-added routines are
  * not counted (they store no catalog medicine id).
  */
-const COUNTED = Prisma.sql`p.status IN ('ACTIVE', 'ENDED') AND u.role = 'USER' AND u."accountStatus" <> 'DELETED'`;
+const COUNTED = Prisma.sql`p.status IN ('ACTIVE', 'ENDED') AND u.role = 'USER'`;
 
 export interface RankedRow {
   id: string;

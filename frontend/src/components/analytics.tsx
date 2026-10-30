@@ -36,6 +36,18 @@ export function AnalyticsSection() {
       {/* Total users and families are in the dashboard's top cards. */}
       <h3 className="section-title">Users ({users.total})</h3>
       <div className="stat-grid">
+        <Link href={`${ADMIN_BASE}/users?status=ACTIVE`} className="stat-card">
+          <div className="stat-value">{users.byStatus.active}</div>
+          <div className="muted">Active</div>
+        </Link>
+        <Link href={`${ADMIN_BASE}/users?status=DEACTIVATED`} className="stat-card">
+          <div className="stat-value">{users.byStatus.deactivated}</div>
+          <div className="muted">Deactivated</div>
+        </Link>
+        <Link href={`${ADMIN_BASE}/users?status=SUSPENDED`} className="stat-card">
+          <div className="stat-value">{users.byStatus.suspended}</div>
+          <div className="muted">Suspended</div>
+        </Link>
         <div className="stat-card">
           <div className="stat-value">{data.families.members}</div>
           <div className="muted">People in a family ({data.families.total} families)</div>

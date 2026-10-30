@@ -19,6 +19,7 @@ import '../features/health/presentation/health_reminders_screen.dart';
 import '../features/health/presentation/health_screen.dart';
 import '../features/health/presentation/health_suggestions_screen.dart';
 import '../features/home/presentation/home_screen.dart';
+import '../features/medicine_schedule/presentation/medicines_tab_screen.dart';
 import '../features/medicine_schedule/presentation/my_medicines_screen.dart';
 import '../features/medicine_schedule/presentation/routine_form_screen.dart';
 import '../features/medicine_schedule/presentation/today_medicine_screen.dart';
@@ -27,7 +28,9 @@ import '../features/prescription/presentation/confirm_prescription_screen.dart';
 import '../features/prescription/presentation/member_prescriptions_screen.dart';
 import '../features/prescription/presentation/prescription_screen.dart';
 import '../features/profile/presentation/edit_details_screen.dart';
+import '../features/profile/presentation/delete_account_screens.dart';
 import '../features/profile/presentation/profile_screen.dart';
+import '../features/profile/presentation/settings_screen.dart';
 import '../features/reminders/presentation/reminder_check_screen.dart';
 import '../widgets/main_scaffold.dart';
 
@@ -58,9 +61,15 @@ class AppRoutes {
   static const profile = '/profile';
   static const reminderCheck = '/profile/reminders';
   static const editDetails = '/profile/details';
+  static const settings = '/profile/settings';
+  static const deleteAccount = '/profile/settings/delete';
+  static const deleteAccountConfirm = '/profile/settings/delete/confirm';
 
   // Round 6. `for` = the family member a caregiver acts for.
+  // Round 10: without `for`, /medicines is the Medicines tab (?tab=today |
+  // mine | prescriptions); /prescription and /prescription/today redirect there.
   static const medicines = '/medicines';
+  static String medicinesTabPath(String tab) => Uri(path: medicines, queryParameters: {'tab': tab}).toString();
   static String medicinesPath({String? forUserId, String? name}) => Uri(
         path: medicines,
         queryParameters: {if (forUserId != null) 'for': forUserId, if (name != null) 'name': name},
@@ -164,13 +173,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.inbox,
             builder: (context, state) => const InboxScreen(),
           ),
+          // Old addresses (pushes, links) open the Medicines tab's segment.
           GoRoute(
             path: AppRoutes.prescription,
-            builder: (context, state) => const PrescriptionScreen(),
+            redirect: (context, state) => AppRoutes.medicinesTabPath('prescriptions'),
           ),
           GoRoute(
             path: AppRoutes.todaysMedicine,
-            builder: (context, state) => const TodaysMedicineScreen(),
+            redirect: (context, state) => AppRoutes.medicinesTabPath('today'),
           ),
           GoRoute(
             path: AppRoutes.health,
@@ -210,11 +220,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const EditDetailsScreen(),
           ),
           GoRoute(
+            path: AppRoutes.settings,
+            builder: (context, state) => const SettingsScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.deleteAccount,
+            builder: (context, state) => const DeleteAccountWarningScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.deleteAccountConfirm,
+            builder: (context, state) => const DeleteAccountConfirmScreen(),
+          ),
+          GoRoute(
             path: AppRoutes.medicines,
-            builder: (context, state) => MyMedicinesScreen(
-              forUserId: state.uri.queryParameters['for'],
-              memberName: state.uri.queryParameters['name'],
-            ),
+            builder: (context, state) {
+              final forUserId = state.uri.queryParameters['for'];
+              // A caregiver's view of a member: its own page (under Family).
+              if (forUserId != null) {
+                return MyMedicinesScreen(forUserId: forUserId, memberName: state.uri.queryParameters['name']);
+              }
+              return MedicinesTabScreen(segment: MedicinesSegment.parse(state.uri.queryParameters['tab']));
+            },
           ),
           GoRoute(
             path: AppRoutes.medicineForm,

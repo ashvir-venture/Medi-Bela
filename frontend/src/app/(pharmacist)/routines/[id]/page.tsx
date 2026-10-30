@@ -14,6 +14,7 @@ import {
   unpublishHealthSuggestion,
 } from '@/lib/api-client';
 import { useRequireAuth } from '@/lib/use-require-auth';
+import { PatientName } from '@/components/patient-name';
 import { Topbar } from '@/components/topbar';
 
 function Items({ label, items }: { label: string; items: SuggestionItem[] }) {
@@ -119,7 +120,7 @@ export default function RoutineDetailPage() {
             {routine.medicineName} <span className="muted">{routine.dosage}</span>
           </h2>
           <div>
-            {routine.user.name} ({routine.user.phone})
+            <PatientName user={routine.user} />
           </div>
           <div className="muted" style={{ marginTop: 8 }}>
             {routine.frequency} · from {fmt(routine.startDate)}

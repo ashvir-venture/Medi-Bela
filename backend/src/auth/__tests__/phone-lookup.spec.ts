@@ -12,7 +12,7 @@ function setup(users: any[]) {
   const sms = { send: jest.fn(async () => true) };
   const config = { getOrThrow: () => 'test-secret', get: () => undefined };
   const jwt = { signAsync: jest.fn(async () => 'token') };
-  const service = new AuthService(prisma, jwt as any, config as any, sms as any);
+  const service = new AuthService(prisma, jwt as any, config as any, sms as any, { record: jest.fn() } as any);
   return { service, prisma, sms };
 }
 

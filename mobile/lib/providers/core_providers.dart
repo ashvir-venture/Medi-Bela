@@ -7,6 +7,7 @@ import '../core/network/dio_client.dart';
 import '../core/storage/secure_storage_service.dart';
 import '../features/auth/data/auth_api.dart';
 import '../features/auth/data/auth_repository.dart';
+import '../features/auth/presentation/auth_controller.dart';
 import '../features/auth/presentation/session_notifier.dart';
 import '../features/family/data/family_api.dart';
 import '../features/family/data/family_repository.dart';
@@ -135,6 +136,8 @@ final pushServiceProvider = Provider<PushService>((ref) {
     localPlugin: flutterLocalNotificationsPlugin,
     navigate: (route) => ref.read(appRouterProvider).go(route),
     onReminderBackstop: (at) => ref.read(notificationSchedulerProvider).showBackstop(at),
+    // Same as a logout: reminders cancelled, local data and tokens cleared.
+    onSessionEnded: () => ref.read(authControllerProvider.notifier).logout(),
   );
 });
 

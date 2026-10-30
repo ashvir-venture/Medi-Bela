@@ -11,6 +11,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../core/constants/api_endpoints.dart';
 import '../core/storage/secure_storage_service.dart';
+import '../features/auth/data/device_session_wipe.dart';
 import 'reminder_actions.dart' show backstopTime;
 
 /// Android channel used for every server-generated (FCM) notification. Must
@@ -72,17 +73,21 @@ class PushService {
     required FlutterLocalNotificationsPlugin localPlugin,
     required void Function(String route) navigate,
     Future<void> Function(DateTime scheduledAt)? onReminderBackstop,
+    Future<void> Function()? onSessionEnded,
   }) : _dio = dio,
        _storage = secureStorage,
        _local = localPlugin,
        _navigate = navigate,
-       _onReminderBackstop = onReminderBackstop;
+       _onReminderBackstop = onReminderBackstop,
+       _onSessionEnded = onSessionEnded;
 
   final Dio _dio;
   final SecureStorageService _storage;
   final FlutterLocalNotificationsPlugin _local;
   final void Function(String route) _navigate;
   final Future<void> Function(DateTime scheduledAt)? _onReminderBackstop;
+  /// The account was paused or removed on the server (data-only push).
+  final Future<void> Function()? _onSessionEnded;
 
   final List<StreamSubscription<dynamic>> _subs = [];
   bool _firebaseReady = false;
@@ -198,6 +203,11 @@ class PushService {
   }
 
   Future<void> _showForeground(RemoteMessage message) async {
+    // The account was deactivated, deleted or banned: end the session here.
+    if (isSessionEndedMessage(message.data)) {
+      await _onSessionEnded?.call();
+      return;
+    }
     // Data-only reminder backstop: shown only if those doses are still
     // untaken in the local database (see NotificationScheduler.showBackstop).
     final backstopAt = backstopTime(message.data);

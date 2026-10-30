@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { CatalogListParams, CursorPage } from '@/lib/api-client';
+import { DataList } from '@/components/data-list';
 import { Topbar } from '@/components/topbar';
 import { Pager, useCursorPager } from '@/components/pager';
 
@@ -70,16 +71,26 @@ export function CatalogList<T extends { id: string }>({
         ) : pager.items.length === 0 ? (
           <div className="empty-state">Nothing found.</div>
         ) : (
-          pager.items.map((item) => (
-            <Link key={item.id} href={`${basePath}/${item.id}`} className="list-item">
-              <div>{renderRow(item)}</div>
-              {isIncomplete(item) ? (
-                <span className="badge badge-pending">Incomplete</span>
-              ) : (
-                <span className="badge badge-completed">Complete</span>
-              )}
-            </Link>
-          ))
+          <DataList<T>
+            rows={pager.items}
+            rowKey={(item) => item.id}
+            rowHref={(item) => `${basePath}/${item.id}`}
+            minWidth={480}
+            columns={[
+              { label: 'Record', width: '4fr', render: renderRow },
+              {
+                label: 'Status',
+                width: '130px',
+                end: true,
+                render: (item) =>
+                  isIncomplete(item) ? (
+                    <span className="badge badge-pending">Incomplete</span>
+                  ) : (
+                    <span className="badge badge-completed">Complete</span>
+                  ),
+              },
+            ]}
+          />
         )}
 
         <Pager

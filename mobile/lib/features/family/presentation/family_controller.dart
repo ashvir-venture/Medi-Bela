@@ -56,6 +56,18 @@ class FamilyMembersController
   Future<Result<void>> declineInvitation(String invitationId) {
     return _repository.declineInvitation(invitationId);
   }
+
+  Future<Result<void>> leave() async {
+    final result = await _repository.leave();
+    if (result.isSuccess) state = const AsyncValue.data([]);
+    return result;
+  }
+
+  Future<Result<void>> removeMember(String userId) async {
+    final result = await _repository.removeMember(userId);
+    if (result.isSuccess) await refresh();
+    return result;
+  }
 }
 
 // autoDispose: leaving the family screen (or logging out, which redirects away
@@ -111,4 +123,56 @@ final memberStatusProvider = FutureProvider.autoDispose
     success: (detail) => detail,
     failure: (message) => throw message,
   );
+});
+
+/// The family's activity feed: 10 per page from the server, "Load more"
+/// appends the next page.
+class FamilyEventsState {
+  const FamilyEventsState({
+    this.items = const [],
+    this.nextCursor,
+    this.isLoading = false,
+    this.error,
+  });
+
+  final List<FamilyEvent> items;
+  final String? nextCursor;
+  final bool isLoading;
+  final String? error;
+}
+
+class FamilyEventsController extends StateNotifier<FamilyEventsState> {
+  FamilyEventsController(this._repository) : super(const FamilyEventsState()) {
+    reload();
+  }
+
+  final FamilyRepository _repository;
+
+  Future<void> reload() => _load(reset: true);
+
+  Future<void> loadMore() async {
+    if (state.nextCursor == null || state.isLoading) return;
+    await _load(reset: false);
+  }
+
+  Future<void> _load({required bool reset}) async {
+    state = FamilyEventsState(
+      items: reset ? const [] : state.items,
+      nextCursor: reset ? null : state.nextCursor,
+      isLoading: true,
+    );
+    final result = await _repository.listEvents(cursor: reset ? null : state.nextCursor);
+    state = result.when(
+      success: (page) => FamilyEventsState(
+        items: [...state.items, ...page.items],
+        nextCursor: page.nextCursor,
+      ),
+      failure: (message) => FamilyEventsState(items: state.items, nextCursor: state.nextCursor, error: message),
+    );
+  }
+}
+
+final familyEventsControllerProvider =
+    StateNotifierProvider.autoDispose<FamilyEventsController, FamilyEventsState>((ref) {
+  return FamilyEventsController(ref.watch(familyRepositoryProvider));
 });

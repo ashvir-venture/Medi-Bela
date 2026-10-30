@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { QueueStatus, listPrescriptionQueue } from '@/lib/api-client';
+import { DataList } from '@/components/data-list';
 import { Topbar } from '@/components/topbar';
 import { StatusBadge } from '@/components/status-badge';
 import { Pager, useCursorPager } from '@/components/pager';
@@ -65,21 +66,26 @@ export function PrescriptionQueue({ basePath, intro }: { basePath: string; intro
         ) : pager.items.length === 0 ? (
           <div className="empty-state">{EMPTY[status]}</div>
         ) : (
-          pager.items.map((p) => (
-            <Link key={p.id} href={`${basePath}/${p.id}`} className="list-item">
-              <div>
-                <div style={{ fontWeight: 600 }}>
-                  {p.user.name}
-                  {p.previousPrescriptionId && <span className="badge badge-draft tag">Re-upload</span>}
-                </div>
-                <div className="muted">
-                  Uploaded {new Date(p.createdAt).toLocaleString()}
-                  {p.reviewedBy ? ` · by ${p.reviewedBy.name}` : ''}
-                </div>
-              </div>
-              <StatusBadge status={p.status} />
-            </Link>
-          ))
+          <DataList
+            rows={pager.items}
+            rowKey={(p) => p.id}
+            rowHref={(p) => `${basePath}/${p.id}`}
+            columns={[
+              {
+                label: 'Patient',
+                width: '1.6fr',
+                render: (p) => (
+                  <strong>
+                    {p.user.name}
+                    {p.previousPrescriptionId && <span className="badge badge-draft tag">Re-upload</span>}
+                  </strong>
+                ),
+              },
+              { label: 'Uploaded', width: '1.4fr', render: (p) => new Date(p.createdAt).toLocaleString() },
+              { label: 'Reviewed by', width: '1fr', render: (p) => p.reviewedBy?.name ?? '—' },
+              { label: 'Status', width: '1.2fr', end: true, render: (p) => <StatusBadge status={p.status} /> },
+            ]}
+          />
         )}
 
         <Pager

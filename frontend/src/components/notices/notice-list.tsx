@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ApiError, Notice, listNotices } from '@/lib/api-client';
+import { DataList } from '@/components/data-list';
 import { Topbar } from '@/components/topbar';
 import { NOTICE_STATUS, isScheduled } from '@/components/notices/notice-detail';
 
@@ -101,7 +102,7 @@ export function NoticeList({ basePath, role }: { basePath: string; role: 'ADMIN'
               className={`tab ${filter === key ? 'active' : ''}`}
               onClick={() => setFilter(key)}
             >
-              {label} ({counts[key] ?? 0})
+              {label} <span className="tab-count">{counts[key] ?? 0}</span>
             </button>
           ))}
         </div>
@@ -113,26 +114,48 @@ export function NoticeList({ basePath, role }: { basePath: string; role: 'ADMIN'
         ) : visible.length === 0 ? (
           <div className="empty-state">No notices here.</div>
         ) : (
-          visible.map((n) => {
-            const st = statusOf(n);
-            const area = n.divisions.length ? n.divisions.map((d) => d.division.name).join(', ') : 'Whole country';
-            return (
-              <Link key={n.id} href={`${basePath}/${n.id}`} className="list-item">
-                <div>
-                  <div style={{ fontWeight: 600 }}>{n.title}</div>
-                  <div className="muted">
-                    {AUDIENCE_LABEL[n.audience]} · {area}
-                    {n.source ? ` · ${n.source}` : ''}
-                    {n.createdBy ? ` · by ${n.createdBy.name}` : ''}
-                  </div>
-                  {n.reviewNote && n.status === 'DRAFT' && (
-                    <div className="line-warning">Sent back: {n.reviewNote}</div>
-                  )}
-                </div>
-                <span className={`badge ${st.badge}`}>{st.label}</span>
-              </Link>
-            );
-          })
+          <DataList<Notice>
+            rows={visible}
+            rowKey={(n) => n.id}
+            rowHref={(n) => `${basePath}/${n.id}`}
+            columns={[
+              {
+                label: 'Notice',
+                width: '2.4fr',
+                render: (n) => (
+                  <>
+                    <strong>{n.title}</strong>
+                    {n.source && <div className="muted">{n.source}</div>}
+                    {n.reviewNote && n.status === 'DRAFT' && (
+                      <div className="line-warning">Sent back: {n.reviewNote}</div>
+                    )}
+                  </>
+                ),
+              },
+              {
+                label: 'Audience',
+                width: '1.4fr',
+                render: (n) => (
+                  <>
+                    {AUDIENCE_LABEL[n.audience]}
+                    <div className="muted">
+                      {n.divisions.length ? n.divisions.map((d) => d.division.name).join(', ') : 'Whole country'}
+                    </div>
+                  </>
+                ),
+              },
+              { label: 'By', width: '1fr', render: (n) => n.createdBy?.name ?? '—' },
+              {
+                label: 'Status',
+                width: '120px',
+                end: true,
+                render: (n) => {
+                  const st = statusOf(n);
+                  return <span className={`badge ${st.badge}`}>{st.label}</span>;
+                },
+              },
+            ]}
+          />
         )}
       </div>
     </>

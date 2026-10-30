@@ -1,43 +1,43 @@
 :root {
-  --color-primary: #0f766e;
-  --color-primary-dark: #115e59;
-  --color-bg: #f8fafc;
-  --color-border: #e2e8f0;
-  --color-text: #0f172a;
-  --color-muted: #64748b;
-  --color-danger: #dc2626;
-  --color-success: #16a34a;
-  --color-warning: #d97706;
-  /* Surfaces and tints. Light values are the colors used before dark mode. */
-  --color-surface: white;
-  --color-surface-alt: #f1f5f9;
-  --color-on-primary: white;
-  --color-neutral-bg: #e2e8f0;
-  --color-primary-soft: #ccfbf1;
-  --color-primary-faint: #f0fdfa;
-  --color-danger-bg: #fef2f2;
-  --color-danger-border: #fecaca;
-  --color-danger-soft: #fee2e2;
-  --color-warning-bg: #fef3c7;
-  --color-success-bg: #dcfce7;
-  --color-success-soft: #f0fdf4;
-  --color-success-border: #bbf7d0;
-  --color-info-bg: #eff6ff;
-  --color-info-border: #bfdbfe;
-  --color-info-text: #1d4ed8;
-  --color-overlay: rgba(15, 23, 42, 0.35);
-  /* Logo colors (wordmark), and the login brand panel, which stays light in
-     both themes so the logo's navy text always reads. */
+  --color-primary: #0b6e63;
+  --color-primary-dark: #075048;
+  --color-bg: #f4f7f6;
+  --color-border: #dde5e3;
+  --color-border-strong: #c9d4d1;
+  --color-text: #10201c;
+  --color-muted: #4a5b57;
+  --color-danger: #b42318;
+  --color-success: #0f6b37;
+  --color-warning: #8a4200;
+  /* Surfaces and tints (status pairs: amber, blue, red, green, grey). */
+  --color-surface: #ffffff;
+  --color-surface-alt: #f8faf9;
+  --color-on-primary: #ffffff;
+  --color-neutral-bg: #eef1f0;
+  --color-neutral-text: #33443f;
+  --color-primary-soft: #e3f2ef;
+  --color-primary-faint: #f0f8f6;
+  --color-danger-bg: #fdecea;
+  --color-danger-border: #f5c2bd;
+  --color-danger-soft: #fdecea;
+  --color-warning-bg: #fdf1e3;
+  --color-success-bg: #e6f4ea;
+  --color-success-soft: #f1f9f3;
+  --color-success-border: #b9e0c5;
+  --color-info-bg: #e8effc;
+  --color-info-border: #bfd0f5;
+  --color-info-text: #1849a9;
+  --color-overlay: rgba(16, 32, 28, 0.35);
+  /* Logo colors (wordmark). */
   --color-brand-navy: #1f3c73;
   --color-brand-teal: #1f9a96;
-  --color-brand-panel-from: #e7f6f3;
-  --color-brand-panel-to: #e6edf9;
-  --color-brand-panel-text: #36507d;
-  --color-brand-art: rgba(31, 60, 115, 0.13);
-  --color-brand-art-pulse: rgba(31, 154, 150, 0.35);
-  --color-shadow: rgba(15, 23, 42, 0.08);
+  /* Sign-in page: soft glows over the background. */
+  --color-glow-teal: rgba(11, 110, 99, 0.16);
+  --color-glow-blue: rgba(24, 73, 169, 0.12);
+  --color-shadow: rgba(16, 32, 28, 0.08);
   color-scheme: light;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* IBM Plex Sans + Hind Siliguri (Bengali), bundled by next/font in the root layout. */
+  font-family: var(--font-sans), var(--font-bengali), system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
 /*
@@ -47,73 +47,77 @@
  */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --color-primary: #14b8a6;
-    --color-primary-dark: #5eead4;
-    --color-bg: #0f172a;
-    --color-border: #334155;
-    --color-text: #e2e8f0;
-    --color-muted: #94a3b8;
-    --color-danger: #f87171;
-    --color-success: #4ade80;
-    --color-warning: #fbbf24;
-    --color-surface: #1e293b;
-    --color-surface-alt: #273449;
-    --color-on-primary: #042f2e;
-    --color-neutral-bg: #334155;
-    --color-primary-soft: rgba(20, 184, 166, 0.2);
-    --color-primary-faint: rgba(20, 184, 166, 0.12);
-    --color-danger-bg: rgba(220, 38, 38, 0.14);
-    --color-danger-border: rgba(248, 113, 113, 0.4);
-    --color-danger-soft: rgba(220, 38, 38, 0.22);
-    --color-warning-bg: rgba(217, 119, 6, 0.22);
-    --color-success-bg: rgba(22, 163, 74, 0.22);
-    --color-success-soft: rgba(22, 163, 74, 0.14);
-    --color-success-border: rgba(74, 222, 128, 0.35);
-    --color-info-bg: rgba(59, 130, 246, 0.16);
-    --color-info-border: rgba(96, 165, 250, 0.4);
-    --color-info-text: #93c5fd;
-    --color-overlay: rgba(2, 6, 23, 0.6);
+    --color-primary: #3fbfae;
+    --color-primary-dark: #7adbcd;
+    --color-bg: #0e1715;
+    --color-border: #2a3a36;
+    --color-border-strong: #3a4d48;
+    --color-text: #e4ecea;
+    --color-muted: #9db0ab;
+    --color-danger: #f28b82;
+    --color-success: #7bd69b;
+    --color-warning: #f5b76b;
+    --color-surface: #15211e;
+    --color-surface-alt: #1c2b27;
+    --color-on-primary: #04201c;
+    --color-neutral-bg: #22302d;
+    --color-neutral-text: #c5d1ce;
+    --color-primary-soft: rgba(63, 191, 174, 0.18);
+    --color-primary-faint: rgba(63, 191, 174, 0.1);
+    --color-danger-bg: rgba(242, 139, 130, 0.14);
+    --color-danger-border: rgba(242, 139, 130, 0.4);
+    --color-danger-soft: rgba(242, 139, 130, 0.18);
+    --color-warning-bg: rgba(245, 183, 107, 0.16);
+    --color-success-bg: rgba(123, 214, 155, 0.16);
+    --color-success-soft: rgba(123, 214, 155, 0.1);
+    --color-success-border: rgba(123, 214, 155, 0.35);
+    --color-info-bg: rgba(157, 184, 245, 0.16);
+    --color-info-border: rgba(157, 184, 245, 0.4);
+    --color-info-text: #9db8f5;
+    --color-overlay: rgba(0, 0, 0, 0.6);
     --color-brand-navy: #9db8e6;
     --color-brand-teal: #5fd0c6;
-    --color-brand-panel-from: #dcefeb;
-    --color-brand-panel-to: #dae4f4;
-    --color-shadow: rgba(2, 6, 23, 0.4);
+    --color-glow-teal: rgba(63, 191, 174, 0.14);
+    --color-glow-blue: rgba(157, 184, 245, 0.1);
+    --color-shadow: rgba(0, 0, 0, 0.4);
     color-scheme: dark;
   }
 }
 
 :root[data-theme='dark'] {
-  --color-primary: #14b8a6;
-  --color-primary-dark: #5eead4;
-  --color-bg: #0f172a;
-  --color-border: #334155;
-  --color-text: #e2e8f0;
-  --color-muted: #94a3b8;
-  --color-danger: #f87171;
-  --color-success: #4ade80;
-  --color-warning: #fbbf24;
-  --color-surface: #1e293b;
-  --color-surface-alt: #273449;
-  --color-on-primary: #042f2e;
-  --color-neutral-bg: #334155;
-  --color-primary-soft: rgba(20, 184, 166, 0.2);
-  --color-primary-faint: rgba(20, 184, 166, 0.12);
-  --color-danger-bg: rgba(220, 38, 38, 0.14);
-  --color-danger-border: rgba(248, 113, 113, 0.4);
-  --color-danger-soft: rgba(220, 38, 38, 0.22);
-  --color-warning-bg: rgba(217, 119, 6, 0.22);
-  --color-success-bg: rgba(22, 163, 74, 0.22);
-  --color-success-soft: rgba(22, 163, 74, 0.14);
-  --color-success-border: rgba(74, 222, 128, 0.35);
-  --color-info-bg: rgba(59, 130, 246, 0.16);
-  --color-info-border: rgba(96, 165, 250, 0.4);
-  --color-info-text: #93c5fd;
-  --color-overlay: rgba(2, 6, 23, 0.6);
+  --color-primary: #3fbfae;
+  --color-primary-dark: #7adbcd;
+  --color-bg: #0e1715;
+  --color-border: #2a3a36;
+  --color-border-strong: #3a4d48;
+  --color-text: #e4ecea;
+  --color-muted: #9db0ab;
+  --color-danger: #f28b82;
+  --color-success: #7bd69b;
+  --color-warning: #f5b76b;
+  --color-surface: #15211e;
+  --color-surface-alt: #1c2b27;
+  --color-on-primary: #04201c;
+  --color-neutral-bg: #22302d;
+  --color-neutral-text: #c5d1ce;
+  --color-primary-soft: rgba(63, 191, 174, 0.18);
+  --color-primary-faint: rgba(63, 191, 174, 0.1);
+  --color-danger-bg: rgba(242, 139, 130, 0.14);
+  --color-danger-border: rgba(242, 139, 130, 0.4);
+  --color-danger-soft: rgba(242, 139, 130, 0.18);
+  --color-warning-bg: rgba(245, 183, 107, 0.16);
+  --color-success-bg: rgba(123, 214, 155, 0.16);
+  --color-success-soft: rgba(123, 214, 155, 0.1);
+  --color-success-border: rgba(123, 214, 155, 0.35);
+  --color-info-bg: rgba(157, 184, 245, 0.16);
+  --color-info-border: rgba(157, 184, 245, 0.4);
+  --color-info-text: #9db8f5;
+  --color-overlay: rgba(0, 0, 0, 0.6);
   --color-brand-navy: #9db8e6;
   --color-brand-teal: #5fd0c6;
-  --color-brand-panel-from: #dcefeb;
-  --color-brand-panel-to: #dae4f4;
-  --color-shadow: rgba(2, 6, 23, 0.4);
+  --color-glow-teal: rgba(63, 191, 174, 0.14);
+  --color-glow-blue: rgba(157, 184, 245, 0.1);
+  --color-shadow: rgba(0, 0, 0, 0.4);
   color-scheme: dark;
 }
 
@@ -1164,128 +1168,184 @@ a.stat-card:hover {
   }
 }
 
-/* --- Login: brand panel left, form right --- */
+/* --- Sign-in: one soft background, the story left (wide screens), the form card right --- */
 
-.auth {
+.signin {
+  position: relative;
   min-height: 100vh;
   display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
-  background: var(--color-bg);
-}
-
-.auth-brand {
-  position: relative;
-  overflow: hidden;
-  display: flex;
+  grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
   align-items: center;
-  justify-content: center;
-  padding: 48px 40px;
-  background: linear-gradient(160deg, var(--color-brand-panel-from), var(--color-brand-panel-to));
-  color: var(--color-brand-panel-text);
+  gap: 48px;
+  padding: 72px 64px 48px;
+  background:
+    radial-gradient(60rem 40rem at 10% 15%, var(--color-glow-teal), transparent 60%),
+    radial-gradient(50rem 36rem at 90% 85%, var(--color-glow-blue), transparent 60%),
+    var(--color-bg);
 }
 
-.auth-art {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  stroke: var(--color-brand-art);
-}
-
-.auth-art .auth-art-pulse {
-  stroke: var(--color-brand-art-pulse);
-  stroke-width: 2.5;
-}
-
-.auth-brand-content {
-  position: relative;
-  max-width: 400px;
-  text-align: center;
-}
-
-.auth-logo {
-  display: block;
-  width: min(340px, 100%);
-  height: auto;
-  margin: 0 auto 20px;
-}
-
-.auth-brand-lead {
-  margin: 0 0 20px;
-  font-size: 15px;
-  line-height: 1.6;
-}
-
-.auth-points {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.auth-points li {
-  padding: 5px 12px;
-  border: 1px solid var(--color-brand-art);
-  border-radius: 999px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--color-brand-panel-text);
-}
-
-.auth-main {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 88px 32px 48px;
-}
-
-.auth-theme {
+.signin-theme {
   position: absolute;
   top: 20px;
   right: 24px;
+  z-index: 5;
 }
 
-.auth-card {
+.signin-story {
+  max-width: 560px;
+  justify-self: end;
+}
+
+.signin-logo .brand-mark {
+  width: 48px;
+  height: 48px;
+}
+
+.signin-logo .brand-name {
+  font-size: 24px;
+}
+
+.signin-headline {
+  margin: 28px 0 12px;
+  font-size: 36px;
+  line-height: 1.2;
+  letter-spacing: -0.4px;
+}
+
+.signin-lead {
+  margin: 0;
+  max-width: 480px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--color-muted);
+}
+
+.signin-cards {
+  position: relative;
+  height: 250px;
+  margin: 36px 0 24px;
+}
+
+.story-card {
+  position: absolute;
+  width: 300px;
+  padding: 14px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  box-shadow: 0 12px 28px var(--color-shadow);
+}
+
+.story-card-1 {
+  top: 0;
+  left: 0;
+  transform: rotate(-3deg);
+}
+
+.story-card-2 {
+  top: 84px;
+  left: 150px;
+  transform: rotate(2deg);
+}
+
+.story-card-3 {
+  top: 168px;
+  left: 40px;
+  transform: rotate(-1.5deg);
+}
+
+.story-card-title {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.story-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+.story-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.story-dot-green {
+  background: var(--color-success);
+}
+
+.story-dot-amber {
+  background: var(--color-warning);
+}
+
+.story-chip {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.signin-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+.signin-main {
+  justify-self: start;
   width: 100%;
   max-width: 420px;
+}
+
+.signin-phone-logo {
+  display: none;
+}
+
+.signin-card {
   padding: 36px 36px 32px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 16px;
-  box-shadow: 0 12px 32px var(--color-shadow);
+  box-shadow: 0 16px 40px var(--color-shadow);
 }
 
-.auth-card h1 {
+.signin-card h1 {
   margin: 0 0 6px;
   font-size: 26px;
 }
 
-.auth-sub {
+.signin-sub {
   margin: 0 0 28px;
   font-size: 14px;
 }
 
-.auth-form .field {
+.signin-form .field {
   margin-bottom: 20px;
 }
 
-.auth-form label {
+.signin-form label {
   font-size: 13px;
   font-weight: 600;
   margin-bottom: 6px;
 }
 
-.auth-form .input {
+.signin-form .input {
   padding: 12px 14px;
   font-size: 15px;
   border-radius: 10px;
 }
 
-.auth-submit {
+.signin-submit {
   justify-content: center;
   margin-top: 8px;
   padding: 12px 16px;
@@ -1294,37 +1354,30 @@ a.stat-card:hover {
   border-radius: 10px;
 }
 
-@media (max-width: 900px) {
-  .auth {
+@media (max-width: 1024px) {
+  .signin {
     grid-template-columns: 1fr;
+    justify-items: center;
+    align-items: start;
+    gap: 0;
+    padding: 72px 16px 48px;
   }
 
-  .auth-brand {
-    padding: 72px 24px 32px;
-  }
-
-  .auth-logo {
-    width: min(220px, 70%);
-    margin-bottom: 12px;
-  }
-
-  .auth-points {
+  .signin-story {
     display: none;
   }
 
-  .auth-main {
-    padding: 24px 16px 48px;
-    align-items: flex-start;
+  .signin-main {
+    justify-self: center;
   }
 
-  .auth-theme {
-    position: fixed;
-    top: 16px;
-    right: 16px;
-    z-index: 5;
+  .signin-phone-logo {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 24px;
   }
 
-  .auth-card {
+  .signin-card {
     padding: 28px 20px 24px;
   }
 }
@@ -1405,5 +1458,293 @@ a.stat-card:hover {
 
   .audit-diff {
     grid-template-columns: 1fr;
+  }
+}
+
+/* --- Round 10 look (owner's canvas "Medibela Admin Panel Redesign"): later rules win --- */
+
+.page,
+.page-header {
+  max-width: 1120px;
+}
+
+.muted {
+  font-size: 13px;
+}
+
+/* Sidebar: section labels, count badges, user card */
+.sidebar-nav {
+  gap: 14px;
+  padding: 8px 12px 12px;
+}
+
+.sidebar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-section-label {
+  padding: 4px 12px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.sidebar-link {
+  color: var(--color-neutral-text);
+}
+
+.sidebar-link-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.nav-badge {
+  min-width: 22px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.nav-badge-warn {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.sidebar-footer {
+  border-top: none;
+  padding: 12px;
+}
+
+.sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  margin-bottom: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+
+.avatar {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+/* Page header: 28px title, one-line subtitle, actions and theme switch right */
+.page-header {
+  padding-top: 28px;
+  align-items: flex-start;
+}
+
+.page-header h1 {
+  font-size: 28px;
+  line-height: 1.2;
+}
+
+.page-subtitle {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--color-muted);
+}
+
+/* Stat cards: label above value, 12px radius */
+.stat-grid {
+  gap: 12px;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  gap: 4px;
+  border-radius: 12px;
+  padding: 14px 16px;
+  color: inherit;
+}
+
+.stat-card .stat-value {
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tabs: underlined, with count pills */
+.tabs {
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: -1px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.tab.active {
+  background: transparent;
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+  font-weight: 600;
+}
+
+.tab-count {
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 12px;
+  background: var(--color-neutral-bg);
+  color: var(--color-neutral-text);
+}
+
+.tab.active .tab-count {
+  background: var(--color-primary-soft);
+}
+
+/* Status pills */
+.badge {
+  border-radius: 6px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.badge-draft {
+  color: var(--color-neutral-text);
+}
+
+/* Lists: a table on wide screens, stacked cards under 640px */
+.data-list {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.data-scroll {
+  overflow-x: auto;
+}
+
+.data-head,
+.data-row {
+  display: grid;
+  gap: 12px;
+  align-items: center;
+  padding: 0 16px;
+}
+
+.data-head {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  background: var(--color-surface-alt);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.data-row {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  border-top: 1px solid var(--color-border);
+  font-size: 14px;
+  color: inherit;
+}
+
+a.data-row,
+a.data-row:hover {
+  text-decoration: none;
+}
+
+.data-row-link:hover {
+  background: var(--color-primary-faint);
+}
+
+.data-cell {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.data-end {
+  justify-self: end;
+  text-align: right;
+}
+
+@media (max-width: 640px) {
+  .data-list {
+    background: transparent;
+    border: none;
+    overflow: visible;
+  }
+
+  .data-head {
+    display: none;
+  }
+
+  .data-scroll {
+    overflow: visible;
+  }
+
+  .data-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    min-width: 0 !important;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-surface);
+  }
+
+  .data-cell {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .data-cell::before {
+    content: attr(data-label);
+    flex: none;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--color-muted);
+  }
+
+  .data-end {
+    justify-self: auto;
+    text-align: right;
+  }
+
+  .page-header h1 {
+    font-size: 24px;
   }
 }

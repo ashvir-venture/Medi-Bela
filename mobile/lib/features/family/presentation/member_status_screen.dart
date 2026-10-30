@@ -53,11 +53,13 @@ class MemberStatusScreen extends ConsumerWidget {
           ),
           data: (detail) {
             if (!detail.shared) {
+              // Deactivated or banned: "Account paused", no medicine data
+              // and no caregiver actions until they're back.
               return ListView(children: [
                 const SizedBox(height: 60),
                 EmptyView(
-                  message: strings.memberNotSharing,
-                  icon: Icons.lock_outline,
+                  message: detail.paused ? strings.accountPaused : strings.memberNotSharing,
+                  icon: detail.paused ? Icons.pause_circle_outline : Icons.lock_outline,
                 ),
               ]);
             }

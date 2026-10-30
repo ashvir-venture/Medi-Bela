@@ -37,34 +37,58 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="auth">
-      <aside className="auth-brand">
-        <MedicineArt />
-        <div className="auth-brand-content">
-          {/* The logo carries the name and tagline, so no text title beside it. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logoEn.png" alt="Medi-Bela: Right time, healthy life" className="auth-logo" />
-          <p className="auth-brand-lead">
-            Verified prescriptions, timely medicine reminders and family care, managed in one place.
-          </p>
-          <ul className="auth-points">
-            <li>Prescription review</li>
-            <li>Medicine catalog</li>
-            <li>Health notices</li>
-          </ul>
-        </div>
-      </aside>
+    <div className="signin">
+      <div className="signin-theme">
+        <ThemeToggle />
+      </div>
 
-      <main className="auth-main">
-        <div className="auth-theme">
-          <ThemeToggle />
+      {/* Wide screens only: what the product does, told by three small cards. */}
+      <section className="signin-story">
+        <SigninLogo />
+        <h2 className="signin-headline">Every prescription checked. Every dose on time.</h2>
+        <p className="signin-lead">
+          Review prescriptions, keep the medicine catalog right, and reach patients with timely notices, all in one
+          place.
+        </p>
+        <div className="signin-cards" aria-hidden="true">
+          <div className="story-card story-card-1">
+            <div className="story-card-title">Napa 500 mg · 1+0+1 · after meal</div>
+            <div className="story-card-meta">
+              <span className="story-dot story-dot-green" />
+              Checked by pharmacist
+            </div>
+          </div>
+          <div className="story-card story-card-2">
+            <div className="story-card-title">8:00 AM · 2 medicines</div>
+            <div className="story-card-meta">
+              <span className="story-chip">Taken</span>
+            </div>
+          </div>
+          <div className="story-card story-card-3">
+            <div className="story-card-title">Missed dose</div>
+            <div className="story-card-meta">
+              <span className="story-dot story-dot-amber" />
+              Family notified
+            </div>
+          </div>
         </div>
+        <p className="signin-foot">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+            <path d="M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM12 9v4l2.5 2M5 3 2 6M19 3l3 3" />
+          </svg>
+          Alarm-style reminders for patients, and family who know when a dose is missed.
+        </p>
+      </section>
 
-        <div className="auth-card">
+      <main className="signin-main">
+        <div className="signin-phone-logo">
+          <SigninLogo />
+        </div>
+        <div className="signin-card">
           <h1>Sign in</h1>
-          <p className="muted auth-sub">Medi-Bela Management, for pharmacist and admin accounts.</p>
+          <p className="muted signin-sub">Medi-Bela Management · for pharmacists and admins</p>
           {error && <div className="error-banner">{error}</div>}
-          <form onSubmit={handleSubmit} autoComplete="off" className="auth-form">
+          <form onSubmit={handleSubmit} autoComplete="off" className="signin-form">
             <div className="field">
               <label htmlFor="phone">Phone number</label>
               <input
@@ -88,7 +112,7 @@ export default function LoginPage() {
                 required
               />
             </div>
-            <button type="submit" className="btn btn-primary btn-block auth-submit" disabled={isSubmitting}>
+            <button type="submit" className="btn btn-primary btn-block signin-submit" disabled={isSubmitting}>
               {isSubmitting ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
@@ -98,34 +122,18 @@ export default function LoginPage() {
   );
 }
 
-/** Light line art behind the brand panel: capsules, tablets, a cross and a pulse line. */
-function MedicineArt() {
+/** Logo mark + wordmark in token colors, so it reads in light and dark. */
+function SigninLogo() {
   return (
-    <svg className="auth-art" viewBox="0 0 600 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <g fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        {/* capsule, top left */}
-        <g transform="rotate(-35 110 120)">
-          <rect x="60" y="100" width="100" height="40" rx="20" />
-          <path d="M110 100v40" />
-        </g>
-        {/* round tablet, top right */}
-        <circle cx="500" cy="110" r="26" />
-        <path d="M482 110h36" />
-        {/* cross, right */}
-        <path d="M520 330h20v-20h20v20h20v20h-20v20h-20v-20h-20z" />
-        {/* small tablets */}
-        <circle cx="70" cy="420" r="12" />
-        <circle cx="560" cy="560" r="10" />
-        {/* capsule, bottom right */}
-        <g transform="rotate(30 470 690)">
-          <rect x="420" y="670" width="100" height="40" rx="20" />
-          <path d="M470 670v40" />
-        </g>
-        {/* cross, bottom left */}
-        <path d="M70 690h14v-14h14v14h14v14h-14v14H84v-14H70z" />
-        {/* pulse line */}
-        <path className="auth-art-pulse" d="M0 600h170l18-40 24 80 22-110 20 70h346" />
-      </g>
-    </svg>
+    <span className="brand signin-logo">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/logo-mark.png" alt="" className="brand-mark" />
+      <span className="brand-text">
+        <span className="brand-name">
+          Medi<span className="brand-accent">-Bela</span>
+        </span>
+        <span className="brand-caption">Right time, healthy life</span>
+      </span>
+    </span>
   );
 }

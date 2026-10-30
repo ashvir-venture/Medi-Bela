@@ -13,6 +13,7 @@ class ApiEndpoints {
 
   // Users
   static const String me = '/users/me';
+  static const String deactivate = '/users/me/deactivate';
 
   // Dropdown data (public)
   static const String lookups = '/lookups';
@@ -32,6 +33,9 @@ class ApiEndpoints {
   static const String familyMembersStatus = '/family/members/status';
   static String familyMemberStatus(String userId) =>
       '/family/members/$userId/status';
+  static String familyMember(String userId) => '/family/members/$userId';
+  static const String familyLeave = '/family/leave';
+  static const String familyEvents = '/family/events';
 
   // Notifications (Phase 4A)
   static const String notifications = '/notifications';

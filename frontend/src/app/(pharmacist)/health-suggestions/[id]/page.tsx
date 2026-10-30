@@ -12,6 +12,7 @@ import {
   updateHealthSuggestion,
 } from '@/lib/api-client';
 import { useRequireAuth } from '@/lib/use-require-auth';
+import { PatientName } from '@/components/patient-name';
 import { Topbar } from '@/components/topbar';
 
 function ItemsEditor({
@@ -177,7 +178,7 @@ export default function HealthSuggestionDetailPage() {
             <div>
               <div className="muted">Patient</div>
               <div style={{ fontWeight: 600 }}>
-                {suggestion.user.name} ({suggestion.user.phone})
+                <PatientName user={suggestion.user} />
               </div>
               <div className="muted" style={{ marginTop: 8 }}>
                 Generated from: {suggestion.sourceMedicines}

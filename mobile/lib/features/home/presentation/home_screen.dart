@@ -17,7 +17,7 @@ import '../../../features/notices/presentation/notices_controller.dart';
 import '../../../router/app_router.dart';
 import '../../../widgets/app_logo.dart';
 import '../../../widgets/sponsored_ad_banner.dart';
-import '../../diabetes/presentation/diabetes_strings.dart';
+import '../../prescription/presentation/prescription_screen.dart';
 import '../../reminders/presentation/reminder_status_banner.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -77,54 +77,27 @@ class HomeScreen extends ConsumerWidget {
             const SizedBox(height: 20),
             const _HealthRemindersSection(),
             const SizedBox(height: 20),
+            // The first thing every new user does, and the main thing a
+            // returning patient does: one large button, not hidden in a tab.
+            FilledButton.icon(
+              onPressed: () => openPrescriptionEntryForm(context),
+              icon: const Icon(Icons.upload_file_outlined, size: 26),
+              label: Text(strings.uploadPrescription),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(60),
+                textStyle: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _AssistantCard(
+              title: strings.aiAssistant,
+              subtitle: strings.assistantCardSubtitle,
+              onTap: () => context.push(AppRoutes.assistant),
+            ),
+            const SizedBox(height: 20),
             // Active notices only: published, not expired, audience-matched
             // (the server filters; expiry is re-checked on the client).
             const _HomeNotices(),
-            const SizedBox(height: 20),
-            Text(
-              strings.quickActions,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _QuickAction(
-                    icon: Icons.groups_outlined,
-                    label: strings.family,
-                    onTap: () => context.go(AppRoutes.family),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _QuickAction(
-                    icon: Icons.upload_file_outlined,
-                    label: strings.uploadPrescription,
-                    onTap: () => context.go(AppRoutes.prescription),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _QuickAction(
-                    icon: Icons.smart_toy_outlined,
-                    label: strings.aiAssistant,
-                    onTap: () => context.push(AppRoutes.assistant),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _QuickAction(
-                    icon: Icons.bloodtype_outlined,
-                    label: ref.watch(diabetesStringsProvider).title,
-                    onTap: () => context.push(AppRoutes.diabetes),
-                  ),
-                ),
-              ],
-            ),
             const SizedBox(height: 16),
             // Ad slot: static for now, to be sold to a sponsor later.
             SponsoredAdBanner(
@@ -556,38 +529,46 @@ class _PlaceholderSectionCard extends StatelessWidget {
   }
 }
 
-class _QuickAction extends StatelessWidget {
-  const _QuickAction({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
+/// The AI assistant, as one large card on Home (no tab of its own).
+class _AssistantCard extends StatelessWidget {
+  const _AssistantCard({required this.title, required this.subtitle, required this.onTap});
 
-  final IconData icon;
-  final String label;
+  final String title;
+  final String subtitle;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Semantics(
       button: true,
-      label: label,
+      label: '$title. $subtitle',
       excludeSemantics: true,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Card(
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
-            child: Column(
+            padding: const EdgeInsets.all(18),
+            child: Row(
               children: [
-                Icon(icon, color: Theme.of(context).colorScheme.primary),
-                const SizedBox(height: 8),
-                Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium,
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.12),
+                  child: Icon(Icons.smart_toy_outlined, size: 30, color: theme.colorScheme.primary),
                 ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 4),
+                      Text(subtitle, style: theme.textTheme.bodyMedium),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right),
               ],
             ),
           ),

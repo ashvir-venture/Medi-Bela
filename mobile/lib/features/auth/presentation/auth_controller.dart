@@ -44,19 +44,21 @@ class AuthController extends StateNotifier<AsyncValue<UserModel?>> {
     );
   }
 
-  Future<Result<UserModel>> login({
+  /// Success is true when this login reactivated a deactivated account.
+  Future<Result<bool>> login({
     required String phone,
     required String password,
   }) async {
     final result = await _repository.login(phone: phone, password: password);
-    result.when(
-      success: (user) {
+    return result.when(
+      success: (outcome) {
+        final (user, reactivated) = outcome;
         state = AsyncValue.data(user);
         _ref.read(sessionNotifierProvider.notifier).setLoggedIn(true);
+        return Result.success(reactivated);
       },
-      failure: (_) {},
+      failure: (message) => Result.failure(message),
     );
-    return result;
   }
 
   Future<Result<UserModel>> register({
@@ -128,10 +130,32 @@ class AuthController extends StateNotifier<AsyncValue<UserModel?>> {
   /// Deletes the account (server first, then this device). On success the
   /// session ends exactly like a logout; on failure nothing local changes.
   Future<Result<void>> deleteAccount({required String password}) async {
+    await _syncFirst();
     final result = await _repository.deleteAccount(password: password);
-    if (!result.isSuccess) return result;
-    // The server already dropped this device's push registration with the
-    // account; these are the local leftovers.
+    if (result.isSuccess) await _endAccountSession();
+    return result;
+  }
+
+  /// Pauses the account (signing in again reactivates it). Same local
+  /// cleanup as a delete.
+  Future<Result<void>> deactivate({required String password}) async {
+    await _syncFirst();
+    final result = await _repository.deactivate(password: password);
+    if (result.isSuccess) await _endAccountSession();
+    return result;
+  }
+
+  /// Sends queued changes (doses taken offline...) before the account is
+  /// paused or deleted, so nothing marked on this phone is lost. Best effort.
+  Future<void> _syncFirst() async {
+    try {
+      await _ref.read(syncServiceProvider).drainQueue().timeout(const Duration(seconds: 15));
+    } catch (_) {}
+  }
+
+  /// The server already dropped this device's push registration with the
+  /// account; these are the local leftovers.
+  Future<void> _endAccountSession() async {
     try {
       await _ref.read(pushServiceProvider).onLogout();
     } catch (_) {}
@@ -139,7 +163,6 @@ class AuthController extends StateNotifier<AsyncValue<UserModel?>> {
     await _ref.read(noticesCacheProvider).clear();
     state = const AsyncValue.data(null);
     _ref.read(sessionNotifierProvider.notifier).setLoggedIn(false);
-    return result;
   }
 
   /// Re-pulls the profile from the server, keeping the local cache and

@@ -134,6 +134,21 @@ export const messages = {
         };
   },
 
+  /** To the member a caregiver removed. Neutral: no names. */
+  familyRemoved(lang: Language): MessageCopy {
+    return lang === Language.BN
+      ? { title: 'পরিবারের আপডেট', body: 'আপনাকে পরিবার থেকে সরিয়ে দেওয়া হয়েছে।' }
+      : { title: 'Family update', body: 'You were removed from the family.' };
+  },
+
+  /** To every remaining member after a caregiver handover (the role decides who gets the caregiver tools). */
+  caregiverChanged(lang: Language, caregiverName: string): MessageCopy {
+    const name = clip(caregiverName, 40);
+    return lang === Language.BN
+      ? { title: 'পরিবারের আপডেট', body: `${name} এখন পরিবারের পরিচর্যাকারী।` }
+      : { title: 'Family update', body: `${name} is now the family caregiver.` };
+  },
+
   /** Notices are public, admin-authored text — safe to show as written. */
   notice(title: string, content: string): MessageCopy {
     return { title: clip(title, 80), body: clip(content.replace(/\s+/g, ' ').trim(), 120) };

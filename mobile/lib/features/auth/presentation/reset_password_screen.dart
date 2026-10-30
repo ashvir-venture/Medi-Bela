@@ -17,7 +17,8 @@ class ResetPasswordScreen extends ConsumerStatefulWidget {
   final String? initialPhone;
 
   @override
-  ConsumerState<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
+  ConsumerState<ResetPasswordScreen> createState() =>
+      _ResetPasswordScreenState();
 }
 
 class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
@@ -46,7 +47,9 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
       _isSubmitting = true;
       _error = null;
     });
-    final result = await ref.read(authRepositoryProvider).resetPassword(
+    final result = await ref
+        .read(authRepositoryProvider)
+        .resetPassword(
           phone: _phone.text.trim(),
           code: _code.text.trim(),
           newPassword: _password.text,
@@ -76,7 +79,8 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
     if (!mounted) return;
     setState(() => _isResending = false);
     result.when(
-      success: (_) => setState(() => _info = ref.read(stringsProvider).resetCodeSentNotice),
+      success: (_) =>
+          setState(() => _info = ref.read(stringsProvider).resetCodeSentNotice),
       failure: (message) => setState(() => _error = message),
     );
   }
@@ -85,97 +89,122 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
   Widget build(BuildContext context) {
     final strings = ref.watch(stringsProvider);
     final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(title: Text(strings.resetPasswordTitle), actions: const [LanguageSwitcher()]),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(_info ?? strings.resetCodeSentNotice),
-                    const SizedBox(height: 16),
-                    if (_error != null) ...[
-                      Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
+    // Back goes to Login (not to the Forgot password screen before this one).
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) context.go(AppRoutes.login);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(strings.resetPasswordTitle),
+          actions: const [LanguageSwitcher()],
+        ),
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(_info ?? strings.resetCodeSentNotice),
                       const SizedBox(height: 16),
+                      if (_error != null) ...[
+                        Text(
+                          _error!,
+                          style: TextStyle(color: theme.colorScheme.error),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      TextFormField(
+                        controller: _phone,
+                        keyboardType: TextInputType.phone,
+                        textInputAction: TextInputAction.next,
+                        decoration: InputDecoration(
+                          labelText: strings.phone,
+                          prefixIcon: const Icon(Icons.phone_outlined),
+                        ),
+                        validator: (v) => v == null || v.trim().isEmpty
+                            ? strings.requiredField
+                            : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _code,
+                        keyboardType: TextInputType.number,
+                        textInputAction: TextInputAction.next,
+                        maxLength: 6,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        decoration: InputDecoration(
+                          labelText: strings.verificationCode,
+                          prefixIcon: const Icon(Icons.sms_outlined),
+                          counterText: '',
+                        ),
+                        validator: (v) => v == null || v.trim().length != 6
+                            ? strings.requiredField
+                            : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _password,
+                        obscureText: true,
+                        textInputAction: TextInputAction.next,
+                        decoration: InputDecoration(
+                          labelText: strings.newPassword,
+                          prefixIcon: const Icon(Icons.lock_outline),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.isEmpty)
+                            return strings.requiredField;
+                          if (v.length < 6) return strings.passwordTooShort;
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _confirm,
+                        obscureText: true,
+                        textInputAction: TextInputAction.done,
+                        decoration: InputDecoration(
+                          labelText: strings.confirmPassword,
+                          prefixIcon: const Icon(Icons.lock_outline),
+                        ),
+                        onFieldSubmitted: (_) => _submit(),
+                        validator: (v) => v != _password.text
+                            ? strings.passwordsDoNotMatch
+                            : null,
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton(
+                        onPressed: _isSubmitting ? null : _submit,
+                        child: _isSubmitting
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(strings.saveNewPassword),
+                      ),
+                      const SizedBox(height: 12),
+                      TextButton(
+                        onPressed: _isResending ? null : _resend,
+                        child: Text(strings.sendCode),
+                      ),
+                      TextButton(
+                        onPressed: () => context.go(AppRoutes.login),
+                        child: Text(strings.backToLogin),
+                      ),
                     ],
-                    TextFormField(
-                      controller: _phone,
-                      keyboardType: TextInputType.phone,
-                      textInputAction: TextInputAction.next,
-                      decoration: InputDecoration(
-                        labelText: strings.phone,
-                        prefixIcon: const Icon(Icons.phone_outlined),
-                      ),
-                      validator: (v) => v == null || v.trim().isEmpty ? strings.requiredField : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _code,
-                      keyboardType: TextInputType.number,
-                      textInputAction: TextInputAction.next,
-                      maxLength: 6,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      decoration: InputDecoration(
-                        labelText: strings.verificationCode,
-                        prefixIcon: const Icon(Icons.sms_outlined),
-                        counterText: '',
-                      ),
-                      validator: (v) => v == null || v.trim().length != 6 ? strings.requiredField : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _password,
-                      obscureText: true,
-                      textInputAction: TextInputAction.next,
-                      decoration: InputDecoration(
-                        labelText: strings.newPassword,
-                        prefixIcon: const Icon(Icons.lock_outline),
-                      ),
-                      validator: (v) {
-                        if (v == null || v.isEmpty) return strings.requiredField;
-                        if (v.length < 6) return strings.passwordTooShort;
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _confirm,
-                      obscureText: true,
-                      textInputAction: TextInputAction.done,
-                      decoration: InputDecoration(
-                        labelText: strings.confirmPassword,
-                        prefixIcon: const Icon(Icons.lock_outline),
-                      ),
-                      onFieldSubmitted: (_) => _submit(),
-                      validator: (v) => v != _password.text ? strings.passwordsDoNotMatch : null,
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton(
-                      onPressed: _isSubmitting ? null : _submit,
-                      child: _isSubmitting
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : Text(strings.saveNewPassword),
-                    ),
-                    const SizedBox(height: 12),
-                    TextButton(
-                      onPressed: _isResending ? null : _resend,
-                      child: Text(strings.sendCode),
-                    ),
-                    TextButton(
-                      onPressed: () => context.go(AppRoutes.login),
-                      child: Text(strings.backToLogin),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),

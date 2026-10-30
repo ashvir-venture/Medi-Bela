@@ -325,7 +325,8 @@ export interface PrescriptionMedicine {
 export interface PrescriptionUser {
   id: string;
   name: string;
-  phone: string;
+  /** null once the patient deleted their account (name is then "Deleted user"). */
+  phone: string | null;
   address: string | null;
 }
 
@@ -334,7 +335,8 @@ export type PrescriptionStatus = 'PENDING' | 'REJECTED' | 'AWAITING_CONFIRMATION
 export interface PrescriptionListItem {
   id: string;
   status: PrescriptionStatus;
-  imageUrl: string;
+  /** null once the patient deleted their account (the photo is erased). */
+  imageUrl: string | null;
   createdAt: string;
   reviewedAt: string | null;
   previousPrescriptionId: string | null;
@@ -741,6 +743,7 @@ export interface DashboardData {
     liveNotices: number;
     activeRules: number;
     aiSuggestionsAwaitingReview: number;
+    noticesAwaitingApproval: number;
   };
 }
 
@@ -778,6 +781,7 @@ export interface AnalyticsData {
   cacheSeconds: number;
   users: {
     total: number;
+    byStatus: { active: number; deactivated: number; suspended: number };
     byDivision: CountBucket[];
     divisionNotSet: number;
     byGender: CountBucket[];
@@ -827,6 +831,8 @@ export interface PharmacistDashboardData {
   catalog: { incompleteDoctors: number; incompleteMedicines: number };
   /** Unpublished AI suggestions (drafts). */
   aiSuggestions: { drafts: number };
+  /** The pharmacist's own notices: sent back by an admin, and waiting for approval. */
+  notices: { sentBack: number; pending: number };
   oldestPending: {
     id: string;
     createdAt: string;
@@ -837,4 +843,45 @@ export interface PharmacistDashboardData {
 
 export function getPharmacistDashboard() {
   return request<PharmacistDashboardData>('/pharmacist/dashboard');
+}
+
+// --- Users (admin) ---
+
+export type AccountStatus = 'ACTIVE' | 'DEACTIVATED' | 'SUSPENDED' | 'DELETED';
+export type AgeBand = '0-17' | '18-39' | '40-59' | '60+';
+
+export interface AdminUserRow {
+  id: string;
+  name: string;
+  phone: string | null;
+  role: AdminUser['role'];
+  accountStatus: AccountStatus;
+  createdAt: string;
+  division: LookupRow | null;
+  /** False for admins (never banned) and deleted accounts. */
+  canBan: boolean;
+}
+
+export interface AdminUsersParams {
+  cursor?: string | null;
+  phone?: string;
+  divisionId?: number;
+  ageBand?: AgeBand;
+  role?: AdminUser['role'];
+  status?: AccountStatus;
+}
+
+/** 20 per page, newest first. Deleted accounts only when status=DELETED. */
+export function listAdminUsers(params: AdminUsersParams = {}) {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null && v !== '') qs.set(k, String(v));
+  return request<CursorPage<AdminUserRow>>(`/admin/users${qs.size ? `?${qs}` : ''}`);
+}
+
+export function banUser(id: string) {
+  return request<{ id: string; accountStatus: AccountStatus }>(`/admin/users/${id}/ban`, { method: 'POST' });
+}
+
+export function unbanUser(id: string) {
+  return request<{ id: string; accountStatus: AccountStatus }>(`/admin/users/${id}/unban`, { method: 'POST' });
 }

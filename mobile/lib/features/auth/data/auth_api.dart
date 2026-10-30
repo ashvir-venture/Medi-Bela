@@ -36,7 +36,8 @@ class AuthApi {
     return _parseAuthResponse(response.data!);
   }
 
-  Future<(UserModel, AuthTokens)> login({
+  /// The bool: this login reactivated a deactivated account (show "Welcome back").
+  Future<(UserModel, AuthTokens, bool)> login({
     required String phone,
     required String password,
   }) async {
@@ -44,7 +45,8 @@ class AuthApi {
       ApiEndpoints.login,
       data: {'phone': phone, 'password': password},
     );
-    return _parseAuthResponse(response.data!);
+    final (user, tokens) = _parseAuthResponse(response.data!);
+    return (user, tokens, response.data!['reactivated'] == true);
   }
 
   Future<void> logout() async {
@@ -81,6 +83,11 @@ class AuthApi {
   }
 
   /// Permanently deletes the signed-in account (re-authenticated by password).
+  /// Pauses the account until the next sign-in (password re-entered).
+  Future<void> deactivate({required String password}) async {
+    await _dio.post(ApiEndpoints.deactivate, data: {'password': password});
+  }
+
   Future<void> deleteAccount({required String password}) async {
     await _dio.delete(ApiEndpoints.me, data: {'password': password});
   }

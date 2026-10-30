@@ -8,6 +8,7 @@ import { AdminDashboardController } from '../../admin/admin-dashboard.controller
 import { PharmacistDashboardController } from '../../admin/pharmacist-dashboard.controller';
 import { PharmacistRoutinesController } from '../../health/pharmacist-routines.controller';
 import { AuditLogController } from '../../audit/audit-log.controller';
+import { AdminUsersController } from '../../admin/admin-users.controller';
 import { HealthSuggestionsController } from '../../health/health-suggestions.controller';
 
 type Ctor = { prototype: object };
@@ -66,6 +67,12 @@ describe('staff roles (Round 5 split)', () => {
   it('the audit log is admin only', () => {
     for (const h of ['list', 'filters', 'detail']) {
       expect(roles(AuditLogController, h)).toEqual([Role.ADMIN]);
+    }
+  });
+
+  it('the users page and ban / unban are admin only', () => {
+    for (const h of ['list', 'ban', 'unban']) {
+      expect(roles(AdminUsersController, h)).toEqual([Role.ADMIN]);
     }
   });
 });

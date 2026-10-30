@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ApiError, DashboardData, getDashboard } from '@/lib/api-client';
 import { useRequireAuth } from '@/lib/use-require-auth';
 import { Topbar } from '@/components/topbar';
+import { DataList } from '@/components/data-list';
 import { StatusBadge } from '@/components/status-badge';
 import { AnalyticsSection } from '@/components/analytics';
 
@@ -63,10 +64,11 @@ export default function DashboardPage() {
                 <div className="stat-value">{data.totals.families}</div>
                 <div className="muted">Total families</div>
               </div>
-              <Link href="/super-control-007/prescriptions" className={`stat-card ${data.totals.prescriptions.pending > 0 ? 'warn' : ''}`}>
+              {/* Not a link: prescriptions are the pharmacists' work (no admin list). */}
+              <div className={`stat-card ${data.totals.prescriptions.pending > 0 ? 'warn' : ''}`}>
                 <div className="stat-value">{data.totals.prescriptions.pending}</div>
                 <div className="muted">Pending prescriptions</div>
-              </Link>
+              </div>
               <div className="stat-card">
                 <div className="stat-value">{data.totals.prescriptions.completed}</div>
                 <div className="muted">Completed prescriptions</div>
@@ -82,15 +84,16 @@ export default function DashboardPage() {
               {data.recentPrescriptions.length === 0 ? (
                 <p className="muted">No prescriptions have been uploaded yet.</p>
               ) : (
-                data.recentPrescriptions.map((p) => (
-                  <Link key={p.id} href={`/super-control-007/prescriptions/${p.id}`} className="list-item">
-                    <div>
-                      <div style={{ fontWeight: 600 }}>{p.user.name}</div>
-                      <span className="muted">{new Date(p.createdAt).toLocaleString()}</span>
-                    </div>
-                    <StatusBadge status={p.status} />
-                  </Link>
-                ))
+                <DataList
+                  rows={data.recentPrescriptions}
+                  rowKey={(p) => p.id}
+                  minWidth={420}
+                  columns={[
+                    { label: 'Patient', width: '1.5fr', render: (p) => <strong>{p.user.name}</strong> },
+                    { label: 'Uploaded', width: '1.5fr', render: (p) => new Date(p.createdAt).toLocaleString() },
+                    { label: 'Status', width: '1fr', end: true, render: (p) => <StatusBadge status={p.status} /> },
+                  ]}
+                />
               )}
             </div>
 

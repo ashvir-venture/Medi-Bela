@@ -22,6 +22,7 @@ import {
   searchTests,
 } from '@/lib/api-client';
 import { Topbar } from '@/components/topbar';
+import { PatientName } from '@/components/patient-name';
 import { StatusBadge } from '@/components/status-badge';
 import { Autosuggest } from '@/components/autosuggest';
 import {
@@ -80,10 +81,13 @@ export function PrescriptionWorkspace({
   id,
   basePath,
   readOnly: forceReadOnly,
+  back = { href: basePath, label: 'Queue' },
 }: {
   id: string;
   basePath: string;
   readOnly: boolean;
+  /** Where the back button goes (the admin area has no queue: the audit log). */
+  back?: { href: string; label: string };
 }) {
   const [prescription, setPrescription] = useState<PrescriptionDetail | null>(null);
   const [lookups, setLookups] = useState<Lookups | null>(null);
@@ -256,8 +260,8 @@ export function PrescriptionWorkspace({
         <Topbar title="Prescription" />
         <div className="page">
           {error && <div className="error-banner">{error}</div>}
-          <Link href={basePath} className="btn">
-            ← Back to queue
+          <Link href={back.href} className="btn">
+            ← Back to {back.label.toLowerCase()}
           </Link>
         </div>
       </>
@@ -271,8 +275,8 @@ export function PrescriptionWorkspace({
       <Topbar
         title={`Prescription — ${p.user.name}`}
         actions={
-          <Link href={basePath} className="btn">
-            ← Queue
+          <Link href={back.href} className="btn">
+            ← {back.label}
           </Link>
         }
       />
@@ -283,13 +287,20 @@ export function PrescriptionWorkspace({
         <div className="workspace">
           <section className="workspace-image">
             <div className="card">
-              <a href={p.imageUrl} target="_blank" rel="noreferrer" title="Open full size">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.imageUrl} alt="Prescription photo" className="prescription-image" />
-              </a>
-              <p className="muted" style={{ marginTop: 8 }}>
-                Tap the photo to open it full size.
-              </p>
+              {p.imageUrl ? (
+                <>
+                  <a href={p.imageUrl} target="_blank" rel="noreferrer" title="Open full size">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={p.imageUrl} alt="Prescription photo" className="prescription-image" />
+                  </a>
+                  <p className="muted" style={{ marginTop: 8 }}>
+                    Tap the photo to open it full size.
+                  </p>
+                </>
+              ) : (
+                // The patient deleted their account; the photo was erased with it.
+                <div className="empty-state">Photo deleted</div>
+              )}
             </div>
           </section>
 
@@ -300,7 +311,9 @@ export function PrescriptionWorkspace({
                 <span className="muted">Uploaded {new Date(p.createdAt).toLocaleString()}</span>
               </div>
               <p style={{ margin: '8px 0 0' }}>
-                <strong>{p.user.name}</strong> <span className="muted">({p.user.phone})</span>
+                <strong>
+                  <PatientName user={p.user} />
+                </strong>
               </p>
               {p.reviewedBy && (
                 <p className="muted">

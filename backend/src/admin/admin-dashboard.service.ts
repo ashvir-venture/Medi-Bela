@@ -39,6 +39,7 @@ export class AdminDashboardService {
       liveNotices,
       activeRules,
       draftSuggestions,
+      noticesAwaitingApproval,
     ] = await Promise.all([
       this.prisma.user.count({ where: { role: Role.USER, accountStatus: { not: AccountStatus.DELETED } } }),
       this.prisma.family.count(),
@@ -79,6 +80,7 @@ export class AdminDashboardService {
       }),
       this.prisma.healthSuggestionRule.count({ where: { enabled: true } }),
       this.prisma.healthSuggestion.count({ where: { status: SuggestionStatus.DRAFT } }),
+      this.prisma.notice.count({ where: { status: NoticeStatus.PENDING_APPROVAL } }),
     ]);
 
     const missedTotal = missed + overduePending;
@@ -104,6 +106,7 @@ export class AdminDashboardService {
         liveNotices,
         activeRules,
         aiSuggestionsAwaitingReview: draftSuggestions,
+        noticesAwaitingApproval,
       },
     };
   }

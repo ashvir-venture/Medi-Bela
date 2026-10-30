@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ApiError, SuggestionRule, listSuggestionRules } from '@/lib/api-client';
 import { useRequireAuth } from '@/lib/use-require-auth';
+import { DataList } from '@/components/data-list';
 import { Topbar } from '@/components/topbar';
 
 export default function HealthRulesPage() {
@@ -82,20 +83,33 @@ export default function HealthRulesPage() {
         ) : visible.length === 0 ? (
           <p className="muted">No {filter === 'ACTIVE' ? 'active' : 'inactive'} rules.</p>
         ) : (
-          visible.map((rule) => (
-            <Link key={rule.id} href={`/health-rules/${rule.id}`} className="list-item">
-              <div>
-                <div style={{ fontWeight: 600 }}>{rule.name}</div>
-                <div className="muted">
-                  IF medicine name contains{' '}
-                  &ldquo;{rule.conditionValue}&rdquo; → health reminder: &ldquo;{rule.suggestedAction}&rdquo;
-                </div>
-              </div>
-              <span className={`badge ${rule.enabled ? 'badge-completed' : 'badge-draft'}`}>
-                {rule.enabled ? 'Active' : 'Inactive'}
-              </span>
-            </Link>
-          ))
+          <DataList
+            rows={visible}
+            rowKey={(rule) => rule.id}
+            rowHref={(rule) => `/health-rules/${rule.id}`}
+            columns={[
+              { label: 'Rule', width: '1.2fr', render: (rule) => <strong>{rule.name}</strong> },
+              {
+                label: 'When → reminder',
+                width: '2.4fr',
+                render: (rule) => (
+                  <span className="muted">
+                    IF medicine name contains &ldquo;{rule.conditionValue}&rdquo; → &ldquo;{rule.suggestedAction}&rdquo;
+                  </span>
+                ),
+              },
+              {
+                label: 'Status',
+                width: '110px',
+                end: true,
+                render: (rule) => (
+                  <span className={`badge ${rule.enabled ? 'badge-completed' : 'badge-draft'}`}>
+                    {rule.enabled ? 'Active' : 'Inactive'}
+                  </span>
+                ),
+              },
+            ]}
+          />
         )}
       </div>
     </>

@@ -18,6 +18,10 @@ const COUNTED_USERS: Prisma.UserWhereInput = {
   accountStatus: { not: AccountStatus.DELETED },
 };
 
+function statusCount(rows: { accountStatus: AccountStatus; _count: { _all: number } }[], status: AccountStatus) {
+  return rows.find((r) => r.accountStatus === status)?._count._all ?? 0;
+}
+
 interface Bucket {
   id: number;
   name: string;
@@ -72,6 +76,7 @@ export class AdminAnalyticsService {
   private async loadOverview(now: Date) {
     const [
       totalUsers,
+      byStatusRows,
       byDivisionRows,
       byGenderRows,
       ageRows,
@@ -87,6 +92,11 @@ export class AdminAnalyticsService {
       topMedicineRows,
     ] = await Promise.all([
       this.prisma.user.count({ where: COUNTED_USERS }),
+      this.prisma.user.groupBy({
+        by: ['accountStatus'],
+        where: COUNTED_USERS,
+        _count: { _all: true },
+      }),
       this.prisma.user.groupBy({
         by: ['divisionId'],
         where: COUNTED_USERS,
@@ -124,6 +134,11 @@ export class AdminAnalyticsService {
       cacheSeconds: ANALYTICS_CACHE_MS / 1000,
       users: {
         total: totalUsers,
+        byStatus: {
+          active: statusCount(byStatusRows, AccountStatus.ACTIVE),
+          deactivated: statusCount(byStatusRows, AccountStatus.DEACTIVATED),
+          suspended: statusCount(byStatusRows, AccountStatus.SUSPENDED),
+        },
         byDivision: byDivision.rows,
         divisionNotSet: byDivision.notSet,
         byGender: byGender.rows,
@@ -171,7 +186,10 @@ export class AdminAnalyticsService {
     };
   }
 
-  /** Age on today's date in the app's timezone, per band; 'notSet' = no date of birth. */
+  /**
+   * Age on today's date in the app's timezone, per band; 'notSet' = no date
+   * of birth. A deleted account keeps only birthYear (age = this year - it).
+   */
   private async ageBands(now: Date): Promise<Map<string, number>> {
     const today = new Date(appDayBounds(now).start.getTime() + appUtcOffsetMinutes() * 60_000)
       .toISOString()
@@ -179,14 +197,20 @@ export class AdminAnalyticsService {
     const rows = await this.prisma.$queryRaw<{ band: string; n: number }[]>(Prisma.sql`
       SELECT band, COUNT(*)::int AS n FROM (
         SELECT CASE
-          WHEN "dateOfBirth" IS NULL THEN 'notSet'
-          WHEN date_part('year', age(${today}::date, "dateOfBirth")) < 18 THEN '0-17'
-          WHEN date_part('year', age(${today}::date, "dateOfBirth")) < 40 THEN '18-39'
-          WHEN date_part('year', age(${today}::date, "dateOfBirth")) < 60 THEN '40-59'
+          WHEN years IS NULL THEN 'notSet'
+          WHEN years < 18 THEN '0-17'
+          WHEN years < 40 THEN '18-39'
+          WHEN years < 60 THEN '40-59'
           ELSE '60+'
         END AS band
-        FROM users
-        WHERE role = 'USER' AND "accountStatus" <> 'DELETED'
+        FROM (
+          SELECT CASE
+            WHEN "dateOfBirth" IS NOT NULL THEN date_part('year', age(${today}::date, "dateOfBirth"))
+            WHEN "birthYear" IS NOT NULL THEN date_part('year', ${today}::date) - "birthYear"
+          END AS years
+          FROM users
+          WHERE role = 'USER' AND "accountStatus" <> 'DELETED'
+        ) aged
       ) banded
       GROUP BY band`);
     return new Map(rows.map((r) => [r.band, r.n]));

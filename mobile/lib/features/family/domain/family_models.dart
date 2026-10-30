@@ -7,6 +7,7 @@ class FamilyMemberModel {
     required this.role,
     this.address,
     required this.joinedAt,
+    this.paused = false,
   });
 
   final String familyMemberId;
@@ -16,6 +17,10 @@ class FamilyMemberModel {
   final String role; // CAREGIVER | MEMBER
   final String? address;
   final DateTime joinedAt;
+
+  /// Deactivated or banned: the family sees "Account paused". From the
+  /// server only (the offline cache doesn't keep it).
+  final bool paused;
 
   /// Parses the shape returned by `GET /family/members`
   /// (`{ familyMemberId, role, joinedAt, user: { id, name, phone, address } }`).
@@ -29,6 +34,7 @@ class FamilyMemberModel {
       role: json['role'] as String,
       address: user['address'] as String?,
       joinedAt: DateTime.parse(json['joinedAt'] as String),
+      paused: user['paused'] as bool? ?? false,
     );
   }
 
@@ -122,6 +128,7 @@ class MemberStatusSummary {
     required this.userId,
     required this.name,
     required this.shared,
+    this.paused = false,
     this.total = 0,
     this.taken = 0,
     this.missed = 0,
@@ -131,6 +138,8 @@ class MemberStatusSummary {
   final String userId;
   final String name;
   final bool shared;
+  /// Deactivated or banned: no medicine data, "Account paused".
+  final bool paused;
   final int total;
   final int taken;
   final int missed;
@@ -142,6 +151,7 @@ class MemberStatusSummary {
       userId: json['userId'] as String,
       name: json['name'] as String,
       shared: json['shared'] as bool? ?? false,
+      paused: json['paused'] as bool? ?? false,
       total: today?['total'] as int? ?? 0,
       taken: today?['taken'] as int? ?? 0,
       missed: today?['missed'] as int? ?? 0,
@@ -183,12 +193,14 @@ class MemberStatusDetail {
     required this.name,
     required this.shared,
     required this.doses,
+    this.paused = false,
   });
 
   final String userId;
   final String name;
   final bool shared;
   final List<MemberDoseStatus> doses;
+  final bool paused;
 
   factory MemberStatusDetail.fromJson(Map<String, dynamic> json) {
     final member = json['member'] as Map<String, dynamic>;
@@ -196,9 +208,62 @@ class MemberStatusDetail {
       userId: member['userId'] as String,
       name: member['name'] as String,
       shared: json['shared'] as bool? ?? false,
+      paused: member['paused'] as bool? ?? false,
       doses: (json['doses'] as List<dynamic>? ?? [])
           .map((d) => MemberDoseStatus.fromJson(d as Map<String, dynamic>))
           .toList(),
     );
   }
+}
+
+/// A person in the activity feed: their current name, or a deleted account.
+class FamilyEventPerson {
+  const FamilyEventPerson({required this.id, required this.name, required this.deleted});
+
+  final String id;
+  final String name;
+  final bool deleted;
+
+  static FamilyEventPerson? fromJson(Map<String, dynamic>? json) => json == null
+      ? null
+      : FamilyEventPerson(
+          id: json['id'] as String,
+          name: json['name'] as String,
+          deleted: json['deleted'] as bool? ?? false,
+        );
+}
+
+/// One line of the family's activity feed (`GET /family/events`).
+class FamilyEvent {
+  const FamilyEvent({
+    required this.id,
+    required this.kind,
+    required this.createdAt,
+    this.subject,
+    this.actor,
+  });
+
+  final String id;
+  final String kind; // CREATED | JOINED | LEFT | REMOVED | CAREGIVER_CHANGED
+  final DateTime createdAt;
+  final FamilyEventPerson? subject;
+  final FamilyEventPerson? actor;
+
+  factory FamilyEvent.fromJson(Map<String, dynamic> json) {
+    return FamilyEvent(
+      id: json['id'] as String,
+      kind: json['kind'] as String,
+      createdAt: DateTime.parse(json['createdAt'] as String).toLocal(),
+      subject: FamilyEventPerson.fromJson(json['subject'] as Map<String, dynamic>?),
+      actor: FamilyEventPerson.fromJson(json['actor'] as Map<String, dynamic>?),
+    );
+  }
+}
+
+/// One page of the feed, newest first; [nextCursor] is null on the last page.
+class FamilyEventsPage {
+  const FamilyEventsPage({required this.items, this.nextCursor});
+
+  final List<FamilyEvent> items;
+  final String? nextCursor;
 }

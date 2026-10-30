@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { listRoutines } from '@/lib/api-client';
+import { PatientName } from '@/components/patient-name';
+import { DataList } from '@/components/data-list';
 import { Topbar } from '@/components/topbar';
 import { Pager, useCursorPager } from '@/components/pager';
 
@@ -63,29 +65,44 @@ export default function RoutinesPage() {
         ) : pager.items.length === 0 ? (
           <div className="empty-state">No routines found.</div>
         ) : (
-          pager.items.map((r) => {
-            const latest = r.healthSuggestions[0];
-            return (
-              <Link key={r.id} href={`/routines/${r.id}`} className="list-item">
-                <div>
-                  <div style={{ fontWeight: 600 }}>
-                    {r.medicineName} <span className="muted">{r.dosage}</span>
-                  </div>
-                  <div className="muted">
-                    {r.user.name} ({r.user.phone}) · {r.frequency}
-                    {r.active ? '' : ' · inactive'}
-                  </div>
-                </div>
-                <span
-                  className={`badge ${
-                    latest ? (latest.status === 'PUBLISHED' ? 'badge-completed' : 'badge-draft') : 'badge-pending'
-                  }`}
-                >
-                  {latest ? (latest.status === 'PUBLISHED' ? 'Suggestion published' : 'Suggestion draft') : 'No suggestion'}
-                </span>
-              </Link>
-            );
-          })
+          <DataList
+            rows={pager.items}
+            rowKey={(r) => r.id}
+            rowHref={(r) => `/routines/${r.id}`}
+            columns={[
+              {
+                label: 'Medicine',
+                width: '1.6fr',
+                render: (r) => (
+                  <>
+                    <strong>{r.medicineName}</strong> <span className="muted">{r.dosage}</span>
+                    <div className="muted">
+                      {r.frequency}
+                      {r.active ? '' : ' · inactive'}
+                    </div>
+                  </>
+                ),
+              },
+              { label: 'Patient', width: '1.6fr', render: (r) => <PatientName user={r.user} /> },
+              {
+                label: 'AI suggestion',
+                width: '1.2fr',
+                end: true,
+                render: (r) => {
+                  const latest = r.healthSuggestions[0];
+                  return (
+                    <span
+                      className={`badge ${
+                        latest ? (latest.status === 'PUBLISHED' ? 'badge-completed' : 'badge-draft') : 'badge-pending'
+                      }`}
+                    >
+                      {latest ? (latest.status === 'PUBLISHED' ? 'Published' : 'Draft') : 'None yet'}
+                    </span>
+                  );
+                },
+              },
+            ]}
+          />
         )}
 
         <Pager

@@ -13,6 +13,8 @@ import 'package:timezone/timezone.dart' as tz;
 import '../core/constants/app_config.dart';
 import '../core/localization/app_strings.dart';
 import '../core/localization/locale_controller.dart';
+import '../features/auth/data/device_session_wipe.dart';
+import '../features/notices/presentation/notices_controller.dart';
 import '../firebase_options.dart';
 import '../main.dart' show flutterLocalNotificationsPlugin;
 import '../providers/core_providers.dart';
@@ -100,11 +102,26 @@ Future<void> reminderActionBackground(NotificationResponse response) async {
 }
 
 /// FCM handler for data-only messages that arrive while the app is in the
-/// background or closed. Only the medicine-reminder backstop is data-only:
-/// it's shown as the group's second reminder, or dropped when the local
-/// database already shows those doses taken (marked offline, not synced).
+/// background or closed: the medicine-reminder backstop (shown as the
+/// group's second reminder, or dropped when the local database already shows
+/// those doses taken) and "session ended" (the account was deactivated,
+/// deleted or banned: reminders are cancelled and this phone's data wiped).
 @pragma('vm:entry-point')
 Future<void> firebaseBackgroundHandler(RemoteMessage message) async {
+  if (isSessionEndedMessage(message.data)) {
+    final container = await openBackgroundContainer();
+    try {
+      await wipeDeviceSession(
+        cancelReminders: () => container.read(notificationSchedulerProvider).cancelAll(),
+        storage: container.read(secureStorageProvider),
+        database: container.read(appDatabaseProvider),
+        clearNotices: () => container.read(noticesCacheProvider).clear(),
+      );
+    } finally {
+      container.dispose();
+    }
+    return;
+  }
   final at = backstopTime(message.data);
   if (at == null) return;
   if (Firebase.apps.isEmpty) {

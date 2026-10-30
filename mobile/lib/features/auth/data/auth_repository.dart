@@ -55,14 +55,15 @@ class AuthRepository {
     }
   }
 
-  Future<Result<UserModel>> login({
+  /// Success carries the user and whether this login reactivated the account.
+  Future<Result<(UserModel, bool)>> login({
     required String phone,
     required String password,
   }) async {
     try {
-      final (user, tokens) = await _api.login(phone: phone, password: password);
+      final (user, tokens, reactivated) = await _api.login(phone: phone, password: password);
       await _persistSession(user, tokens);
-      return Result.success(user);
+      return Result.success((user, reactivated));
     } on DioException catch (e) {
       return Result.failure(friendlyErrorMessage(e));
     }
@@ -156,6 +157,19 @@ class AuthRepository {
 
   /// Deletes the account on the server; only if that succeeded, forgets the
   /// session and wipes everything stored for this user on the device.
+  /// Deactivate (pause) or delete: the server first; on success this
+  /// device's session data is wiped like a logout.
+  Future<Result<void>> deactivate({required String password}) async {
+    try {
+      await _api.deactivate(password: password);
+    } on DioException catch (e) {
+      return Result.failure(friendlyErrorMessage(e));
+    }
+    await _secureStorage.clearTokens();
+    await _db.clearAllUserData();
+    return const Result.success(null);
+  }
+
   Future<Result<void>> deleteAccount({required String password}) async {
     try {
       await _api.deleteAccount(password: password);

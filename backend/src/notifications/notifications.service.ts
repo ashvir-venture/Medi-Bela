@@ -218,6 +218,27 @@ export class NotificationsService {
     }
   }
 
+  /**
+   * Signs a user's phones out: a data-only {kind: session_ended} push (not
+   * stored in the inbox) tells the app to cancel its reminders and clear its
+   * local data, then the device tokens are deleted so nothing else is pushed.
+   * Best effort: a failed send never blocks the account change.
+   */
+  async endSessions(userId: string): Promise<void> {
+    const tokens = (await this.devices.tokensForUsers([userId])).get(userId) ?? [];
+    if (tokens.length > 0) {
+      try {
+        await this.push.send(
+          tokens.map((t) => t.token),
+          { title: '', body: '', collapseKey: `session_ended:${userId}`, dataOnly: true, data: { kind: 'session_ended' } },
+        );
+      } catch (err) {
+        this.logger.warn(`Session-ended push failed: ${(err as Error).message}`);
+      }
+    }
+    await this.prisma.deviceToken.deleteMany({ where: { userId } });
+  }
+
   private async setStatus(ids: string[], status: PushStatus) {
     if (ids.length === 0) return;
     await this.prisma.notification.updateMany({ where: { id: { in: ids } }, data: { pushStatus: status } });

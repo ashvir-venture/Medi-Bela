@@ -5,6 +5,8 @@ import { appDayBounds } from '../../common/utils/time.util';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { DeviceTokensService } from '../../notifications/device-tokens.service';
 import { TokenCryptoService } from '../../notifications/token-crypto.service';
+import { FamilyMembershipService } from '../family-membership.service';
+import { AuditService } from '../../audit/audit.service';
 
 const prisma = makeTestPrisma();
 const d = prisma ? describe : describe.skip;
@@ -18,7 +20,12 @@ d('FamilyService (real Postgres)', () => {
   beforeEach(async () => {
     await resetDb(prisma);
     const devices = new DeviceTokensService(prisma, new TokenCryptoService(FAKE_KEY_CONFIG));
-    svc = new FamilyService(prisma, new NotificationsService(prisma, push, devices));
+    const notifications = new NotificationsService(prisma, push, devices);
+    svc = new FamilyService(
+      prisma,
+      notifications,
+      new FamilyMembershipService(prisma, new AuditService(prisma), notifications),
+    );
   });
 
   const invite = (owner: any, phone: string) => svc.inviteMember(owner.id, { phone } as any);

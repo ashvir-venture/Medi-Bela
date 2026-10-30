@@ -14,7 +14,7 @@ Limits: the counter lives in memory, so it works for a single server only. Redis
 Testing: device testing (the three-phone matrix in Round 1 and the Round 3 behaviors) is deferred until all rounds are developed; each round is "code done" until then.
 
 Database changes (pending SQL for Neon)
-Workflow: during development only backend/prisma/schema.prisma changes (no migration files). The matching SQL goes into ordered files in backend/prisma/pending-sql/. At the end of development, run them in the Neon SQL editor in order, then `npx prisma generate`. Each file was checked on a disposable Postgres replaying every existing migration, with the result diffed against schema.prisma (no differences).
+Workflow: during development only backend/prisma/schema.prisma changes (no migration files). The matching SQL goes into ordered files in backend/prisma/pending-sql/. Since 2026-10-30 Claude applies each new file to the Neon DB in backend/.env itself: a read-only drift check first (`prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --script`), then `prisma db execute --file`, then the check again (must be empty); anything unexpected in the drift, or SQL that drops or converts data, is asked first. 001-008 are applied there. A new database still runs them in order (or fresh-install.sql), then `npx prisma generate`. Each file was checked on a disposable Postgres replaying every existing migration, with the result diffed against schema.prisma (no differences).
 1. 001_round3_reminder_and_notice_toggles.sql - reminder and notice switches.
 2. 002_round4_schema.sql - Round 4 tables and columns. Converts existing COMPLETED prescriptions to ACTIVE in the same step.
 3. 003_round4_reference_data.sql - dropdown data (divisions/districts/upazilas from github.com/nuhil/bangladesh-geocode, genders, doctor specialties, medicine forms and categories, meal timings, test categories). Safe to re-run.
@@ -23,6 +23,8 @@ Workflow: during development only backend/prisma/schema.prisma changes (no migra
 6. 006_round7_notice_review_note.sql - notices.reviewNote (admin's note when sending a notice back).
 7. 007_generic_names.sql - medicine_generics table; medicines.genericName (text) becomes medicines.genericId, existing names copied over (one row per name ignoring case). One transaction.
 8. 008_list_indexes.sql - (createdAt, id) indexes on medicine_routines and audit_logs for the pharmacist routine panel and the admin audit log. Index only, safe to re-run. APPLIED to the Neon DB in backend/.env on 2026-10-30 (owner's request); `prisma migrate diff --from-schema-datasource` showed no difference afterwards, i.e. 001-008 are all on that database.
+9. 009_round10_account_lifecycle.sql - Round 10: DEACTIVATED status, nullable users.phone and prescriptions.imageUrl, users.deactivatedAt/deletedAt/suspendedAt/birthYear, family_events table. Additive only. APPLIED to the Neon DB in backend/.env on 2026-10-30 (drift check empty before and after); fresh-install.sql rebuilt.
+10. 010_round11_terms_consent.sql - PLANNED (Round 11): users.termsAcceptedAt (when the user ticked the Privacy & terms box at sign-up).
 Fresh database: backend/prisma/fresh-install.sql is all migrations + phase4a_extra + every pending file in one script (with Prisma's _prisma_migrations rows), rebuilt by `bash scripts/build-fresh-install.sh` after each new pending file.
 Until these run, the deployed API's queries on the new columns fail, so don't deploy Round 3+ backend code before the SQL is applied.
 
@@ -198,3 +200,228 @@ After Round 9 (2026-10-30): pharmacist AI suggestions, audit log, panel look - C
 Built: routines panel and AI suggestions moved from admin to pharmacist (/pharmacist/routines, /pharmacist/health-suggestions; old /admin paths removed; PHARMACIST only; 20 per page with search and filters; request/edit/publish/unpublish audited; pharmacist dashboard card "AI suggestions awaiting review", admin dashboard keeps the count without a link). Admin audit log (GET /admin/audit-logs with action / who / date filters, /filters, /:id with before/after) and its page. Pending SQL 008 (list indexes), applied to Neon. Panel: title "Medi-Bela Management", favicon from the logo mark, login redesigned (brand panel with the transparent logo and light medicine line art, roomy form, theme switch top-right), sidebar brand = logo mark + "Medi-Bela / Management" wordmark (no white plate), sun / moon / system theme switch with labels in every page header (moved out of the sidebar), no underlines on buttons or cards. Notices: a new notice has "Save draft" and "Submit for approval" (admin: "Publish"); pharmacist tabs "My drafts" / "Sent for approval".
 Checked: backend lint, build, unit tests (audit-log.service.spec, health-suggestions.service.spec, staff-roles.spec); panel build; login page in light, dark and phone width.
 Not done / open: admin.int.spec's new role checks need TEST_DATABASE_URL (not run here). The sidebar, audit log and moved pages were not looked at in a browser (needs a signed-in staff account). Some Argon2-heavy auth specs time out now and then when the full suite runs in parallel on this machine (they pass with --runInBand); unrelated to this change.
+Round 10: Account lifecycle, family changes, panel redesign, app navigation - CODE DONE 2026-10-30, device testing pending
+Scope, in build order: A database, B account lifecycle (deactivate / delete / ban), C family (leave, remove, caregiver handover, activity feed), D admin users page and prescriptions clean-up, E panel redesign (sign-in page and internal look), F app navigation, Profile and Settings, G checks and docs. Each part ends with lint, tests and build for what it touched; CLAUDE.md and plan.md are updated at the end of the round.
+
+A. Database: pending SQL 009_round10_account_lifecycle.sql (schema.prisma first, SQL from `prisma migrate diff`, then fresh-install.sql rebuilt; applied to the Neon DB in backend/.env after the drift check, then the check again must show no difference)
+- AccountStatus gains DEACTIVATED (ACTIVE | DEACTIVATED | SUSPENDED | DELETED). SUSPENDED is the admin ban.
+- users.phone becomes nullable (still @unique; Postgres allows many NULLs). Only DELETED rows have NULL. Every phone lookup already filters by value, so NULL rows never match a login, reset or invitation.
+- users gains deactivatedAt, deletedAt, suspendedAt (timestamp, nullable) and birthYear (int, nullable; filled on delete from dateOfBirth so age-band analytics stay right after the exact date is erased).
+- New table family_events: id, familyId (FK families, cascade), kind (enum FamilyEventKind: JOINED | LEFT | REMOVED | CAREGIVER_CHANGED | CREATED), subjectUserId (FK users, set null), actorUserId (FK users, set null), createdAt; index (familyId, createdAt, id). Names are not copied: the feed shows each user's current name, "Deleted user" for a deleted one.
+- prescriptions.imageUrl becomes nullable (a deleted user's kept prescriptions lose their photo; the panel shows "Photo deleted").
+- No data conversion needed (no rows use the new values yet).
+
+B. Account lifecycle
+
+B1. Deactivate (user, from Settings → Account actions)
+- API: POST /users/me/deactivate {password}. Password checked with the same throttle as delete (403 on a wrong password, never 401). USER role only.
+- Effect in one transaction: accountStatus = DEACTIVATED, deactivatedAt = now, passwordChangedAt = now (every existing token stops working on its next request; jwt-access.strategy already rejects non-ACTIVE). Audit user.deactivate.
+- Before the device tokens stop being used: a data-only push {kind: "session_ended"} to every device of the user (PushService, not stored as an inbox notification). The app on receiving it (foreground or background isolate) cancels all scheduled reminders, clears the Drift database and secure storage, and shows Login on next open. Tokens are then deleted.
+- The app syncs its queue before calling (all of these actions require being online; the button is disabled offline).
+- While DEACTIVATED (every existing ACTIVE check already covers most of this; verify each):
+  - no reminders, backstop pushes, pushed notices or any other push (notifications.service: non-ACTIVE never pushed);
+  - missed-dose job: doses of non-ACTIVE users get no family alert (already); RollingDoseJob skips routines of non-ACTIVE users so no new doses are created (new filter); doses already created in the future are deleted at deactivation (PENDING only, scheduledAt > now), so the history doesn't fill with missed doses;
+  - family: GET /family/members and member status return the member with status "paused" and no medicine data; the app shows "Account paused"; caregiver actions for them return 404 (CaregiverAccessService already requires ACTIVE);
+  - a deactivated caregiver stays caregiver; their own caregiver screens are unreachable because they can't sign in.
+- Reactivation: login with the right password on a DEACTIVATED account sets ACTIVE, deactivatedAt = null, audit user.reactivate, and the login response carries reactivated: true; the app shows "Welcome back" once. A successful SMS password reset on a DEACTIVATED account also reactivates (otherwise someone who forgot the password could never return). RollingDoseJob picks the routines up on its next run and continues from today (planSchedule already starts from max(start, today)). No expiry.
+
+B2. Delete (user, from Settings → Account actions, two screens)
+- Screen 1 (warning): what is erased and what is kept, "You can deactivate instead and come back later", buttons Deactivate instead / Continue to delete.
+- Screen 2 (confirm): the user types the exact phrase, shown in the app's language:
+  EN "I am sure about deletion and know the consequences"
+  BN "আমি মুছে ফেলার বিষয়ে নিশ্চিত এবং পরিণতি জানি"
+  Comparison: both sides Unicode-NFC normalized, trimmed, inner whitespace collapsed, English compared case-insensitively. Delete enables only on a match; then the password field; then Delete (red, the only red element). The phrase is a guard in the app; the server checks the password.
+- API: DELETE /users/me {password} stays (same contract); its behavior changes from hard delete to de-identify. UsersService.deleteAccount becomes, in one transaction:
+  - Erased: phone = NULL, passwordHash = random unusable hash, name = "Deleted user" (the app and panel also translate it; stored as a fixed marker), address = NULL, dateOfBirth = NULL after birthYear = its year, upazilaId = NULL, languagePreference kept, switches off; health records, health reminders, AI health suggestions, assistant conversations (cascade), notifications, device tokens (after the session_ended push), password reset code; family membership and invitations sent (and invitations addressed to their old phone).
+  - Kept, linked to the unnamed row: prescriptions (structured data: doctor, visit, diagnosis, tests, medicine lines, dates, statuses), routines and doses (history), gender, birthYear, division, district, audit rows, doctor / medicine patient counts.
+  - Pending work: PENDING and AWAITING_CONFIRMATION prescriptions are deleted (they leave the pharmacist queue; their images too); active routines set active = false and future PENDING doses deleted.
+  - accountStatus = DELETED, deletedAt = now. Audit user.delete (subject = the placeholder id, no personal data in before/after).
+  - Prescription images of all their prescriptions are deleted from Cloudinary after the commit (best effort, as today); imageUrl on kept prescriptions is set to NULL first (nullable from SQL 009) so no response points to a deleted image; PrescriptionImageUrlInterceptor and the panel handle NULL.
+  - Family: if they were caregiver, handover (C3); if they were the last member, the family is removed; a LEFT event is written ("Deleted user has left").
+- Sign-up with the same phone later: a new, empty account (the old row has phone NULL). Nothing can be restored.
+- Analytics and counts: user totals exclude DELETED (as now) and show Active / Deactivated / Suspended separately; doctor / medicine patient counts now INCLUDE deleted patients (catalog/lib/patient-counts.ts and admin-analytics drop the DELETED filter there); age bands use birthYear when dateOfBirth is NULL.
+- Staff screens show "Deleted user" and no phone wherever the patient appears (prescription detail, routines panel, AI suggestions, audit log).
+
+B3. Ban / Unban (admin panel)
+- Uses SUSPENDED. Admins may ban USER and PHARMACIST accounts; never ADMIN accounts (including their own), so the only admin can't lock everyone out.
+- API (ADMIN only): POST /admin/users/:id/ban and /unban. Ban: accountStatus = SUSPENDED, suspendedAt = now, passwordChangedAt = now (signed out everywhere), session_ended push, future PENDING doses deleted and dose generation paused (as deactivation). Unban: ACTIVE, suspendedAt = null. Both audited (user.ban / user.unban, actor = admin). Banning a DEACTIVATED user works; unbanning returns ACTIVE.
+- A banned user behaves like a deactivated one everywhere except login: family sees "Account paused", caregiver features pause, no pushes.
+- Login: wrong password → the usual "Invalid phone number or password" (no account probing). Right password on SUSPENDED → 403 "This account is under suspension. Please contact Medi-Bela Authority." (app and panel show it, both languages in the app). Login never lifts a ban. SMS reset on a banned account stays silent and never reactivates.
+- A banned pharmacist's past work stays (prepared prescriptions, "Created by", notices, audit rows).
+
+C. Family
+
+C1. Leave (any member, from Settings → Privacy & family)
+- API: POST /family/leave. Confirm dialog in the app. Effects: membership removed; if they were caregiver → C3; invitations they sent cancelled; if no members are left the family is removed; LEFT event; audit family.leave. Afterwards they can create a family or accept another invitation.
+- Past missed-dose alerts already in other members' inboxes stay.
+
+C2. Remove (caregiver only, from the family screen)
+- API: DELETE /family/members/:userId (CAREGIVER only; not themself, they use Leave). Confirm dialog. Effects: membership removed; REMOVED event (actor = caregiver); audit family.remove; the removed member gets a neutral push/inbox item "You were removed from the family" (SYSTEM notification, data.kind family_removed).
+- Invite stays caregiver-only (already enforced in FamilyService.inviteMember).
+
+C3. Caregiver handover (caregiver leaves or deletes the account)
+- The member with the earliest joinedAt (ties: lowest id) becomes CAREGIVER; the old caregiver's pending invitations are cancelled; CAREGIVER_CHANGED event; audit family.caregiver_change; every remaining member gets a neutral push "<name> is now the family caregiver" (the role decides who gets the caregiver tools).
+- A deactivated or banned caregiver stays caregiver (no handover).
+
+C4. Activity feed (family screen)
+- GET /family/events?cursor= (members of that family only; 10 per page, "Load more", keyset createdAt DESC, id DESC).
+- Lines (EN / BN): "<name> has joined" / "<name> পরিবারে যোগ দিয়েছেন"; "<name> has left" / "<name> পরিবার ছেড়ে গেছেন"; "<name> was removed by <caregiver>" / "<caregiver> <name>-কে পরিবার থেকে সরিয়েছেন"; "<name> is now the caregiver" / "<name> এখন পরিবারের তত্ত্বাবধায়ক"; "Family created by <name>" / "<name> পরিবারটি তৈরি করেছেন". Deleted user shows "Deleted user" / "মুছে ফেলা ব্যবহারকারী".
+- Written by: createFamily (CREATED), acceptInvitation (JOINED), leave (LEFT), remove (REMOVED), handover (CAREGIVER_CHANGED), account delete (LEFT). Existing families get no back-filled history.
+- Pushes: only the removed member (C2) and the caregiver change (C3). Joins and leaves appear only in the feed. (Approved by the owner 2026-10-30.)
+
+D. Admin panel: users and prescriptions
+- New page Users (/super-control-007/users; sidebar under Admin): GET /admin/users?cursor=&phone=&divisionId=&ageBand=&role=&status= (ADMIN only, 20 per page, keyset createdAt/id). Phone search accepts 01…, +8801… or part of a number (digits compared after normalizePhone where complete, contains otherwise). Filters: division, age band (0-17 / 18-39 / 40-59 / 60+, from dateOfBirth or birthYear), role (Patient / Pharmacist; admins are listed but can't be banned), status (Active / Deactivated / Suspended; Deleted hidden unless chosen). Each row: name, phone, role, division, status badge, Ban / Unban button with a confirm dialog. No ban reason field (not wanted).
+- Prescriptions: the admin list page and its sidebar link are removed. The read-only detail page (/super-control-007/prescriptions/[id]) stays, reachable only from an audit-log entry's "Open record". Admin dashboard: the pending count and the recent list stop linking. GET /prescriptions/admin/queue stays (the pharmacist queue uses it).
+
+E. Panel redesign (frontend; plain CSS and tokens, no new packages)
+E1. Sign-in page (replaces the split layout)
+- One soft background across the whole page (radial teal and blue glows over the --color-bg token; separate dark values), no hard divider.
+- Left (wide screens only): logo, headline "Every prescription checked. Every dose on time." (chosen by the owner 2026-10-30), supporting line "Review prescriptions, keep the medicine catalog right, and reach patients with timely notices, all in one place.", and the signature visual: three floating, slightly rotated cards that tell the product's story:
+  1. a prescription line "Napa 500 mg · 1+0+1 · after meal" with a green "Checked by pharmacist" dot;
+  2. a reminder "8:00 AM · 2 medicines" with a "Taken" chip;
+  3. a family alert "Missed dose · family notified" with an amber dot.
+  A footer line with a small icon: "Alarm-style reminders for patients, and family who know when a dose is missed."
+- Form card: title "Sign in", subtitle "Medi-Bela Management · for pharmacists and admins", fields and button unchanged. English only (the panel has no language switch).
+- Right: the form on a floating card (same fields), theme switch top-right. Phones: logo above the card, no visual.
+E2. Internal look (from the owner's canvas "Medibela Admin Panel Redesign": look only, none of its extra features such as claim locks, plans, shifts, staging, team roles)
+- Fonts: IBM Plex Sans + Hind Siliguri (Bengali) through next/font/google (bundled at build time, no runtime Google request, no new dependency). Numbers in tables may use tabular figures.
+- Tokens: background soft green-grey (#F4F7F6 light), surface white, border #DDE5E3, primary teal #0B6E63 / hover #075048, text #10201C, muted #4A5B57; status pairs (amber #FDF1E3/#8A4200, blue #E8EFFC/#1849A9, red #FDECEA/#B42318, green #E6F4EA/#0F6B37, grey #EEF1F0/#33443F); matching dark values. Colors only through tokens (convention kept).
+- Sidebar: brand (logo mark + wordmark, caption = role area), section labels (Pharmacist: WORK = Dashboard, Prescriptions [pending badge], Routines, AI suggestions [drafts badge], Notices [sent-back or pending badge]; CATALOG = Doctors, Medicines, Health rules. Admin: OVERVIEW = Dashboard; CONTENT = Notices [waiting badge]; RECORDS = Doctors, Medicines; ADMIN = Users, Audit log), user card at the bottom (initials avatar, name, role, Log out). Badge counts come from the existing dashboard endpoints, fetched once per page load.
+- Page header: 28px title, one-line subtitle, actions and the theme switch on the right.
+- Stat cards: grid auto-fit minmax(180px), 12px radius, label above value.
+- Lists: tables on wide screens (uppercase 12px headers, row hover, status pills), turning into stacked cards under 640px; wide tables scroll inside their box. Tabs with count pills where lists have statuses.
+- Every page keeps its behavior, routes and API calls; only markup classes and CSS change. Checked at 1440, 1024, 768 and 375 px in light and dark.
+
+F. App (Flutter)
+F1. Bottom navigation: Home · Medicines · Family · Health · Profile
+- Medicines tab = today's doses, My medicines and Prescriptions under one tab (segmented control at the top: Today / My medicines / Prescriptions); old routes /prescription, /prescription/today and /medicines redirect there so pushes and links keep working.
+- Health tab = readings, health reminders, suggestions (as today).
+- Inbox = bell with an unread badge on Home's top bar (no tab). Assistant = a large card on Home.
+- Labels always visible (one short word, app language), large icons and tap areas, clear selected state; five tabs, no ☰ menu; a screen always lives under the same tab.
+F2. Back behavior
+- Detail screens are pushed (context.push), tab roots are switched (context.go); back always returns to the previous screen; from a tab root back goes to Home.
+- Home and Login: the first back shows a SnackBar "Press back again to exit" / "বের হতে আবার চাপুন"; a second press within 2 seconds closes the app; after that it starts over. Register, Forgot and Reset password go back to Login.
+- Closing the app never affects reminders (OS alarms).
+F3. Profile
+- Identity card (name, phone, family role), Settings, then Log out last and set apart, with an "Are you sure?" dialog. No quick links, no app version.
+F4. Settings (new screen /profile/settings; existing screens reused)
+- Account: Edit details, Change password.
+- Reminders & notifications: Reminder check first, with a status dot and text (green "All good" / orange "Needs attention", from ReminderStatusController); then Push notifications, Medicine reminders, Notices.
+- Privacy & family: Hide from family; Leave family (only when in a family; confirm dialog).
+- Appearance & language: Language first, then Theme. No text-size setting (the app follows Android's own font size; a custom scale could break fixed layouts without device testing).
+- Account actions: Deactivate account, Delete account (only the Delete button is red).
+F5. Account flows in the app: deactivate dialog (password), delete screens (B2), "Welcome back" after reactivation, suspension message on login, session_ended handling in foreground and background isolate (cancel reminders, clear Drift and secure storage).
+F6. Family screen: activity feed (C4, Load more), member rows show "Account paused" for deactivated or banned members, caregiver sees Remove on each member (confirm dialog).
+F7. Strings (EN / BN), all in app_strings.dart, existing terms reused:
+- Settings / সেটিংস; Account / অ্যাকাউন্ট; Edit details / তথ্য সম্পাদনা; Change password / পাসওয়ার্ড পরিবর্তন করুন
+- Reminders & notifications / রিমাইন্ডার ও নোটিফিকেশন; Reminder check / রিমাইন্ডার পরীক্ষা; All good / সব ঠিক আছে; Needs attention / মনোযোগ প্রয়োজন
+- Privacy & family / গোপনীয়তা ও পরিবার; Hide from family / পরিবার থেকে লুকান; Leave family / পরিবার ছেড়ে দিন; Remove from family / পরিবার থেকে সরান
+- Appearance & language / ভাষা ও রঙের ধরন
+- Account actions / অ্যাকাউন্ট সংক্রান্ত; Deactivate account / অ্যাকাউন্ট সাময়িক বন্ধ করুন; Delete account / অ্যাকাউন্ট মুছুন; Deactivate instead / বরং সাময়িক বন্ধ করুন; Continue to delete / মুছে ফেলতে এগিয়ে যান
+- Account paused / অ্যাকাউন্ট বন্ধ আছে; Welcome back / আবার স্বাগতম; Deleted user / মুছে ফেলা ব্যবহারকারী
+- This account is under suspension. Please contact Medi-Bela Authority. / এই অ্যাকাউন্টটি স্থগিত আছে। মেডি-বেলা কর্তৃপক্ষের সাথে যোগাযোগ করুন।
+- Are you sure you want to log out? / আপনি কি লগ আউট করতে চান?
+- Press back again to exit / বের হতে আবার চাপুন
+- Tabs: Home / হোম, Medicines / ওষুধ, Family / পরিবার, Health / স্বাস্থ্য, Profile / প্রোফাইল; Medicines segments: Today / আজ, My medicines / আমার ওষুধ, Prescriptions / প্রেসক্রিপশন
+The owner reviews this table before F ships.
+F8. App sign-in visual (approved by the owner 2026-10-30)
+- Login screen only (Register is a long form; Forgot / Reset stay plain): logo, then the three cards from the web sign-in page as a compact, gently overlapping stack (small tilt, no motion) in their own area ABOVE the form: the form starts below the visual with clear space between them, and no card overlaps the form or its fields (owner's choice 2026-10-30). App language and theme colors.
+- Cards: "Napa 500 mg · ১+০+১ · খাবারের পরে" / "ফার্মাসিস্ট যাচাই করেছেন"; "সকাল ৮:০০ · ২টি ওষুধ" / "খাওয়া হয়েছে"; "ডোজ বাদ পড়েছে" / "পরিবারকে জানানো হয়েছে" (English: Checked by pharmacist, 8:00 AM · 2 medicines / Taken, Missed dose / Family notified). One line under them: "Right time, healthy life" / "সঠিক সময়, সুস্থ জীবন".
+- The visual hides while the keyboard is open and on short screens (height < 640 dp), so the phone and password fields and the Sign in button never move off screen; it is decoration only (excluded from screen readers).
+
+G. Checks
+- Backend unit tests: deactivate / reactivate (login and reset), delete (erased vs kept fields, pending prescriptions gone, patient counts still include them, phone free for a new sign-up), ban / unban (login message only after a correct password, reset silent, admin can't ban an admin), RollingDoseJob skips non-ACTIVE, family leave / remove / handover / events, admin users filters, role matrix (staff-roles.spec).
+- DB-backed specs (admin.int, users, family) where TEST_DATABASE_URL is available.
+- Panel build; browser check of sign-in and every redesigned page at four widths, light and dark (signed-in pages need a staff test account in a local/staging setup).
+- Mobile: flutter analyze, flutter test (new: back-to-exit, settings sections, delete phrase matching incl. Bengali normalization, session_ended handler), release build. Phone testing stays deferred.
+- Update CLAUDE.md and plan.md; commit on main.
+
+Decisions while starting the build (2026-10-30):
+- Dose resume: pausing an account (deactivate / ban) deletes future PENDING doses AND sets generatedUntil = now on its active routines; RollingDoseJob never generates before now; reactivation (login or SMS reset) and unban extend that user's routines immediately, so reminders return at sign-in and no past doses are back-filled.
+- Home (top to bottom): reminder warning banner (only when needed), Today's medicines, Health reminders, a large full-width Upload prescription button (icon + text), a large Assistant card, Notices, ad banner. The Quick actions row is removed (Family is its tab). Diabetes becomes a clear row near the top of the Health tab.
+- F7 strings: the owner reviews the table again when part F starts (build A-E first, then stop). Approved as written 2026-10-30; caregiver in Bengali is পরিচর্যাকারী everywhere (C4's "তত্ত্বাবধায়ক" line uses পরিচর্যাকারী instead).
+- Commits: one commit on main at the end of the round.
+Built (2026-10-30):
+- Backend: deactivate (POST /users/me/deactivate), de-identifying delete (DELETE /users/me, same contract), ban / unban (POST /admin/users/:id/ban|unban), reactivation on login (reactivated: true) and SMS reset, suspension message after a correct password, SMS reset silent for banned accounts; session_ended push + device tokens dropped on every pause; pauseSchedules / resumeSchedules and RollingDoseJob (ACTIVE only, never before now); family leave / remove / handover / feed (FamilyMembershipService, family_events), paused members; GET /admin/users (phone, division, age band, role, status); patient counts include deleted patients, age bands fall back to birthYear, user totals by status; dashboard notice counts for the sidebar badges (pharmacist notices.sentBack/pending, admin analytics.noticesAwaitingApproval).
+- Panel: Users page; admin prescriptions list removed (the detail page goes back to the audit log); "Photo deleted"; phone hidden when null (PatientName); redesign: tokens, fonts, sidebar sections / badges / user card, page header subtitle, stat cards (label above value), underline tabs with count pills, DataList tables (cards under 640px), new sign-in page.
+- App: tabs Home · Medicines · Family · Health · Profile; Medicines tab with Today / My medicines / Prescriptions (old routes redirect); back rules and press-back-twice on Home and Login; Home: Upload prescription button (opens the upload form), Assistant card, Quick actions removed; Diabetes row on Health; Profile (identity card with family role, Settings, Log out); Settings (five sections, Reminder check status dot, Leave family, offline-disabled account actions); deactivate dialog; two delete screens with the sentence check (EN / BN, Bengali NFC rules in code); Welcome back; suspension message in both languages; session_ended handled in the foreground (logout) and in the background isolate (reminders cancelled, Drift and secure storage cleared); family feed, Remove member, Account paused; sign-in cards above the form (hidden with the keyboard open or under 640 dp).
+Checked: backend lint (3 old warnings), 291 unit tests, build; DB-backed specs NOT run (no TEST_DATABASE_URL). Panel build; browser: sign-in at 1440 and 375 px in light and dark, the Users page with stubbed data at 1440 (light) and 375 (dark). Mobile: analyze (no errors or warnings; 2 new infos match the surrounding style), 54 tests incl. back-to-exit, tab mapping, settings sections, delete sentence (Bengali), session_ended wipe; release APK builds.
+Not done / open:
+- Phone testing (deferred, as for every round); the new app screens are checked by analyze and widget/unit tests only.
+- Signed-in panel pages other than Users were not looked at in a browser (needs a running API and a staff account; no second API on Neon). The two top-10 lists inside the analytics section keep the old card rows.
+- A paused account's routines from before Round 4 (no scheduleTimes) keep their future doses (can't be regenerated); none exist on the fresh Neon database.
+- "Account paused" comes from the server only (the Drift member cache has no column for it), so it doesn't show offline.
+- Profile no longer shows the routine / prescription summaries or the sync status (F3); the logout dialog still warns about unsent changes.
+- Drafted strings, not in the F7 table (EN / BN), for the owner to review: deleteWarningTitle "Before you delete" / "মুছে ফেলার আগে"; deleteErasedHeading / deleteErasedList; deleteKeptHeading / deleteKeptList; deleteCannotUndo; deactivateHint; deleteConfirmTitle; deletePhrasePrompt; deactivateExplain; deactivateAction "Deactivate" / "সাময়িক বন্ধ করুন"; leaveFamilyConfirm; leaveAction; removeMemberConfirm; removeAction; familyActivity "Family activity" / "পরিবারের কার্যক্রম"; noFamilyActivity; assistantCardSubtitle "Ask about your medicines and health" / "ওষুধ ও স্বাস্থ্য নিয়ে প্রশ্ন করুন"; familyMemberRole "Family member" / "পরিবারের সদস্য"; push texts "You were removed from the family." / "আপনাকে পরিবার থেকে সরিয়ে দেওয়া হয়েছে।" and "<name> is now the family caregiver." / "<name> এখন পরিবারের পরিচর্যাকারী।" (all in app_strings.dart / notification-messages.ts).
+Round 11: Errors, loading and empty states, 404 and offline, privacy, support, about - PLANNED (all decisions settled 2026-10-30)
+Today (found in the code):
+- Panel: no app/not-found.tsx, error.tsx or loading.tsx; 24 files show the backend's raw message in an .error-banner; 22 places show a plain "Loading…"; no offline detection.
+- App: widgets/state_views.dart (LoadingView, ErrorView, EmptyView) used in about 16 files, others use a bare spinner; connectivity_plus with ConnectivityBanner ("You're offline — showing saved data"); go_router has no errorBuilder (unknown route or bad deep link shows go_router's default error screen); backend errors are English only.
+- No privacy, terms, support or about pages. The app has a sponsored ad banner widget (widgets/sponsored_ad_banner.dart); no ad network is wired. Ads are out of scope for now (owner, 2026-10-30): the privacy text says nothing about ads and the widget is left as it is.
+
+A. Error handling (panel and app)
+- Tone: short, friendly, with a way out. Example: "Couldn't load your medicines. Check your connection and try again." [Try again] / "আপনার ওষুধের তালিকা আনা যায়নি। ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।" [আবার চেষ্টা করুন].
+- Backend: every error response gains a machine-readable `code` (e.g. PASSWORD_INCORRECT, ACCOUNT_SUSPENDED, NOT_FOUND, RATE_LIMITED, VALIDATION_FAILED, SERVER_ERROR) next to the existing `message` (additive; common/filters/http-exception.filter.ts plus the services that throw). Unexpected errors (5xx) also carry a short `ref` (e.g. 7KQ2-M9) that is written to the server log with the stack trace (no personal data), so support can find it.
+- App: one mapper from code (and HTTP status / Dio error type) to bilingual text in app_strings.dart; unknown codes fall back to a generic message; 5xx shows "Something went wrong. Ref: 7KQ2-M9". 401 → sign-in with "Your session ended. Please sign in again." (429 keeps its pause-and-retry rule in the sync queue.)
+- Panel: lib/api-client.ts maps codes to English text; page-load failures show an inline banner with [Retry]; actions (save, publish, ban…) show a small toast ("Saved", "Couldn't save. Try again.") that disappears after a few seconds; forms keep field errors next to the field. A small toast component in components/ (no package).
+
+B. Loading and empty states
+- Loading: skeletons (grey placeholder shapes in the layout of the real content, gentle pulse, respects reduced motion) for lists, tables, dashboards and detail pages; a small spinner inside a button while its action runs (button disabled). Panel: components/skeleton.tsx + CSS; app: a Skeleton widget in widgets/state_views.dart replacing bare spinners.
+- Empty states: line icon (no image files), one line, and the next action where there is one. Examples: "No prescriptions yet" [Upload prescription]; "No medicines today"; "No family yet" [Create family] / [Check invitations]; "No readings yet" [Add reading]; "Inbox is empty"; panel "Queue is clear" (no button). Every list in the panel and the app is covered; texts in EN and BN.
+
+C. 404, crashes, maintenance, offline
+- Panel: app/not-found.tsx (branded "Page not found" + [Go to dashboard], or [Sign in] when signed out) and app/error.tsx ("Something went wrong" + [Try again], with the ref when known).
+- Maintenance: when the API answers 503, the app and panel show a full-screen "Medi-Bela is being updated. Please try again in a few minutes." / "মেডি-বেলা আপডেট হচ্ছে। কয়েক মিনিট পর আবার চেষ্টা করুন।" with [Try again]. (Backend: an optional MAINTENANCE_MODE env that returns 503 on every route except /health; added to .env.example.)
+- App offline: offline-capable screens (Home, Medicines, readings, and the Support, Privacy and About pages, whose text ships with the app) keep the banner; online-only screens (prescription upload, family and caregiver screens, Assistant, Settings actions, notices) show a full-screen "No internet connection" / "ইন্টারনেট সংযোগ নেই" with [Try again], and recover by themselves when the connection returns.
+- Panel offline: a top banner "You're offline. Changes can't be saved until you're back online." (navigator.onLine + online/offline events).
+- App unknown route or bad deep link: go_router errorBuilder → "Page not found" / "পাতাটি পাওয়া যায়নি" + [Go to Home].
+
+D. Privacy & terms (one page, EN and BN)
+- App: Settings → Help & about → Privacy & terms. Web: public page <frontend_url>/privacy (no sign-in, outside the role layouts; this is the Play Store privacy URL), with a language switch (English | বাংলা).
+- Content: generic only. No company name, address or legal contact, not even a placeholder (the owner adds them later).
+- Owner's lines (approved):
+  1. Your data is stored under strong monitoring and a strict access policy. / আপনার তথ্য কঠোর নজরদারি ও কড়া প্রবেশাধিকার নীতির অধীনে সংরক্ষিত থাকে।
+  2. Your data is used for medical purposes only. / আপনার তথ্য শুধু চিকিৎসা-সংক্রান্ত কাজে ব্যবহার করা হয়।
+  3. No third party gets access to your health data for promotion or research. / কোনো তৃতীয় পক্ষকে প্রচার বা গবেষণার জন্য আপনার স্বাস্থ্য-তথ্য দেওয়া হয় না।
+  4. Medi-Bela is not a replacement for your regular doctor or health service. / মেডি-বেলা আপনার নিয়মিত ডাক্তার বা স্বাস্থ্যসেবার বিকল্প নয়।
+- Added lines (approved 2026-10-30):
+  5. Only you, the family members you allow, and the Medi-Bela pharmacists who check your prescription can see your medicine information. / শুধু আপনি, আপনার অনুমতি দেওয়া পরিবারের সদস্যরা এবং প্রেসক্রিপশন যাচাইকারী মেডি-বেলা ফার্মাসিস্টরাই আপনার ওষুধের তথ্য দেখতে পারেন।
+  6. Trusted service providers that run parts of the app (photo storage, notifications, AI answers, SMS) process data only to provide those services. / অ্যাপের কিছু অংশ চালাতে বিশ্বস্ত সেবাদাতারা (ছবি সংরক্ষণ, নোটিফিকেশন, এআই উত্তর, এসএমএস) শুধু সেই সেবা দিতেই তথ্য ব্যবহার করে।
+  7. Your password is stored encrypted; no one at Medi-Bela can see it. / আপনার পাসওয়ার্ড এনক্রিপ্ট করে রাখা হয়; মেডি-বেলার কেউ তা দেখতে পারে না।
+  8. You can hide yourself from family, deactivate, or delete your account at any time from Settings. Deleting erases your personal details. / সেটিংস থেকে যেকোনো সময় পরিবার থেকে লুকাতে, অ্যাকাউন্ট সাময়িক বন্ধ বা মুছে ফেলতে পারেন। মুছে ফেললে আপনার ব্যক্তিগত তথ্য মুছে যায়।
+  9. The AI assistant gives general health information only. It does not diagnose or prescribe. / এআই সহকারী শুধু সাধারণ স্বাস্থ্য-তথ্য দেয়; এটি রোগ নির্ণয় বা ওষুধ নির্ধারণ করে না।
+  10. Always take medicines as your doctor advised. If something looks wrong, ask your doctor or pharmacist first. / সবসময় ডাক্তারের পরামর্শ অনুযায়ী ওষুধ খান। কিছু ভুল মনে হলে আগে ডাক্তার বা ফার্মাসিস্টকে জিজ্ঞেস করুন।
+  11. In an emergency, call 999 or go to the nearest hospital. / জরুরি অবস্থায় ৯৯৯-এ কল করুন বা নিকটস্থ হাসপাতালে যান।
+- Page order: data and privacy lines (1-3, 5-8), then terms of use and medical disclaimer (4, 9-11).
+- Sign-up consent: a required checkbox "I agree to the Privacy & terms" / "আমি গোপনীয়তা ও শর্তাবলিতে সম্মত" linking to the page; Register stays disabled until it is ticked. The server records when the user agreed (users.termsAcceptedAt, pending SQL 010, approved) as proof of consent; existing users are not asked again.
+
+E. Support (app: Settings → Help & about → Support; web: sidebar Support and public <frontend_url>/support)
+- How to use the app: short step lists with the matching screen names: upload a prescription and confirm it; take or snooze a dose (Done / Later); add your own medicine; create a family and invite; hide from family; Reminder check; change language and theme.
+- FAQ (drafted, 6-8): reminders don't ring (→ Reminder check, battery, Alarms & reminders); prescription rejected (→ read the note, Re-upload); dose time wrong (→ edit in My medicines); family can't see me (→ Hide from family is on); forgot password (→ SMS reset); deactivate vs delete; is my data safe (→ Privacy & terms).
+- Contact: +8801810314801 and +8801763740720, each with [Call] (tel:) and [WhatsApp] (https://wa.me/8801810314801, https://wa.me/8801763740720). Opening the dialer and WhatsApp from the app uses the url_launcher package (official Flutter package; approved by the owner 2026-10-30). Numbers also have a copy button.
+- No "Report a problem" form (not asked for).
+
+F. About us (app: Settings → Help & about → About us; web: public <frontend_url>/about)
+- Mission: "Care for your family, even from far away." / "দূরে থেকেও পরিবারের যত্ন নিন।"
+- Vision: "Health, On Time" / "ঠিক সময়ে, সুস্থ জীবন"
+- Goal lines (draft, EN / BN):
+  - Turn every pharmacist-checked prescription into reminders that ring on time. / ফার্মাসিস্টের যাচাই করা প্রতিটি প্রেসক্রিপশনকে সময়মতো বাজা রিমাইন্ডারে রূপ দেওয়া।
+  - Let families know when a dose is missed, so no one has to worry alone. / ডোজ বাদ পড়লে পরিবার যেন জানতে পারে, যাতে কাউকে একা দুশ্চিন্তা করতে না হয়।
+  - Keep health records, notices and trusted health information in one simple app, in Bangla and English. / স্বাস্থ্যের রেকর্ড, বিজ্ঞপ্তি আর নির্ভরযোগ্য স্বাস্থ্য-তথ্য এক সহজ অ্যাপে, বাংলা ও ইংরেজিতে।
+- Team, two columns (one column on narrow phones), round photo, name, field, university, Facebook link:
+  - Left: ashraful.jpg; Ashraful Alam; Software Engineering; Shahjalal University of Science and Technology, Sylhet; https://www.facebook.com/ashraful.alam.931253
+  - Right: tanvir.jpg; Tanvir Hossain; Chemical Engineering; Rajshahi University of Engineering and Technology, Rajshahi; https://www.facebook.com/aztanvirhossain
+  - Bangla (confirmed): আশরাফুল আলম, সফটওয়্যার ইঞ্জিনিয়ারিং, শাহজালাল বিজ্ঞান ও প্রযুক্তি বিশ্ববিদ্যালয়, সিলেট; তানভীর হোসেন, কেমিক্যাল ইঞ্জিনিয়ারিং, রাজশাহী প্রকৌশল ও প্রযুক্তি বিশ্ববিদ্যালয়, রাজশাহী.
+- Photos (the owner shows them; approved): the owner puts ashraful.jpg and tanvir.jpg in mobile/assets/images/ (next to logoBn.png / logoEn.png) and the same files in frontend/public/ for the web page; resized to 320×320 and compressed before shipping (keeps the APK small). Facebook links open in the browser (url_launcher, same question as in E).
+
+G. Placement
+- App Settings gains a section "Help & about" / "সাহায্য ও পরিচিতি" (last before Account actions): Support, Privacy & terms, About us.
+- Panel: Support in the sidebar (both roles); Privacy & terms and About us links in the sign-in page footer; the three public pages share a simple header (logo) and footer.
+
+H. Checks
+- Backend: error filter codes and refs (unit), MAINTENANCE_MODE (unit), consent field on register (unit + DB spec where available).
+- Panel: build; browser check of not-found, error page, offline banner, toasts, skeletons and empty states, /privacy, /support, /about at four widths in light and dark.
+- App: analyze; tests for the error mapper (codes → EN/BN), errorBuilder route, consent checkbox, Support links; release build.
+- Update CLAUDE.md and plan.md; commit on main.
+
+Open before building Round 11: nothing (the owner is adding ashraful.jpg and tanvir.jpg; build checks they exist).

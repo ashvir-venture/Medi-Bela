@@ -5,6 +5,28 @@ import 'package:go_router/go_router.dart';
 import '../core/localization/locale_controller.dart';
 import '../router/app_router.dart';
 import 'connectivity_banner.dart';
+import 'double_back_to_exit.dart';
+
+/// Which bottom tab a location lives under. A screen always stays under the
+/// same tab: a caregiver's view of a member's medicines (`?for=`) belongs to
+/// Family; Inbox, Assistant and Notices are opened from Home.
+int tabIndexForLocation(Uri uri) {
+  final path = uri.path;
+  bool under(String root) => path == root || path.startsWith('$root/');
+  if (under(AppRoutes.medicines) || under(AppRoutes.prescription)) {
+    return uri.queryParameters['for'] != null ? 2 : 1;
+  }
+  if (under(AppRoutes.family)) return 2;
+  if (under(AppRoutes.health) || under(AppRoutes.diabetes)) return 3;
+  if (under(AppRoutes.profile)) return 4;
+  return 0;
+}
+
+/// A tab's own root (switched with `go`); everything else is pushed.
+bool isTabRoot(Uri uri) {
+  if (uri.path == AppRoutes.medicines) return uri.queryParameters['for'] == null;
+  return const [AppRoutes.home, AppRoutes.family, AppRoutes.health, AppRoutes.profile].contains(uri.path);
+}
 
 class MainScaffold extends ConsumerWidget {
   const MainScaffold({super.key, required this.child});
@@ -13,33 +35,19 @@ class MainScaffold extends ConsumerWidget {
 
   static const _tabs = [
     AppRoutes.home,
+    AppRoutes.medicines,
     AppRoutes.family,
-    AppRoutes.prescription,
     AppRoutes.health,
     AppRoutes.profile,
   ];
 
-  int _indexForLocation(String location) {
-    final index = _tabs.indexWhere((tab) => location.startsWith(tab));
-    return index == -1 ? 0 : index;
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final strings = ref.watch(stringsProvider);
-    final location = GoRouterState.of(context).matchedLocation;
-    final currentIndex = _indexForLocation(location);
+    final uri = GoRouterState.of(context).uri;
+    final currentIndex = tabIndexForLocation(uri);
 
-    // Back from Family / Prescription / Health / Profile goes to Home first;
-    // only Home (and sub-pages, which pop normally) leaves the app.
-    final isOtherTab = _tabs.skip(1).contains(location);
-
-    return PopScope(
-      canPop: !isOtherTab,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) context.go(AppRoutes.home);
-      },
-      child: Scaffold(
+    final scaffold = Scaffold(
       body: SafeArea(
         child: Column(
           children: [
@@ -53,32 +61,46 @@ class MainScaffold extends ConsumerWidget {
         onDestinationSelected: (index) => context.go(_tabs[index]),
         destinations: [
           NavigationDestination(
-            icon: const Icon(Icons.home_outlined),
-            selectedIcon: const Icon(Icons.home),
+            icon: const Icon(Icons.home_outlined, size: 28),
+            selectedIcon: const Icon(Icons.home, size: 28),
             label: strings.home,
           ),
           NavigationDestination(
-            icon: const Icon(Icons.groups_outlined),
-            selectedIcon: const Icon(Icons.groups),
+            icon: const Icon(Icons.medication_outlined, size: 28),
+            selectedIcon: const Icon(Icons.medication, size: 28),
+            label: strings.medicinesTab,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.groups_outlined, size: 28),
+            selectedIcon: const Icon(Icons.groups, size: 28),
             label: strings.family,
           ),
           NavigationDestination(
-            icon: const Icon(Icons.medication_outlined),
-            selectedIcon: const Icon(Icons.medication),
-            label: strings.prescription,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.favorite_outline),
-            selectedIcon: const Icon(Icons.favorite),
+            icon: const Icon(Icons.favorite_outline, size: 28),
+            selectedIcon: const Icon(Icons.favorite, size: 28),
             label: strings.health,
           ),
           NavigationDestination(
-            icon: const Icon(Icons.person_outline),
-            selectedIcon: const Icon(Icons.person),
+            icon: const Icon(Icons.person_outline, size: 28),
+            selectedIcon: const Icon(Icons.person, size: 28),
             label: strings.profile,
           ),
         ],
       ),
-    ));
+    );
+
+    // Home: back twice to leave. Other tab roots: back goes to Home.
+    // Pushed screens pop normally.
+    if (uri.path == AppRoutes.home) return DoubleBackToExit(child: scaffold);
+    if (isTabRoot(uri)) {
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) context.go(AppRoutes.home);
+        },
+        child: scaffold,
+      );
+    }
+    return scaffold;
   }
 }

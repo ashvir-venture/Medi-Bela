@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/localization/app_strings.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../widgets/state_views.dart';
@@ -27,6 +28,7 @@ class FamilyScreen extends ConsumerWidget {
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(familyStatusSummaryProvider);
+          await ref.read(familyEventsControllerProvider.notifier).reload();
           await ref.read(familyInvitationsControllerProvider.notifier).load();
           await ref.read(familyMembersControllerProvider.notifier).refresh();
         },
@@ -103,10 +105,11 @@ class _FamilyContent extends ConsumerWidget {
       );
     }
 
+    final viewerIsCaregiver = members.any((m) => m.userId == myId && m.role == 'CAREGIVER');
     return ListView.separated(
       padding: const EdgeInsets.all(16),
-      // header + members + (solo hint) + sharing note + invitations
-      itemCount: members.length + 4,
+      // header + members + (solo hint) + sharing note + invitations + activity
+      itemCount: members.length + 5,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         if (index == 0) {
@@ -153,8 +156,18 @@ class _FamilyContent extends ConsumerWidget {
             child: _PendingInvitationsSection(),
           );
         }
+        if (index == members.length + 4) {
+          return const Padding(
+            padding: EdgeInsets.only(top: 16),
+            child: _FamilyActivitySection(),
+          );
+        }
         final member = members[index - 1];
-        return _MemberTile(member: member, isMe: member.userId == myId);
+        return _MemberTile(
+          member: member,
+          isMe: member.userId == myId,
+          canRemove: viewerIsCaregiver && member.userId != myId,
+        );
       },
     );
   }
@@ -176,10 +189,38 @@ class _FamilyContent extends ConsumerWidget {
 }
 
 class _MemberTile extends ConsumerWidget {
-  const _MemberTile({required this.member, required this.isMe});
+  const _MemberTile({required this.member, required this.isMe, required this.canRemove});
 
   final FamilyMemberModel member;
   final bool isMe;
+
+  /// The caregiver may remove anyone but themself (they use Leave family).
+  final bool canRemove;
+
+  Future<void> _remove(BuildContext context, WidgetRef ref) async {
+    final strings = ref.read(stringsProvider);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(strings.removeFromFamily),
+        content: Text(strings.removeMemberConfirm(member.name)),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(strings.cancel)),
+          ElevatedButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text(strings.removeAction)),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final result = await ref.read(familyMembersControllerProvider.notifier).removeMember(member.userId);
+    if (!context.mounted) return;
+    result.when(
+      success: (_) {
+        ref.invalidate(familyStatusSummaryProvider);
+        ref.read(familyEventsControllerProvider.notifier).reload();
+      },
+      failure: (message) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message))),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -191,6 +232,7 @@ class _MemberTile extends ConsumerWidget {
     final summary = isMe
         ? null
         : ref.watch(familyStatusSummaryProvider).valueOrNull?[member.userId];
+    final paused = member.paused || (summary?.paused ?? false);
 
     return Card(
       child: ListTile(
@@ -209,7 +251,9 @@ class _MemberTile extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(member.phone),
-            if (summary != null) ...[
+            if (paused)
+              Text(strings.accountPaused, style: TextStyle(color: context.palette.warningStrong))
+            else if (summary != null) ...[
               const SizedBox(height: 4),
               _SummaryChips(summary: summary),
             ],
@@ -224,7 +268,14 @@ class _MemberTile extends ConsumerWidget {
                 visualDensity: VisualDensity.compact,
                 backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
               ),
-            if (!isMe) const Icon(Icons.chevron_right),
+            if (canRemove)
+              PopupMenuButton<String>(
+                tooltip: strings.removeFromFamily,
+                onSelected: (_) => _remove(context, ref),
+                itemBuilder: (_) => [PopupMenuItem(value: 'remove', child: Text(strings.removeFromFamily))],
+              )
+            else if (!isMe)
+              const Icon(Icons.chevron_right),
           ],
         ),
       ),
@@ -269,6 +320,76 @@ class _SummaryChips extends ConsumerWidget {
       ],
     );
   }
+}
+
+/// The family's activity feed: who joined, left or was removed, and caregiver
+/// changes. Newest first, 10 at a time with "Load more" (online only).
+class _FamilyActivitySection extends ConsumerWidget {
+  const _FamilyActivitySection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final strings = ref.watch(stringsProvider);
+    final feed = ref.watch(familyEventsControllerProvider);
+    final muted = TextStyle(color: context.palette.subtle);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(strings.familyActivity, style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        if (feed.items.isEmpty && feed.isLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (feed.items.isEmpty && feed.error != null)
+          Text(feed.error!, style: TextStyle(color: Theme.of(context).colorScheme.error))
+        else if (feed.items.isEmpty)
+          Text(strings.noFamilyActivity, style: muted)
+        else
+          for (final event in feed.items)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(_eventIcon(event.kind)),
+              title: Text(familyEventLine(event, strings)),
+              subtitle: Text(_formatWhen(event.createdAt), style: muted),
+            ),
+        if (feed.nextCursor != null)
+          OutlinedButton(
+            onPressed: feed.isLoading ? null : () => ref.read(familyEventsControllerProvider.notifier).loadMore(),
+            child: Text(strings.loadMore),
+          ),
+      ],
+    );
+  }
+
+  static IconData _eventIcon(String kind) => switch (kind) {
+        'JOINED' => Icons.person_add_alt_1_outlined,
+        'LEFT' => Icons.logout,
+        'REMOVED' => Icons.person_remove_outlined,
+        'CAREGIVER_CHANGED' => Icons.verified_user_outlined,
+        _ => Icons.groups_outlined,
+      };
+
+  static String _formatWhen(DateTime at) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${at.year}-${two(at.month)}-${two(at.day)} ${two(at.hour)}:${two(at.minute)}';
+  }
+}
+
+/// One feed line in the app's language. A deleted account shows as
+/// "Deleted user"; a missing person (should not happen) the same.
+String familyEventLine(FamilyEvent event, AppStrings strings) {
+  String nameOf(FamilyEventPerson? p) => p == null || p.deleted ? strings.deletedUser : p.name;
+  final name = nameOf(event.subject);
+  return switch (event.kind) {
+    'JOINED' => strings.eventJoined(name),
+    'LEFT' => strings.eventLeft(name),
+    'REMOVED' => strings.eventRemoved(name, nameOf(event.actor)),
+    'CAREGIVER_CHANGED' => strings.eventCaregiver(name),
+    _ => strings.eventCreated(name),
+  };
 }
 
 class _PendingInvitationsSection extends ConsumerWidget {

@@ -63,6 +63,29 @@ class FamilyApi {
     await _dio.post(ApiEndpoints.declineInvitation(invitationId));
   }
 
+  Future<void> leave() async {
+    await _dio.post(ApiEndpoints.familyLeave);
+  }
+
+  /// Caregiver only.
+  Future<void> removeMember(String userId) async {
+    await _dio.delete(ApiEndpoints.familyMember(userId));
+  }
+
+  Future<FamilyEventsPage> listEvents({String? cursor}) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      ApiEndpoints.familyEvents,
+      queryParameters: {if (cursor != null) 'cursor': cursor},
+    );
+    final data = response.data!;
+    return FamilyEventsPage(
+      items: (data['items'] as List<dynamic>? ?? [])
+          .map((e) => FamilyEvent.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      nextCursor: data['nextCursor'] as String?,
+    );
+  }
+
   Future<Map<String, MemberStatusSummary>> getMembersStatus() async {
     final response = await _dio.get<Map<String, dynamic>>(
       ApiEndpoints.familyMembersStatus,

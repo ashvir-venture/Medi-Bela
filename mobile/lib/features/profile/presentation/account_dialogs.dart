@@ -13,12 +13,13 @@ Future<void> showChangePasswordDialog(BuildContext context) {
   );
 }
 
-/// Permanently delete the account after re-entering the password.
-Future<void> showDeleteAccountDialog(BuildContext context) {
+/// Pause the account after re-entering the password (signing in again
+/// brings it back). Delete is two screens of its own (delete_account_screens.dart).
+Future<void> showDeactivateDialog(BuildContext context) {
   return showDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => const _DeleteAccountDialog(),
+    builder: (_) => const _DeactivateDialog(),
   );
 }
 
@@ -131,14 +132,14 @@ class _ChangePasswordDialogState extends ConsumerState<_ChangePasswordDialog> {
   }
 }
 
-class _DeleteAccountDialog extends ConsumerStatefulWidget {
-  const _DeleteAccountDialog();
+class _DeactivateDialog extends ConsumerStatefulWidget {
+  const _DeactivateDialog();
 
   @override
-  ConsumerState<_DeleteAccountDialog> createState() => _DeleteAccountDialogState();
+  ConsumerState<_DeactivateDialog> createState() => _DeactivateDialogState();
 }
 
-class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
+class _DeactivateDialogState extends ConsumerState<_DeactivateDialog> {
   final _formKey = GlobalKey<FormState>();
   final _password = TextEditingController();
   bool _busy = false;
@@ -156,9 +157,7 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
       _busy = true;
       _error = null;
     });
-    final result = await ref
-        .read(authControllerProvider.notifier)
-        .deleteAccount(password: _password.text);
+    final result = await ref.read(authControllerProvider.notifier).deactivate(password: _password.text);
     if (!mounted) return;
     result.when(
       // The session has ended: the router returns to the login screen.
@@ -175,7 +174,7 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
     final strings = ref.watch(stringsProvider);
     final theme = Theme.of(context);
     return AlertDialog(
-      title: Text(strings.deleteAccount),
+      title: Text(strings.deactivateAccount),
       content: SingleChildScrollView(
         child: Form(
           key: _formKey,
@@ -183,7 +182,7 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(strings.deleteAccountWarning),
+              Text(strings.deactivateExplain),
               const SizedBox(height: 12),
               Text(strings.deleteAccountPasswordPrompt),
               const SizedBox(height: 8),
@@ -209,13 +208,9 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
         ),
         ElevatedButton(
           onPressed: _busy ? null : _submit,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: theme.colorScheme.error,
-            foregroundColor: theme.colorScheme.onError,
-          ),
           child: _busy
               ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
-              : Text(strings.deleteMyAccount),
+              : Text(strings.deactivateAction),
         ),
       ],
     );

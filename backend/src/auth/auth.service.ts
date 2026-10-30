@@ -10,10 +10,12 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { Prisma, User } from '@prisma/client';
+import { AccountStatus, Prisma, User } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { createHmac, randomInt, timingSafeEqual } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
+import { resumeSchedules } from '../medicine-schedule/rolling-dose.job';
 import { JwtPayload } from '../common/interfaces/jwt-payload.interface';
 import { sanitizeUser, SafeUser } from '../common/utils/sanitize-user';
 import { normalizePhone } from '../common/utils/phone.util';
@@ -36,6 +38,10 @@ const RESET_REQUESTS_PER_PHONE_PER_HOUR = 3;
 const RESET_REQUESTS_PER_IP_PER_HOUR = 10;
 const HOUR_MS = 60 * 60 * 1000;
 const RESET_GENERIC_ERROR = 'Invalid or expired code';
+/** Shown only after a CORRECT password (a wrong one gets the usual message: no account probing). */
+export const SUSPENDED_MESSAGE = 'This account is under suspension. Please contact Medi-Bela Authority.';
+/** A reset code is issued and accepted for these; a reset on DEACTIVATED also reactivates. */
+const RESETTABLE: AccountStatus[] = [AccountStatus.ACTIVE, AccountStatus.DEACTIVATED];
 
 @Injectable()
 export class AuthService {
@@ -50,6 +56,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly sms: SmsService,
+    private readonly audit: AuditService,
   ) { }
 
   async register(
@@ -88,7 +95,10 @@ export class AuthService {
     return { user: sanitizeUser(user), tokens };
   }
 
-  async login(dto: LoginDto, clientIp = 'unknown'): Promise<{ user: SafeUser; tokens: TokenPair }> {
+  async login(
+    dto: LoginDto,
+    clientIp = 'unknown',
+  ): Promise<{ user: SafeUser; tokens: TokenPair; reactivated?: true }> {
     // Normalized so other spellings of the same number share one throttle.
     const throttleKey = `${clientIp}|${normalizePhone(dto.phone)}`;
     if (this.throttle.isBlocked(throttleKey)) {
@@ -112,13 +122,24 @@ export class AuthService {
       throw new UnauthorizedException('Invalid phone number or password');
     }
 
-    if (user.accountStatus !== 'ACTIVE') {
+    if (user.accountStatus === AccountStatus.SUSPENDED) {
+      // Login never lifts a ban.
+      throw new ForbiddenException(SUSPENDED_MESSAGE);
+    }
+    let reactivated = false;
+    let current = user;
+    if (user.accountStatus === AccountStatus.DEACTIVATED) {
+      current = await this.reactivate(user.id);
+      reactivated = true;
+    } else if (user.accountStatus !== AccountStatus.ACTIVE) {
       throw new ForbiddenException('Account is not active');
     }
 
     this.throttle.reset(throttleKey);
-    const tokens = await this.issueTokens(user);
-    return { user: sanitizeUser(user), tokens };
+    const tokens = await this.issueTokens(current);
+    return reactivated
+      ? { user: sanitizeUser(current), tokens, reactivated: true }
+      : { user: sanitizeUser(current), tokens };
   }
 
   /**
@@ -193,7 +214,8 @@ export class AuthService {
   private async issueResetCode(phone: string): Promise<void> {
     if (this.exceedsRequestLimit(`phone:${normalizePhone(phone)}`, RESET_REQUESTS_PER_PHONE_PER_HOUR)) return;
     const user = await this.findUserByPhone(phone);
-    if (!user || user.accountStatus !== 'ACTIVE') return;
+    // Banned accounts stay silent (same response as an unknown number).
+    if (!user || !RESETTABLE.includes(user.accountStatus)) return;
 
     const code = String(randomInt(100000, 1000000));
     const data = { codeHash: this.hashResetCode(user.id, code), attempts: 0, expiresAt: new Date(Date.now() + RESET_CODE_TTL_MS) };
@@ -221,7 +243,7 @@ export class AuthService {
 
     const user = await this.findUserByPhone(dto.phone);
     const row = user ? await this.prisma.passwordResetCode.findUnique({ where: { userId: user.id } }) : null;
-    if (!user || !row || user.accountStatus !== 'ACTIVE') return fail();
+    if (!user || !row || !RESETTABLE.includes(user.accountStatus)) return fail();
     if (row.expiresAt.getTime() < Date.now() || row.attempts >= RESET_MAX_CODE_ATTEMPTS) return fail();
 
     const expected = Buffer.from(row.codeHash, 'hex');
@@ -240,6 +262,31 @@ export class AuthService {
     });
     this.resetThrottle.reset(throttleKey);
     this.throttle.reset(throttleKey);
+    // Someone who forgot the password of a paused account can still come back.
+    if (user.accountStatus === AccountStatus.DEACTIVATED) await this.reactivate(user.id);
+  }
+
+  /**
+   * DEACTIVATED -> ACTIVE (login with the right password, or an SMS reset),
+   * then the user's routines are extended right away so reminders return at
+   * sign-in. A compare-and-set on the status, so two logins at once reactivate once.
+   */
+  private async reactivate(userId: string): Promise<User> {
+    const changed = await this.prisma.$transaction(async (tx) => {
+      const claim = await tx.user.updateMany({
+        where: { id: userId, accountStatus: AccountStatus.DEACTIVATED },
+        data: { accountStatus: AccountStatus.ACTIVE, deactivatedAt: null },
+      });
+      if (claim.count === 1) {
+        await this.audit.record(
+          { actorId: userId, subjectUserId: userId, action: 'user.reactivate', entityType: 'user', entityId: userId },
+          tx,
+        );
+      }
+      return claim.count === 1;
+    });
+    if (changed) await resumeSchedules(this.prisma, userId);
+    return this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
   }
 
   /** HMAC (server secret) of the code, so a database leak does not reveal live codes. */

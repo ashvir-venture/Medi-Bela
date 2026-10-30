@@ -39,10 +39,14 @@ class MyMedicinesScreen extends ConsumerWidget {
     final strings = ref.watch(stringsProvider);
     final routinesAsync = ref.watch(managedRoutinesProvider(forUserId));
 
+    // Own medicines sit under the Medicines tab (its app bar has the title);
+    // a caregiver's view of a member is a page of its own.
     return Scaffold(
-      appBar: AppBar(
-        title: Text(memberName == null ? strings.myMedicines : strings.medicinesOf(memberName!)),
-      ),
+      appBar: forUserId == null
+          ? null
+          : AppBar(
+              title: Text(memberName == null ? strings.myMedicines : strings.medicinesOf(memberName!)),
+            ),
       body: RefreshIndicator(
         onRefresh: () => ref.refresh(managedRoutinesProvider(forUserId).future),
         child: routinesAsync.when(

@@ -266,6 +266,57 @@ class AppStrings {
     required this.couldNotLoadOptions,
     required this.allNotices,
     required this.noticeSource,
+    required this.settings,
+    required this.editDetails,
+    required this.remindersAndNotifications,
+    required this.allGood,
+    required this.needsAttention,
+    required this.privacyAndFamily,
+    required this.leaveFamily,
+    required this.removeFromFamily,
+    required this.appearanceAndLanguage,
+    required this.accountActions,
+    required this.deactivateAccount,
+    required this.deactivateInstead,
+    required this.continueToDelete,
+    required this.accountPaused,
+    required this.welcomeBack,
+    required this.deletedUser,
+    required this.accountSuspended,
+    required this.pressBackAgainToExit,
+    required this.medicinesTab,
+    required this.deleteWarningTitle,
+    required this.deleteErasedHeading,
+    required this.deleteErasedList,
+    required this.deleteKeptHeading,
+    required this.deleteKeptList,
+    required this.deleteCannotUndo,
+    required this.deactivateHint,
+    required this.deleteConfirmTitle,
+    required this.deletePhrasePrompt,
+    required this.deletePhrase,
+    required this.deactivateExplain,
+    required this.deactivateAction,
+    required this.leaveFamilyConfirm,
+    required this.leaveAction,
+    required this.removeMemberConfirmTemplate,
+    required this.removeAction,
+    required this.familyActivity,
+    required this.noFamilyActivity,
+    required this.eventJoinedTemplate,
+    required this.eventLeftTemplate,
+    required this.eventRemovedTemplate,
+    required this.eventCaregiverTemplate,
+    required this.eventCreatedTemplate,
+    required this.assistantCardSubtitle,
+    required this.familyMemberRole,
+    required this.signinCardPrescription,
+    required this.signinCardChecked,
+    required this.signinCardReminder,
+    required this.signinCardTaken,
+    required this.signinCardMissed,
+    required this.signinCardFamily,
+    required this.signinTagline,
   });
 
   final String appName;
@@ -537,6 +588,73 @@ class AppStrings {
   String prescriptionsOf(String name) => prescriptionsOfTemplate.replaceAll('{name}', name);
   final String allNotices;
   final String noticeSource;
+  final String settings;
+  final String editDetails;
+  final String remindersAndNotifications;
+  final String allGood;
+  final String needsAttention;
+  final String privacyAndFamily;
+  final String leaveFamily;
+  final String removeFromFamily;
+  final String appearanceAndLanguage;
+  final String accountActions;
+  final String deactivateAccount;
+  final String deactivateInstead;
+  final String continueToDelete;
+  final String accountPaused;
+  final String welcomeBack;
+  final String deletedUser;
+  final String accountSuspended;
+  final String pressBackAgainToExit;
+  final String medicinesTab;
+  final String deleteWarningTitle;
+  final String deleteErasedHeading;
+  final String deleteErasedList;
+  final String deleteKeptHeading;
+  final String deleteKeptList;
+  final String deleteCannotUndo;
+  final String deactivateHint;
+  final String deleteConfirmTitle;
+  final String deletePhrasePrompt;
+  /// The sentence typed to confirm deletion, in the app's language.
+  final String deletePhrase;
+  final String deactivateExplain;
+  final String deactivateAction;
+  final String leaveFamilyConfirm;
+  final String leaveAction;
+  final String removeMemberConfirmTemplate;
+  final String removeAction;
+  final String familyActivity;
+  final String noFamilyActivity;
+  final String eventJoinedTemplate;
+  final String eventLeftTemplate;
+  final String eventRemovedTemplate;
+  final String eventCaregiverTemplate;
+  final String eventCreatedTemplate;
+  final String assistantCardSubtitle;
+
+  String removeMemberConfirm(String name) => removeMemberConfirmTemplate.replaceAll('{name}', name);
+
+  /// Family activity feed lines.
+  String eventJoined(String name) => eventJoinedTemplate.replaceAll('{name}', name);
+
+  String eventLeft(String name) => eventLeftTemplate.replaceAll('{name}', name);
+
+  String eventRemoved(String name, String caregiver) =>
+      eventRemovedTemplate.replaceAll('{name}', name).replaceAll('{caregiver}', caregiver);
+
+  String eventCaregiver(String name) => eventCaregiverTemplate.replaceAll('{name}', name);
+
+  String eventCreated(String name) => eventCreatedTemplate.replaceAll('{name}', name);
+  final String familyMemberRole;
+  /// Sign-in picture (decoration only).
+  final String signinCardPrescription;
+  final String signinCardChecked;
+  final String signinCardReminder;
+  final String signinCardTaken;
+  final String signinCardMissed;
+  final String signinCardFamily;
+  final String signinTagline;
 }
 
 const AppStrings enStrings = AppStrings(
@@ -804,6 +922,57 @@ const AppStrings enStrings = AppStrings(
   couldNotLoadOptions: 'Could not load the options. Check your internet.',
   allNotices: 'All notices',
   noticeSource: 'Source',
+  settings: 'Settings',
+  editDetails: 'Edit details',
+  remindersAndNotifications: 'Reminders & notifications',
+  allGood: 'All good',
+  needsAttention: 'Needs attention',
+  privacyAndFamily: 'Privacy & family',
+  leaveFamily: 'Leave family',
+  removeFromFamily: 'Remove from family',
+  appearanceAndLanguage: 'Appearance & language',
+  accountActions: 'Account actions',
+  deactivateAccount: 'Deactivate account',
+  deactivateInstead: 'Deactivate instead',
+  continueToDelete: 'Continue to delete',
+  accountPaused: 'Account paused',
+  welcomeBack: 'Welcome back',
+  deletedUser: 'Deleted user',
+  accountSuspended: 'This account is under suspension. Please contact Medi-Bela Authority.',
+  pressBackAgainToExit: 'Press back again to exit',
+  medicinesTab: 'Medicines',
+  deleteWarningTitle: 'Before you delete',
+  deleteErasedHeading: 'What is erased',
+  deleteErasedList: 'Your name, phone number, address and date of birth; health records; health reminders and AI suggestions; assistant conversations; notifications; your place in your family.',
+  deleteKeptHeading: 'What is kept, without your name',
+  deleteKeptList: 'Prescriptions a pharmacist already checked and your medicine history, with your gender, birth year, division and district, for medical records and statistics.',
+  deleteCannotUndo: 'Nothing can be restored. Your phone number becomes free for a new account.',
+  deactivateHint: 'You can deactivate instead and come back later.',
+  deleteConfirmTitle: 'Confirm deletion',
+  deletePhrasePrompt: 'Type this sentence exactly:',
+  deletePhrase: 'I am sure about deletion and know the consequences',
+  deactivateExplain: 'Your reminders stop and you are signed out on every phone. Your family sees "Account paused". Sign in again any time to come back; nothing is lost.',
+  deactivateAction: 'Deactivate',
+  leaveFamilyConfirm: 'Leave your family? They will no longer see your medicines or get your missed-dose alerts. If you are the caregiver, the member who joined first becomes caregiver.',
+  leaveAction: 'Leave',
+  removeMemberConfirmTemplate: 'Remove {name} from the family? You will no longer see their medicines.',
+  removeAction: 'Remove',
+  familyActivity: 'Family activity',
+  noFamilyActivity: 'No activity yet',
+  eventJoinedTemplate: '{name} has joined',
+  eventLeftTemplate: '{name} has left',
+  eventRemovedTemplate: '{name} was removed by {caregiver}',
+  eventCaregiverTemplate: '{name} is now the caregiver',
+  eventCreatedTemplate: 'Family created by {name}',
+  assistantCardSubtitle: 'Ask about your medicines and health',
+  familyMemberRole: 'Family member',
+  signinCardPrescription: 'Napa 500 mg · 1+0+1 · after meal',
+  signinCardChecked: 'Checked by pharmacist',
+  signinCardReminder: '8:00 AM · 2 medicines',
+  signinCardTaken: 'Taken',
+  signinCardMissed: 'Missed dose',
+  signinCardFamily: 'Family notified',
+  signinTagline: 'Right time, healthy life',
 );
 
 const AppStrings bnStrings = AppStrings(
@@ -1071,4 +1240,55 @@ const AppStrings bnStrings = AppStrings(
   couldNotLoadOptions: 'তালিকা লোড করা যায়নি। ইন্টারনেট সংযোগ দেখুন।',
   allNotices: 'সব নোটিশ',
   noticeSource: 'সূত্র',
+  settings: 'সেটিংস',
+  editDetails: 'তথ্য সম্পাদনা',
+  remindersAndNotifications: 'রিমাইন্ডার ও নোটিফিকেশন',
+  allGood: 'সব ঠিক আছে',
+  needsAttention: 'মনোযোগ প্রয়োজন',
+  privacyAndFamily: 'গোপনীয়তা ও পরিবার',
+  leaveFamily: 'পরিবার ছেড়ে দিন',
+  removeFromFamily: 'পরিবার থেকে সরান',
+  appearanceAndLanguage: 'ভাষা ও রঙের ধরন',
+  accountActions: 'অ্যাকাউন্ট সংক্রান্ত',
+  deactivateAccount: 'অ্যাকাউন্ট সাময়িক বন্ধ করুন',
+  deactivateInstead: 'বরং সাময়িক বন্ধ করুন',
+  continueToDelete: 'মুছে ফেলতে এগিয়ে যান',
+  accountPaused: 'অ্যাকাউন্ট বন্ধ আছে',
+  welcomeBack: 'আবার স্বাগতম',
+  deletedUser: 'মুছে ফেলা ব্যবহারকারী',
+  accountSuspended: 'এই অ্যাকাউন্টটি স্থগিত আছে। মেডি-বেলা কর্তৃপক্ষের সাথে যোগাযোগ করুন।',
+  pressBackAgainToExit: 'বের হতে আবার চাপুন',
+  medicinesTab: 'ওষুধ',
+  deleteWarningTitle: 'মুছে ফেলার আগে',
+  deleteErasedHeading: 'যা মুছে যাবে',
+  deleteErasedList: 'আপনার নাম, ফোন নম্বর, ঠিকানা ও জন্ম তারিখ; স্বাস্থ্যের রেকর্ড; স্বাস্থ্য রিমাইন্ডার ও এআই পরামর্শ; সহকারীর কথোপকথন; নোটিফিকেশন; পরিবারে আপনার সদস্যপদ।',
+  deleteKeptHeading: 'যা থাকবে, আপনার নাম ছাড়া',
+  deleteKeptList: 'ফার্মাসিস্টের যাচাই করা প্রেসক্রিপশন ও আপনার ওষুধের ইতিহাস, সাথে লিঙ্গ, জন্মসাল, বিভাগ ও জেলা, চিকিৎসা-রেকর্ড ও পরিসংখ্যানের জন্য।',
+  deleteCannotUndo: 'কিছুই ফেরানো যাবে না। আপনার ফোন নম্বর দিয়ে নতুন অ্যাকাউন্ট খোলা যাবে।',
+  deactivateHint: 'চাইলে বরং সাময়িক বন্ধ করে পরে ফিরে আসতে পারেন।',
+  deleteConfirmTitle: 'মুছে ফেলা নিশ্চিত করুন',
+  deletePhrasePrompt: 'এই বাক্যটি হুবহু লিখুন:',
+  deletePhrase: 'আমি মুছে ফেলার বিষয়ে নিশ্চিত এবং পরিণতি জানি',
+  deactivateExplain: 'আপনার রিমাইন্ডার বন্ধ হবে এবং সব ফোন থেকে সাইন আউট হবেন। পরিবার দেখবে "অ্যাকাউন্ট বন্ধ আছে"। যেকোনো সময় আবার সাইন ইন করে ফিরে আসতে পারবেন; কিছুই হারাবে না।',
+  deactivateAction: 'সাময়িক বন্ধ করুন',
+  leaveFamilyConfirm: 'পরিবার ছেড়ে দেবেন? তাঁরা আর আপনার ওষুধ দেখতে বা ডোজ বাদ পড়ার সতর্কতা পেতে পারবেন না। আপনি পরিচর্যাকারী হলে সবচেয়ে আগে যোগ দেওয়া সদস্য পরিচর্যাকারী হবেন।',
+  leaveAction: 'ছেড়ে দিন',
+  removeMemberConfirmTemplate: '{name}-কে পরিবার থেকে সরাবেন? আপনি আর তাঁর ওষুধ দেখতে পারবেন না।',
+  removeAction: 'সরান',
+  familyActivity: 'পরিবারের কার্যক্রম',
+  noFamilyActivity: 'এখনো কোনো কার্যক্রম নেই',
+  eventJoinedTemplate: '{name} পরিবারে যোগ দিয়েছেন',
+  eventLeftTemplate: '{name} পরিবার ছেড়ে গেছেন',
+  eventRemovedTemplate: '{caregiver} {name}-কে পরিবার থেকে সরিয়েছেন',
+  eventCaregiverTemplate: '{name} এখন পরিবারের পরিচর্যাকারী',
+  eventCreatedTemplate: '{name} পরিবারটি তৈরি করেছেন',
+  assistantCardSubtitle: 'ওষুধ ও স্বাস্থ্য নিয়ে প্রশ্ন করুন',
+  familyMemberRole: 'পরিবারের সদস্য',
+  signinCardPrescription: 'Napa 500 mg · ১+০+১ · খাবারের পরে',
+  signinCardChecked: 'ফার্মাসিস্ট যাচাই করেছেন',
+  signinCardReminder: 'সকাল ৮:০০ · ২টি ওষুধ',
+  signinCardTaken: 'খাওয়া হয়েছে',
+  signinCardMissed: 'ডোজ বাদ পড়েছে',
+  signinCardFamily: 'পরিবারকে জানানো হয়েছে',
+  signinTagline: 'সঠিক সময়, সুস্থ জীবন',
 );

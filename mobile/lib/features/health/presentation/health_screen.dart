@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/localization/locale_controller.dart';
 import '../../../router/app_router.dart';
+import '../../diabetes/presentation/diabetes_strings.dart';
 
 /// Hub for the Health tab: health reminders (from suggestion rules) and
 /// basic health records. Kept intentionally simple — two cards, no
@@ -21,6 +22,13 @@ class HealthScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // Diabetes is common in this age group: a clear row near the top.
+          _HealthSectionCard(
+            icon: Icons.bloodtype_outlined,
+            title: ref.watch(diabetesStringsProvider).title,
+            onTap: () => context.push(AppRoutes.diabetes),
+          ),
+          const SizedBox(height: 12),
           _HealthSectionCard(
             icon: Icons.favorite_border,
             title: strings.healthReminders,

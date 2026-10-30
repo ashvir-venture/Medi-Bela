@@ -37,8 +37,8 @@ class _PrescriptionScreenState extends ConsumerState<PrescriptionScreen> {
     final strings = ref.watch(stringsProvider);
     final draftsAsync = ref.watch(prescriptionDraftsProvider);
 
+    // Shown under the Medicines tab, whose app bar carries the title.
     return Scaffold(
-      appBar: AppBar(title: Text(strings.prescription)),
       body: draftsAsync.when(
         loading: () => const LoadingView(),
         error: (error, _) => ErrorView(

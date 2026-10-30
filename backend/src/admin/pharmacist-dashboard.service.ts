@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrescriptionStatus, SuggestionStatus } from '@prisma/client';
+import { NoticeStatus, PrescriptionStatus, SuggestionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { appDayBounds } from '../common/utils/time.util';
 import { DOCTOR_INCOMPLETE_WHERE, MEDICINE_INCOMPLETE_WHERE } from '../catalog/lib/catalog-completeness';
@@ -29,6 +29,8 @@ export class PharmacistDashboardService {
       incompleteMedicines,
       draftSuggestions,
       oldestPending,
+      noticesSentBack,
+      noticesPending,
     ] = await Promise.all([
       this.prisma.prescription.count({ where: { status: PrescriptionStatus.PENDING } }),
       this.prisma.prescription.count({
@@ -59,6 +61,11 @@ export class PharmacistDashboardService {
           user: { select: { id: true, name: true } },
         },
       }),
+      // The pharmacist's own notices: sent back by an admin, and waiting for approval.
+      this.prisma.notice.count({
+        where: { createdById: pharmacistId, status: NoticeStatus.DRAFT, reviewNote: { not: null } },
+      }),
+      this.prisma.notice.count({ where: { createdById: pharmacistId, status: NoticeStatus.PENDING_APPROVAL } }),
     ]);
 
     return {
@@ -67,6 +74,7 @@ export class PharmacistDashboardService {
       today: { prepared: preparedByMeToday, rejected: rejectedByMeToday },
       catalog: { incompleteDoctors, incompleteMedicines },
       aiSuggestions: { drafts: draftSuggestions },
+      notices: { sentBack: noticesSentBack, pending: noticesPending },
       oldestPending,
     };
   }

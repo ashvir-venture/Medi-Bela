@@ -13,10 +13,22 @@ enum Role {
   PHARMACIST
 }
 
+// DEACTIVATED: paused by the user (signs in again to return).
+// SUSPENDED: banned by an admin (login refused, never lifted by login).
+// DELETED: de-identified; the row stays so prescriptions and history keep a patient.
 enum AccountStatus {
   ACTIVE
+  DEACTIVATED
   SUSPENDED
   DELETED
+}
+
+enum FamilyEventKind {
+  CREATED
+  JOINED
+  LEFT
+  REMOVED
+  CAREGIVER_CHANGED
 }
 
 enum Language {
@@ -127,7 +139,8 @@ enum AssistantMessageRole {
 
 model User {
   id                       String        @id @default(uuid()) @db.Uuid
-  phone                    String        @unique
+  // NULL only on DELETED accounts (the number is free for a new sign-up).
+  phone                    String?       @unique
   name                     String
   address                  String?
   passwordHash             String
@@ -154,6 +167,11 @@ model User {
   // Set when the password is RESET (forgot-password): access tokens issued
   // before this moment are rejected, so a stolen session cannot outlive a reset.
   passwordChangedAt        DateTime?
+  deactivatedAt            DateTime?
+  deletedAt                DateTime?
+  suspendedAt              DateTime?
+  // Set on delete from dateOfBirth (which is erased), so age bands stay right.
+  birthYear                Int?
 
   familyMemberships      FamilyMember[]
   sentInvitations        FamilyInvitation[]      @relation("InvitationSender")
@@ -185,6 +203,8 @@ model User {
   uploadedPrescriptions  Prescription[]          @relation("PrescriptionUploader")
   confirmedPrescriptions Prescription[]          @relation("PrescriptionConfirmer")
   createdRoutines        MedicineRoutine[]       @relation("RoutineCreator")
+  familyEventsAbout      FamilyEvent[]           @relation("FamilyEventSubject")
+  familyEventsBy         FamilyEvent[]           @relation("FamilyEventActor")
 
   @@index([role])
   @@map("users")
@@ -198,8 +218,27 @@ model Family {
 
   members     FamilyMember[]
   invitations FamilyInvitation[]
+  events      FamilyEvent[]
 
   @@map("families")
+}
+
+// The family's activity feed. Names are not copied: the feed shows each
+// user's current name ("Deleted user" once deleted).
+model FamilyEvent {
+  id            String          @id @default(uuid()) @db.Uuid
+  familyId      String          @db.Uuid
+  kind          FamilyEventKind
+  subjectUserId String?         @db.Uuid
+  actorUserId   String?         @db.Uuid
+  createdAt     DateTime        @default(now())
+
+  family  Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  subject User?  @relation("FamilyEventSubject", fields: [subjectUserId], references: [id], onDelete: SetNull)
+  actor   User?  @relation("FamilyEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([familyId, createdAt, id])
+  @@map("family_events")
 }
 
 model FamilyMember {
@@ -241,7 +280,8 @@ model FamilyInvitation {
 model Prescription {
   id                     String             @id @default(uuid()) @db.Uuid
   userId                 String             @db.Uuid
-  imageUrl               String
+  // NULL once the patient deleted their account (the photo is erased).
+  imageUrl               String?
   status                 PrescriptionStatus @default(PENDING)
   reviewedById           String?            @db.Uuid
   reviewedAt             DateTime?

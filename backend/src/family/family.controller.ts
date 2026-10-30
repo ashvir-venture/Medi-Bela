@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -38,6 +39,28 @@ export class FamilyController {
   @Get('members/status')
   membersStatus(@CurrentUser('id') userId: string) {
     return this.familyService.getMembersStatusSummary(userId);
+  }
+
+  /** Caregiver only; not themself (they use leave). */
+  @Delete('members/:userId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async removeMember(
+    @CurrentUser('id') userId: string,
+    @Param('userId', ParseUUIDPipe) memberUserId: string,
+  ) {
+    await this.familyService.removeMember(userId, memberUserId);
+  }
+
+  @Post('leave')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async leave(@CurrentUser('id') userId: string) {
+    await this.familyService.leave(userId);
+  }
+
+  /** Activity feed of my family, newest first, 10 per page. */
+  @Get('events')
+  events(@CurrentUser('id') userId: string, @Query('cursor') cursor?: string) {
+    return this.familyService.listEvents(userId, cursor);
   }
 
   @Get('members/:userId/status')

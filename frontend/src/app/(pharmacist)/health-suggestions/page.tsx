@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { HealthSuggestion, listHealthSuggestions } from '@/lib/api-client';
+import { DataList } from '@/components/data-list';
 import { Topbar } from '@/components/topbar';
 import { Pager, useCursorPager } from '@/components/pager';
 
@@ -76,17 +77,25 @@ function SuggestionList() {
         ) : pager.items.length === 0 ? (
           <div className="empty-state">No AI suggestions found.</div>
         ) : (
-          pager.items.map((s) => (
-            <Link key={s.id} href={`/health-suggestions/${s.id}`} className="list-item">
-              <div>
-                <div style={{ fontWeight: 600 }}>{s.user.name}</div>
-                <div className="muted">Routine: {s.sourceMedicines}</div>
-              </div>
-              <span className={`badge ${s.status === 'PUBLISHED' ? 'badge-completed' : 'badge-draft'}`}>
-                {s.status === 'PUBLISHED' ? 'Published' : 'Draft'}
-              </span>
-            </Link>
-          ))
+          <DataList
+            rows={pager.items}
+            rowKey={(s) => s.id}
+            rowHref={(s) => `/health-suggestions/${s.id}`}
+            columns={[
+              { label: 'Patient', width: '1.4fr', render: (s) => <strong>{s.user.name}</strong> },
+              { label: 'Routine', width: '2fr', render: (s) => s.sourceMedicines },
+              {
+                label: 'Status',
+                width: '120px',
+                end: true,
+                render: (s) => (
+                  <span className={`badge ${s.status === 'PUBLISHED' ? 'badge-completed' : 'badge-draft'}`}>
+                    {s.status === 'PUBLISHED' ? 'Published' : 'Draft'}
+                  </span>
+                ),
+              },
+            ]}
+          />
         )}
 
         <Pager

@@ -120,6 +120,35 @@ class FamilyRepository {
     }
   }
 
+  /// Leaving empties the cached family (the server is the source of truth).
+  Future<Result<void>> leave() async {
+    try {
+      await _api.leave();
+      await _replaceCache(const []);
+      return const Result.success(null);
+    } on DioException catch (e) {
+      return Result.failure(friendlyErrorMessage(e));
+    }
+  }
+
+  Future<Result<void>> removeMember(String userId) async {
+    try {
+      await _api.removeMember(userId);
+      return const Result.success(null);
+    } on DioException catch (e) {
+      return Result.failure(friendlyErrorMessage(e));
+    }
+  }
+
+  /// Online only (no cache), like invitations.
+  Future<Result<FamilyEventsPage>> listEvents({String? cursor}) async {
+    try {
+      return Result.success(await _api.listEvents(cursor: cursor));
+    } on DioException catch (e) {
+      return Result.failure(friendlyErrorMessage(e));
+    }
+  }
+
   Future<void> _replaceCache(List<FamilyMemberModel> members) async {
     await _db.transaction(() async {
       await _db.delete(_db.cachedFamilyMembers).go();

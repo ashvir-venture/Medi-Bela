@@ -5,13 +5,16 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { DoseStatus, FamilyRole, InvitationStatus, NotificationType, Prisma } from '@prisma/client';
+import { AccountStatus, DoseStatus, FamilyEventKind, FamilyRole, InvitationStatus, NotificationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { messages } from '../notifications/notification-messages';
 import { appDayBounds } from '../common/utils/time.util';
 import { normalizePhone } from '../common/utils/phone.util';
 import { effectiveStatus } from '../medicine-schedule/lib/dose-status.util';
+import { CURSOR_ORDER, cursorWhere, toCursorPage, USER_PAGE_SIZE } from '../common/utils/cursor-pagination';
+import { DELETED_USER_NAME } from '../users/lib/deleted-user';
+import { FamilyMembershipService } from './family-membership.service';
 import { CreateFamilyDto } from './dto/create-family.dto';
 import { InviteMemberDto } from './dto/invite-member.dto';
 
@@ -30,7 +33,13 @@ const MEMBER_USER_SELECT = {
   phone: true,
   address: true,
   profileVisibleToFamily: true,
+  accountStatus: true,
 } as const;
+
+/** Deactivated or banned: the family sees "Account paused" and no medicine data. */
+function isPaused(status: AccountStatus): boolean {
+  return status !== AccountStatus.ACTIVE;
+}
 
 type MemberRow = Prisma.FamilyMemberGetPayload<{
   include: { user: { select: typeof MEMBER_USER_SELECT } };
@@ -44,6 +53,7 @@ function presentUser(user: MemberRow['user']) {
     phone: user.phone,
     // Address is the only optional profile field here; it honours the member's own preference.
     address: user.profileVisibleToFamily ? user.address : null,
+    paused: isPaused(user.accountStatus),
   };
 }
 
@@ -52,6 +62,7 @@ export class FamilyService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly membership: FamilyMembershipService,
   ) {}
 
   private getOwnMembership(userId: string) {
@@ -71,7 +82,11 @@ export class FamilyService {
   async createFamily(userId: string, dto: CreateFamilyDto) {
     try {
       const family = await this.prisma.family.create({
-        data: { name: dto.name, members: { create: { userId, role: FamilyRole.CAREGIVER } } },
+        data: {
+          name: dto.name,
+          members: { create: { userId, role: FamilyRole.CAREGIVER } },
+          events: { create: { kind: FamilyEventKind.CREATED, subjectUserId: userId, actorUserId: userId } },
+        },
         select: { id: true },
       });
       return this.loadFamily(family.id);
@@ -141,12 +156,14 @@ export class FamilyService {
     const membership = await this.requireMembership(userId);
     const members = await this.prisma.familyMember.findMany({
       where: { familyId: membership.familyId, userId: { not: userId } },
-      include: { user: { select: { id: true, name: true, profileVisibleToFamily: true } } },
+      include: { user: { select: { id: true, name: true, profileVisibleToFamily: true, accountStatus: true } } },
       orderBy: { joinedAt: 'asc' },
     });
 
     const { start, end } = appDayBounds(new Date());
-    const sharingIds = members.filter((m) => m.user.profileVisibleToFamily).map((m) => m.userId);
+    const sharingIds = members
+      .filter((m) => m.user.profileVisibleToFamily && !isPaused(m.user.accountStatus))
+      .map((m) => m.userId);
     const doses = sharingIds.length
       ? await this.prisma.medicineDose.findMany({
           where: { userId: { in: sharingIds }, scheduledAt: { gte: start, lt: end } },
@@ -157,8 +174,11 @@ export class FamilyService {
     return {
       date: start.toISOString(),
       members: members.map((m) => {
+        if (isPaused(m.user.accountStatus)) {
+          return { userId: m.userId, name: m.user.name, shared: false as const, paused: true };
+        }
         if (!m.user.profileVisibleToFamily) {
-          return { userId: m.userId, name: m.user.name, shared: false as const };
+          return { userId: m.userId, name: m.user.name, shared: false as const, paused: false };
         }
         const mine = doses
           .filter((d) => d.userId === m.userId)
@@ -167,6 +187,7 @@ export class FamilyService {
           userId: m.userId,
           name: m.user.name,
           shared: true as const,
+          paused: false,
           today: this.summarize(mine),
         };
       }),
@@ -183,13 +204,14 @@ export class FamilyService {
     const membership = await this.requireMembership(userId);
     const target = await this.prisma.familyMember.findFirst({
       where: { userId: memberUserId, familyId: membership.familyId },
-      include: { user: { select: { id: true, name: true, profileVisibleToFamily: true } } },
+      include: { user: { select: { id: true, name: true, profileVisibleToFamily: true, accountStatus: true } } },
     });
     if (!target) throw new NotFoundException('Family member not found');
 
-    const member = { userId: target.userId, name: target.user.name };
+    const paused = isPaused(target.user.accountStatus);
+    const member = { userId: target.userId, name: target.user.name, paused };
     const isSelf = target.userId === userId;
-    if (!isSelf && !target.user.profileVisibleToFamily) {
+    if (paused || (!isSelf && !target.user.profileVisibleToFamily)) {
       return { member, shared: false as const, today: null, doses: [] };
     }
 
@@ -227,6 +249,71 @@ export class FamilyService {
       taken: statuses.filter((s) => s === DoseStatus.TAKEN).length,
       missed: statuses.filter((s) => s === DoseStatus.MISSED).length,
       pending: statuses.filter((s) => s === DoseStatus.PENDING).length,
+    };
+  }
+
+  // ---------------------------------------------------------------------
+  // Leave, remove, activity feed
+  // ---------------------------------------------------------------------
+
+  /** Any member leaves. A caregiver who leaves hands over to the longest-standing member. */
+  async leave(userId: string) {
+    await this.requireMembership(userId);
+    const outcome = await this.prisma.$transaction((tx) => this.membership.depart(tx, userId, 'LEFT', userId));
+    await this.membership.notifyAfterCommit(outcome);
+  }
+
+  /** The caregiver removes another member (not themself: they use leave). */
+  async removeMember(userId: string, memberUserId: string) {
+    const own = await this.requireMembership(userId);
+    if (own.role !== FamilyRole.CAREGIVER) {
+      throw new ForbiddenException('Only the caregiver can remove members');
+    }
+    if (memberUserId === userId) {
+      throw new BadRequestException('Use Leave family to leave');
+    }
+    const target = await this.prisma.familyMember.findFirst({
+      where: { familyId: own.familyId, userId: memberUserId },
+      select: { id: true },
+    });
+    if (!target) throw new NotFoundException('Family member not found');
+    const outcome = await this.prisma.$transaction((tx) =>
+      this.membership.depart(tx, memberUserId, 'REMOVED', userId),
+    );
+    await this.membership.notifyAfterCommit(outcome);
+  }
+
+  /**
+   * The family's activity feed, newest first, 10 per page. Each user shows
+   * by current name; `deleted` marks a deleted account (the app shows its own
+   * "Deleted user" text). No phone numbers.
+   */
+  async listEvents(userId: string, cursor?: string) {
+    const own = await this.requireMembership(userId);
+    const rows = await this.prisma.familyEvent.findMany({
+      where: { familyId: own.familyId, ...cursorWhere(cursor) },
+      orderBy: CURSOR_ORDER,
+      take: USER_PAGE_SIZE + 1,
+      include: {
+        subject: { select: { id: true, name: true, accountStatus: true } },
+        actor: { select: { id: true, name: true, accountStatus: true } },
+      },
+    });
+    const page = toCursorPage(rows, USER_PAGE_SIZE);
+    const person = (u: { id: string; name: string; accountStatus: AccountStatus } | null) => {
+      if (!u) return null;
+      const deleted = u.accountStatus === AccountStatus.DELETED;
+      return { id: u.id, name: deleted ? DELETED_USER_NAME : u.name, deleted };
+    };
+    return {
+      items: page.items.map((e) => ({
+        id: e.id,
+        kind: e.kind,
+        createdAt: e.createdAt,
+        subject: person(e.subject),
+        actor: person(e.actor),
+      })),
+      nextCursor: page.nextCursor,
     };
   }
 
@@ -381,6 +468,9 @@ export class FamilyService {
 
         await tx.familyMember.create({
           data: { familyId: invitation.familyId, userId, role: FamilyRole.MEMBER },
+        });
+        await tx.familyEvent.create({
+          data: { familyId: invitation.familyId, kind: FamilyEventKind.JOINED, subjectUserId: userId, actorUserId: userId },
         });
         return { id: invitation.id, status: InvitationStatus.ACCEPTED };
       });

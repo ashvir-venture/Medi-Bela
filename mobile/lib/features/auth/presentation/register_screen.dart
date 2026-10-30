@@ -176,7 +176,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                     const SizedBox(height: 12),
                     TextButton(
-                      onPressed: () => context.go(AppRoutes.login),
+                      // Register is pushed from Login: back there.
+                      onPressed: () => context.canPop() ? context.pop() : context.go(AppRoutes.login),
                       child: Text(strings.alreadyHaveAccount),
                     ),
                   ],

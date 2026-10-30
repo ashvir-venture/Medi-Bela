@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ApiError, PharmacistDashboardData, getPharmacistDashboard } from '@/lib/api-client';
+import { DataList } from '@/components/data-list';
 import { Topbar } from '@/components/topbar';
 
 /** The pharmacist's overview: what is waiting and what they finished today. */
@@ -103,18 +104,26 @@ export default function PharmacistDashboardPage() {
               {data.oldestPending.length === 0 ? (
                 <p className="muted">Nothing waiting. Good work.</p>
               ) : (
-                data.oldestPending.map((p) => (
-                  <Link key={p.id} href={`/prescriptions/${p.id}`} className="list-item">
-                    <div>
-                      <div style={{ fontWeight: 600 }}>
-                        {p.user.name}
-                        {p.previousPrescriptionId && <span className="badge badge-draft tag">Re-upload</span>}
-                      </div>
-                      <span className="muted">Uploaded {new Date(p.createdAt).toLocaleString()}</span>
-                    </div>
-                    <span className="btn btn-primary btn-sm">Review</span>
-                  </Link>
-                ))
+                <DataList
+                  rows={data.oldestPending}
+                  rowKey={(p) => p.id}
+                  rowHref={(p) => `/prescriptions/${p.id}`}
+                  minWidth={420}
+                  columns={[
+                    {
+                      label: 'Patient',
+                      width: '1.5fr',
+                      render: (p) => (
+                        <strong>
+                          {p.user.name}
+                          {p.previousPrescriptionId && <span className="badge badge-draft tag">Re-upload</span>}
+                        </strong>
+                      ),
+                    },
+                    { label: 'Uploaded', width: '1.5fr', render: (p) => new Date(p.createdAt).toLocaleString() },
+                    { label: '', width: '90px', end: true, render: () => <span className="btn btn-primary btn-sm">Review</span> },
+                  ]}
+                />
               )}
             </div>
           </>

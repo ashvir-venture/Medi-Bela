@@ -52,8 +52,8 @@ class _TodaysMedicineScreenState extends ConsumerState<TodaysMedicineScreen> {
     final doseListAsync = ref.watch(todaysMedicineProvider);
     final routinesAsync = ref.watch(activeRoutinesProvider);
 
+    // Shown under the Medicines tab, whose app bar carries the title.
     return Scaffold(
-      appBar: AppBar(title: Text(strings.todaysMedicine)),
       body: RefreshIndicator(
         onRefresh: () => ref.read(refreshMedicineScheduleProvider)(),
         child: doseListAsync.when(
@@ -96,7 +96,7 @@ class _TodaysMedicineScreenState extends ConsumerState<TodaysMedicineScreen> {
                       child: Text(strings.myMedicineRoutines, style: Theme.of(context).textTheme.titleMedium),
                     ),
                     TextButton.icon(
-                      onPressed: () => context.push(AppRoutes.medicines),
+                      onPressed: () => context.go(AppRoutes.medicinesTabPath('mine')),
                       icon: const Icon(Icons.edit_note),
                       label: Text(strings.manageMedicines),
                     ),
