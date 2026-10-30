@@ -207,7 +207,8 @@ d('FamilyService (real Postgres)', () => {
       await withDoses(m, [{ h: 0.1 }, { h: 5 }]);
       expect(await svc.getMemberStatus(owner.id, m.id)).toMatchObject({ shared: false, doses: [], today: null });
       const sum: any = await svc.getMembersStatusSummary(owner.id);
-      expect(sum.members[0]).toEqual({ userId: m.id, name: 'Mem', shared: false });
+      // paused: Round 10 (deactivated / banned members show "Account paused"); still no health data.
+      expect(sum.members[0]).toEqual({ userId: m.id, name: 'Mem', shared: false, paused: false });
     });
 
     it('summary covers only the caller\'s own family, excludes the caller, flags overdue as missed', async () => {

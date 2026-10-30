@@ -49,7 +49,9 @@ d('Rolling dose generation (real Postgres)', () => {
   it('never creates a day twice under overlapping runs', async () => {
     const r = await routine({ endDate: null, generatedUntil: today });
     await Promise.all([job.run(now), job.run(now), job.run(now)]);
-    expect(await prisma.medicineDose.count({ where: { routineId: r.id } })).toBe(2 * ROLLING_HORIZON_DAYS);
+    // Today's 08:00 is already past at 12:00: since Round 10 the job never
+    // generates a dose before now (no back-fill), so one dose fewer.
+    expect(await prisma.medicineDose.count({ where: { routineId: r.id } })).toBe(2 * ROLLING_HORIZON_DAYS - 1);
   });
 
   // One run must cover every routine: each needs extending once a day, and a
