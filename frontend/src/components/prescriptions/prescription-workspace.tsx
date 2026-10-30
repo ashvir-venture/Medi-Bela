@@ -36,6 +36,7 @@ import {
 } from '@/components/medicine-form';
 import { ButtonSpinner, Skeleton } from '@/components/skeleton';
 import { useToast } from '@/components/toast';
+import { useConfirm } from '@/components/confirm-dialog';
 import { ErrorBanner } from '@/components/error-banner';
 
 let tmpRowCounter = 0;
@@ -104,6 +105,7 @@ export function PrescriptionWorkspace({
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
+  const confirm = useConfirm();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
@@ -160,7 +162,12 @@ export function PrescriptionWorkspace({
       setRows((prev) => prev.filter((r) => r.key !== row.key));
       return;
     }
-    if (!confirm(`Remove ${row.medicineName || 'this medicine'}?`)) return;
+    const ok = await confirm({
+      title: `Remove ${row.medicineName || 'this medicine'}?`,
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (!ok) return;
     await run('Failed to remove medicine', async () => {
       const updated = await removeMedicine(id, row.id!);
       // Keep unsaved edits on the other lines.
@@ -215,7 +222,7 @@ export function PrescriptionWorkspace({
     });
   }
 
-  function handleComplete() {
+  async function handleComplete() {
     const incomplete = rows.filter((r) => rowProblems(r).length > 0);
     if (rows.length === 0) {
       setError('Add at least one medicine first.');
@@ -226,7 +233,12 @@ export function PrescriptionWorkspace({
       setExpandedKey(incomplete[0].key);
       return;
     }
-    if (!confirm('Send this prescription to the patient for confirmation? It can no longer be edited here.')) return;
+    const ok = await confirm({
+      title: 'Send to the patient?',
+      message: 'The patient confirms it in the app. It can no longer be edited here.',
+      confirmLabel: 'Send',
+    });
+    if (!ok) return;
     return run('Failed to send prescription', async () => {
       await saveAll();
       apply(await completePrescription(id));

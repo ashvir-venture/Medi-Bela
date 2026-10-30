@@ -18,6 +18,8 @@ import '../providers/core_providers.dart';
 ///     screen, so a newly completed prescription produced no reminders until
 ///     then. Now they are reconciled at login, on every app resume, and
 ///     whenever connectivity returns.
+///  3. Server data pulled on those same moments (login, reactivation, resume,
+///     back online): doses, health reminders, prescriptions, health records.
 class SessionServices with WidgetsBindingObserver {
   SessionServices(this._ref);
 
@@ -106,6 +108,12 @@ class SessionServices with WidgetsBindingObserver {
       // 2. Then pull fresh data (each of these reconciles again on success).
       await medicine.refreshFromServer();
       await health.refreshFromServer();
+      // The rest of the offline copy: my prescriptions (restored after a
+      // reinstall or sign-in on a new phone) and health records.
+      await _ref.read(prescriptionLocalRepositoryProvider).refreshStatuses();
+      try {
+        await _ref.read(healthRecordRepositoryProvider).refreshFromServer();
+      } catch (_) {/* kept for the next refresh */}
       await _ref.read(pushServiceProvider).retryRegistration();
       await _syncLanguagePreference();
     } catch (_) {

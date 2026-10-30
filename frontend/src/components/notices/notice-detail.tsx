@@ -18,6 +18,7 @@ import { Topbar } from '@/components/topbar';
 import { NoticeFields, NoticeFormValue, EMPTY_NOTICE, formToInput, noticeToForm } from '@/components/notices/notice-fields';
 import { Skeleton } from '@/components/skeleton';
 import { useToast } from '@/components/toast';
+import { useConfirm } from '@/components/confirm-dialog';
 import { ErrorBanner } from '@/components/error-banner';
 
 export const NOTICE_STATUS: Record<Notice['status'], { label: string; badge: string }> = {
@@ -48,6 +49,7 @@ export function NoticeDetail({ basePath, role }: { basePath: string; role: 'ADMI
   const [showSendBack, setShowSendBack] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
+  const confirm = useConfirm();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -107,7 +109,13 @@ export function NoticeDetail({ basePath, role }: { basePath: string; role: 'ADMI
     });
   }
   async function handleDelete() {
-    if (!confirm('Delete this notice? This cannot be undone.')) return;
+    const ok = await confirm({
+      title: 'Delete this notice?',
+      message: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     await run('Failed to delete', async () => {
       await deleteNotice(id);
       router.push(basePath);

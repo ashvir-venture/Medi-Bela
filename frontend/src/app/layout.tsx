@@ -3,6 +3,7 @@ import { Hind_Siliguri, IBM_Plex_Sans } from 'next/font/google';
 import { THEME_BOOT_SCRIPT } from '@/lib/theme';
 import { MaintenanceGate, OfflineBanner } from '@/components/status-screens';
 import { ToastProvider } from '@/components/toast';
+import { ConfirmProvider } from '@/components/confirm-dialog';
 import './globals.css';
 
 // Downloaded at build time and served with the panel: no request to Google at runtime.
@@ -33,8 +34,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <ToastProvider>
-          <OfflineBanner />
-          <MaintenanceGate>{children}</MaintenanceGate>
+          <ConfirmProvider>
+            <OfflineBanner />
+            <MaintenanceGate>{children}</MaintenanceGate>
+          </ConfirmProvider>
         </ToastProvider>
       </body>
     </html>

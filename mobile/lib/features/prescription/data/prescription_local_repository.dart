@@ -89,9 +89,12 @@ class PrescriptionLocalRepository {
     return id;
   }
 
-  /// Pulls the latest status (PENDING/COMPLETED/REJECTED) for every draft
-  /// that has already synced (has a [PrescriptionDraft.serverId]), so the
-  /// user sees pharmacist decisions without having to re-open the app.
+  /// Pulls the latest status (PENDING/AWAITING_CONFIRMATION/REJECTED/...) for
+  /// every draft that has already synced (has a [PrescriptionDraft.serverId]),
+  /// so the user sees pharmacist decisions without having to re-open the app,
+  /// and adds my own server prescriptions this phone doesn't have (after a
+  /// reinstall, a new phone or a sign-out, which clear the local database).
+  /// Prescriptions my caregiver uploaded stay server-only (listed apart).
   /// Safe to call opportunistically (e.g. pull-to-refresh, app resume);
   /// silently no-ops if the network call fails, since the previously
   /// cached status remains valid to show.
@@ -104,12 +107,9 @@ class PrescriptionLocalRepository {
     }
 
     final byServerId = {for (final p in history) p.id: p};
+    final local = await _db.select(_db.prescriptionDrafts).get();
 
-    final drafts = await (_db.select(_db.prescriptionDrafts)
-          ..where((t) => t.serverId.isNotNull()))
-        .get();
-
-    for (final draft in drafts) {
+    for (final draft in local.where((d) => d.serverId != null)) {
       final match = byServerId[draft.serverId];
       if (match == null) continue;
       await (_db.update(_db.prescriptionDrafts)..where((t) => t.id.equals(draft.id)))
@@ -120,6 +120,29 @@ class PrescriptionLocalRepository {
           updatedAt: Value(DateTime.now()),
         ),
       );
+    }
+
+    // An upload still on its way has no serverId yet, but the server may
+    // already have it: adding server rows now could list it twice. The next
+    // refresh, after the upload finishes, adds anything missing.
+    if (local.any((d) => d.serverId == null && d.status != 'failed')) return;
+
+    final known = local.map((d) => d.serverId).whereType<String>().toSet();
+    final now = DateTime.now();
+    for (final p in history) {
+      if (p.uploadedByCaregiver || known.contains(p.id)) continue;
+      await _db.into(_db.prescriptionDrafts).insert(
+            PrescriptionDraftsCompanion.insert(
+              id: p.id,
+              status: const Value('synced'),
+              serverId: Value(p.id),
+              serverStatus: Value(p.status),
+              rejectionReason: Value(p.rejectionReason),
+              createdAt: p.createdAt.toLocal(),
+              updatedAt: now,
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
     }
   }
 

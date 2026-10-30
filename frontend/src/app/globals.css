@@ -1883,6 +1883,42 @@ a.data-row:hover {
   color: var(--color-danger);
 }
 
+/* "Are you sure?" box (components/confirm-dialog.tsx), instead of the browser's confirm(). */
+.confirm-dialog {
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 20px 48px var(--color-shadow);
+  width: min(440px, calc(100vw - 32px));
+}
+
+.confirm-dialog::backdrop {
+  background: var(--color-overlay);
+}
+
+.confirm-dialog-box {
+  padding: 20px;
+}
+
+.confirm-dialog-box h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.confirm-dialog-box p {
+  margin: 0;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+
 .offline-banner {
   position: sticky;
   top: 0;

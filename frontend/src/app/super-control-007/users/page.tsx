@@ -18,6 +18,7 @@ import { Topbar } from '@/components/topbar';
 import { Pager, useCursorPager } from '@/components/pager';
 import { DataList } from '@/components/data-list';
 import { useToast } from '@/components/toast';
+import { useConfirm } from '@/components/confirm-dialog';
 import { ButtonSpinner, Skeleton } from '@/components/skeleton';
 import { EmptyState } from '@/components/empty-state';
 
@@ -58,6 +59,7 @@ function UsersList() {
   const [status, setStatus] = useState(searchParams.get('status') ?? '');
   const [busyId, setBusyId] = useState<string | null>(null);
   const toast = useToast();
+  const confirm = useConfirm();
 
   useEffect(() => {
     getLookups()
@@ -85,10 +87,17 @@ function UsersList() {
 
   async function toggleBan(u: AdminUserRow) {
     const banning = u.accountStatus !== 'SUSPENDED';
-    const question = banning
-      ? `Ban ${u.name}? They are signed out everywhere and can't sign in until you unban them.`
-      : `Unban ${u.name}? They can sign in again.`;
-    if (!confirm(question)) return;
+    const ok = await confirm(
+      banning
+        ? {
+            title: `Ban ${u.name}?`,
+            message: "They are signed out everywhere and can't sign in until you unban them.",
+            confirmLabel: 'Ban',
+            danger: true,
+          }
+        : { title: `Unban ${u.name}?`, message: 'They can sign in again.', confirmLabel: 'Unban' },
+    );
+    if (!ok) return;
     setBusyId(u.id);
     try {
       if (banning) await banUser(u.id);
