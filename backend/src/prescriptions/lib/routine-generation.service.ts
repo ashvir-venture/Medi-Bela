@@ -75,7 +75,11 @@ export function planSchedule(
   const limit = generationLimit(endDate, now);
   // A start beyond the horizon: nothing yet, the rolling job begins there.
   const generatedUntil = limit > startDate ? limit : startDate;
-  return { startDate, endDate, generatedUntil, doses: dosesForDays(input.scheduleTimes, startDate, generatedUntil) };
+  // Only times still ahead, by date and time (owner, 2026-10-31): confirming
+  // at 15:00 doesn't create that morning's dose, which would show as missed.
+  // The course keeps its dates; the rolling job and pause / resume follow the same rule.
+  const doses = dosesForDays(input.scheduleTimes, startDate, generatedUntil).filter((d) => d.scheduledAt > now);
+  return { startDate, endDate, generatedUntil, doses };
 }
 
 export function parseScheduleTimes(raw: string | null): string[] {

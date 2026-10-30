@@ -26,7 +26,8 @@ function makeMedicine(overrides: Partial<PrescriptionMedicine> = {}): Prescripti
 
 describe('RoutineGenerationService', () => {
   const service = new RoutineGenerationService();
-  const completedAt = new Date('2026-01-10T12:00:00.000Z');
+  // 01:00 on 10 Jan in Dhaka: every dose of the course is still ahead.
+  const completedAt = new Date('2026-01-09T19:00:00.000Z');
 
   it('generates one dose per scheduled time per day, for durationDays', () => {
     const routine = service.generate(makeMedicine(), completedAt);
@@ -34,7 +35,7 @@ describe('RoutineGenerationService', () => {
   });
 
   // The app timezone is Asia/Dhaka (UTC+6), independent of the server's TZ.
-  // 2026-01-10T12:00Z is 18:00 on 10 Jan in Dhaka, so the routine starts at
+  // 2026-01-09T19:00Z is 01:00 on 10 Jan in Dhaka, so the routine starts at
   // Dhaka midnight of 10 Jan == 2026-01-09T18:00Z.
   it('defaults startDate to the completion date (at app-timezone midnight) when none is given', () => {
     const routine = service.generate(makeMedicine(), completedAt);
@@ -104,7 +105,7 @@ describe('RoutineGenerationService', () => {
 
 describe('RoutineGenerationService - rolling generation (Round 4)', () => {
   const service = new RoutineGenerationService();
-  const completedAt = new Date('2026-01-10T12:00:00.000Z'); // 10 Jan in Dhaka
+  const completedAt = new Date('2026-01-09T19:00:00.000Z'); // 01:00 on 10 Jan in Dhaka
 
   it('creates only ROLLING_HORIZON_DAYS of doses for a long course and records where it stopped', () => {
     const routine = service.generate(makeMedicine({ durationDays: 30 }), completedAt);
@@ -149,5 +150,38 @@ describe('RoutineGenerationService - rolling generation (Round 4)', () => {
     const from = new Date('2026-01-09T18:00:00.000Z');
     expect(dosesForDays(['08:00'], from, from)).toEqual([]);
     expect(dosesForDays(['08:00', '20:00'], from, new Date('2026-01-11T18:00:00.000Z'))).toHaveLength(4);
+  });
+});
+
+// Owner, 2026-10-31: a dose is only ever created for a time still ahead, by
+// date AND time. Confirming at 15:00 must not create that morning's dose
+// (it would show as missed at once).
+describe('RoutineGenerationService - only future doses', () => {
+  const service = new RoutineGenerationService();
+  // 15:00 on 10 Jan in Dhaka (UTC+6): 08:00 has passed, 20:00 has not.
+  const afternoon = new Date('2026-01-10T09:00:00.000Z');
+
+  it('skips the start day\'s times already past; the course keeps its dates', () => {
+    const routine = service.generate(makeMedicine({ durationDays: 2 }), afternoon);
+    expect(routine.doses.map((d) => d.scheduledAt.toISOString())).toEqual([
+      '2026-01-10T14:00:00.000Z', // 20:00 today
+      '2026-01-11T02:00:00.000Z',
+      '2026-01-11T14:00:00.000Z',
+    ]);
+    expect(routine.startDate.toISOString()).toBe('2026-01-09T18:00:00.000Z');
+    expect(routine.endDate?.toISOString()).toBe('2026-01-10T18:00:00.000Z');
+  });
+
+  it('a start date in the past creates nothing before now', () => {
+    const lastWeek = new Date('2026-01-03T00:00:00.000Z');
+    const routine = service.generate(makeMedicine({ startDate: lastWeek, durationDays: 30 }), afternoon);
+    expect(routine.doses.length).toBeGreaterThan(0);
+    expect(routine.doses.every((d) => d.scheduledAt > afternoon)).toBe(true);
+    expect(routine.doses[0].scheduledAt.toISOString()).toBe('2026-01-10T14:00:00.000Z');
+  });
+
+  it('a course whose last dose has already passed creates no doses', () => {
+    const routine = service.generate(makeMedicine({ startDate: new Date('2026-01-01T00:00:00.000Z'), durationDays: 3 }), afternoon);
+    expect(routine.doses).toHaveLength(0);
   });
 });
