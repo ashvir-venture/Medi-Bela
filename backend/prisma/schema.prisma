@@ -378,6 +378,8 @@ model MedicineRoutine {
   healthSuggestions    HealthSuggestion[]
 
   @@index([userId, active])
+  // Pharmacist routine panel: newest first, keyset pages.
+  @@index([createdAt, id])
   @@map("medicine_routines")
 }
 
@@ -851,5 +853,7 @@ model AuditLog {
 
   @@index([subjectUserId, createdAt])
   @@index([actorId, createdAt])
+  // Admin audit log: newest first, keyset pages.
+  @@index([createdAt, id])
   @@map("audit_logs")
 }

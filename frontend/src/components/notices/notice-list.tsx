@@ -57,13 +57,23 @@ export function NoticeList({ basePath, role }: { basePath: string; role: 'ADMIN'
   }, [notices]);
   const visible = filter === 'ALL' ? notices : notices.filter((n) => n.status === filter);
 
-  const tabs: [Filter, string][] = [
-    ['ALL', 'All'],
-    ['PENDING_APPROVAL', 'Waiting for approval'],
-    ['DRAFT', 'Drafts'],
-    ['PUBLISHED', 'Published'],
-    ['ARCHIVED', 'Archived'],
-  ];
+  // Tabs follow the flow: drafting -> approval -> published (admins: their drafts publish directly).
+  const tabs: [Filter, string][] =
+    role === 'ADMIN'
+      ? [
+          ['ALL', 'All'],
+          ['PENDING_APPROVAL', 'Waiting for approval'],
+          ['DRAFT', 'Drafts'],
+          ['PUBLISHED', 'Published'],
+          ['ARCHIVED', 'Archived'],
+        ]
+      : [
+          ['ALL', 'All'],
+          ['DRAFT', 'My drafts'],
+          ['PENDING_APPROVAL', 'Sent for approval'],
+          ['PUBLISHED', 'Published'],
+          ['ARCHIVED', 'Archived'],
+        ];
 
   return (
     <>
@@ -79,7 +89,7 @@ export function NoticeList({ basePath, role }: { basePath: string; role: 'ADMIN'
         <p className="muted" style={{ marginTop: 0 }}>
           {role === 'ADMIN'
             ? 'Your own notices publish directly. Pharmacists’ notices wait for your approval.'
-            : 'Draft a notice and submit it; an admin approves it before users see it.'}
+            : 'Drafts stay with you until you submit them. An admin approves a submitted notice before users see it.'}
         </p>
 
         <div className="tabs" role="tablist">

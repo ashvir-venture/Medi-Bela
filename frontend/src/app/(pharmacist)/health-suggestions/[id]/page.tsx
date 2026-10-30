@@ -166,7 +166,7 @@ export default function HealthSuggestionDetailPage() {
     <>
       <Topbar title={`AI Suggestion — ${suggestion.user.name}`} />
       <div className="page">
-        <button className="btn" style={{ marginBottom: 16 }} onClick={() => router.push('/super-control-007/health-suggestions')}>
+        <button className="btn" style={{ marginBottom: 16 }} onClick={() => router.push('/health-suggestions')}>
           ← Back
         </button>
 

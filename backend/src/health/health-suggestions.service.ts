@@ -1,18 +1,34 @@
 import { ConflictException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
-import { SuggestionStatus } from '@prisma/client';
+import { Prisma, SuggestionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
+import { ADMIN_PAGE_SIZE, CURSOR_ORDER, cursorWhere, toCursorPage } from '../common/utils/cursor-pagination';
 import { AiSuggestionService } from './ai-suggestion.service';
 import { UpdateHealthSuggestionDto } from './dto/update-health-suggestion.dto';
+import { HealthSuggestionListQueryDto, RoutineListQueryDto } from './dto/pharmacist-list-query.dto';
 
 const SAFE_USER_SELECT = { id: true, name: true, phone: true } as const;
 
+/** Medicine / patient name or phone, contains, ignoring case. */
+function patientOrText(field: 'medicineName' | 'sourceMedicines', q?: string) {
+  if (!q) return {};
+  return {
+    OR: [
+      { [field]: { contains: q, mode: 'insensitive' as const } },
+      { user: { name: { contains: q, mode: 'insensitive' as const } } },
+      { user: { phone: { contains: q } } },
+    ],
+  };
+}
+
 /**
  * Owns the review/publish lifecycle for AI-generated `HealthSuggestion`
- * rows. Nothing is generated automatically: an admin/pharmacist asks for a
+ * rows. Nothing is generated automatically: a pharmacist asks for a
  * suggestion for ONE routine (`requestForRoutine`), reviews the response,
  * and only then chooses to publish it. The AI only ever produces a DRAFT --
- * nothing is visible to the user (`/health-suggestions/mine`) until an
- * admin explicitly publishes it, optionally after editing.
+ * nothing is visible to the user (`/health-suggestions/mine`) until a
+ * pharmacist explicitly publishes it, optionally after editing. Request,
+ * edit, publish and unpublish are audited (ids and status only).
  */
 @Injectable()
 export class HealthSuggestionsService {
@@ -23,16 +39,21 @@ export class HealthSuggestionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiSuggestion: AiSuggestionService,
+    private readonly audit: AuditService,
   ) {}
 
-  // --- Admin: routine panel ------------------------------------------
+  // --- Pharmacist: routine panel ---------------------------------------
 
-  /** Routines across users, newest first, each with its latest suggestion (if any). */
-  async listRoutinesForAdmin(filter: { userId?: string; active?: boolean } = {}) {
-    return this.prisma.medicineRoutine.findMany({
-      where: { userId: filter.userId, active: filter.active },
-      orderBy: { createdAt: 'desc' },
-      take: 200,
+  /** Routines across users, newest first, 20 per page, each with its latest suggestion (if any). */
+  async listRoutines(query: RoutineListQueryDto = {}) {
+    const where: Prisma.MedicineRoutineWhereInput = {
+      ...(query.active ? { active: true } : {}),
+      ...patientOrText('medicineName', query.q),
+    };
+    const rows = await this.prisma.medicineRoutine.findMany({
+      where: { AND: [where, cursorWhere(query.cursor)] },
+      orderBy: CURSOR_ORDER,
+      take: ADMIN_PAGE_SIZE + 1,
       include: {
         user: { select: SAFE_USER_SELECT },
         healthSuggestions: {
@@ -42,9 +63,10 @@ export class HealthSuggestionsService {
         },
       },
     });
+    return toCursorPage(rows, ADMIN_PAGE_SIZE);
   }
 
-  async getRoutineForAdmin(routineId: string) {
+  async getRoutine(routineId: string) {
     const routine = await this.prisma.medicineRoutine.findUnique({
       where: { id: routineId },
       include: {
@@ -61,12 +83,12 @@ export class HealthSuggestionsService {
   }
 
   /**
-   * Admin-initiated, one routine, one model call. On success returns the
+   * Pharmacist-initiated, one routine, one model call. On success returns the
    * routine's DRAFT (a previous unpublished draft for the same routine is
    * replaced rather than piling up; published suggestions are never touched).
-   * On failure nothing is stored and the admin can simply try again.
+   * On failure nothing is stored and the pharmacist can simply try again.
    */
-  async requestForRoutine(routineId: string) {
+  async requestForRoutine(actorId: string, routineId: string) {
     const routine = await this.prisma.medicineRoutine.findUnique({
       where: { id: routineId },
       select: { id: true, userId: true, medicineName: true, dosage: true },
@@ -95,19 +117,28 @@ export class HealthSuggestionsService {
         : await this.prisma.healthSuggestion.create({
             data: { ...data, userId: routine.userId, routineId, status: SuggestionStatus.DRAFT },
           });
+      await this.audit.record(this.entry(actorId, { id: saved.id, userId: routine.userId }, 'health_suggestion.request'));
       return this.getDetail(saved.id);
     } finally {
       this.inFlight.delete(routineId);
     }
   }
 
-  // --- Admin ---------------------------------------------------------
+  // --- Pharmacist ------------------------------------------------------
 
-  async listForAdmin() {
-    return this.prisma.healthSuggestion.findMany({
-      orderBy: { createdAt: 'desc' },
+  /** Newest first, 20 per page; filter by status and medicine / patient. */
+  async list(query: HealthSuggestionListQueryDto = {}) {
+    const where: Prisma.HealthSuggestionWhereInput = {
+      ...(query.status ? { status: query.status } : {}),
+      ...patientOrText('sourceMedicines', query.q),
+    };
+    const rows = await this.prisma.healthSuggestion.findMany({
+      where: { AND: [where, cursorWhere(query.cursor)] },
+      orderBy: CURSOR_ORDER,
+      take: ADMIN_PAGE_SIZE + 1,
       include: { user: { select: SAFE_USER_SELECT }, publishedBy: { select: { id: true, name: true } } },
     });
+    return toCursorPage(rows, ADMIN_PAGE_SIZE);
   }
 
   async listForUser(userId: string) {
@@ -130,29 +161,56 @@ export class HealthSuggestionsService {
     return suggestion;
   }
 
-  /** Admin edits the draft's content before publishing. */
-  async update(id: string, dto: UpdateHealthSuggestionDto) {
-    await this.getDetail(id);
-    return this.prisma.healthSuggestion.update({
-      where: { id },
-      data: { itemsEn: dto.itemsEn as any, itemsBn: dto.itemsBn as any },
+  /** The pharmacist edits the draft's content before publishing. */
+  async update(actorId: string, id: string, dto: UpdateHealthSuggestionDto) {
+    const current = await this.getDetail(id);
+    return this.prisma.$transaction(async (tx) => {
+      const saved = await tx.healthSuggestion.update({
+        where: { id },
+        data: { itemsEn: dto.itemsEn as any, itemsBn: dto.itemsBn as any },
+      });
+      await this.audit.record(this.entry(actorId, current, 'health_suggestion.update'), tx);
+      return saved;
     });
   }
 
-  async publish(adminId: string, id: string) {
-    await this.getDetail(id);
-    return this.prisma.healthSuggestion.update({
-      where: { id },
-      data: { status: SuggestionStatus.PUBLISHED, publishedById: adminId, publishedAt: new Date() },
+  async publish(actorId: string, id: string) {
+    const current = await this.getDetail(id);
+    return this.setStatus(actorId, current, 'health_suggestion.publish', {
+      status: SuggestionStatus.PUBLISHED,
+      publishedById: actorId,
+      publishedAt: new Date(),
     });
   }
 
-  async unpublish(id: string) {
-    await this.getDetail(id);
-    return this.prisma.healthSuggestion.update({
-      where: { id },
-      data: { status: SuggestionStatus.DRAFT, publishedById: null, publishedAt: null },
+  async unpublish(actorId: string, id: string) {
+    const current = await this.getDetail(id);
+    return this.setStatus(actorId, current, 'health_suggestion.unpublish', {
+      status: SuggestionStatus.DRAFT,
+      publishedById: null,
+      publishedAt: null,
     });
+  }
+
+  private setStatus(
+    actorId: string,
+    current: { id: string; userId: string; status: SuggestionStatus },
+    action: string,
+    data: Prisma.HealthSuggestionUncheckedUpdateInput & { status: SuggestionStatus },
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const saved = await tx.healthSuggestion.update({ where: { id: current.id }, data });
+      await this.audit.record(
+        { ...this.entry(actorId, current, action), before: { status: current.status }, after: { status: data.status } },
+        tx,
+      );
+      return saved;
+    });
+  }
+
+  /** Audit rows carry ids and status only, never the suggestion text. */
+  private entry(actorId: string, suggestion: { id: string; userId: string }, action: string) {
+    return { actorId, subjectUserId: suggestion.userId, action, entityType: 'health_suggestion', entityId: suggestion.id };
   }
 
   // --- User-facing -----------------------------------------------------

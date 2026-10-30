@@ -160,7 +160,7 @@ export function NoticeDetail({ basePath, role }: { basePath: string; role: 'ADMI
             <div className="button-row">
               {canEdit && (
                 <button className="btn" onClick={handleSave} disabled={isSaving}>
-                  Save
+                  {s === 'DRAFT' ? 'Save draft' : 'Save'}
                 </button>
               )}
               {!isAdmin && s === 'DRAFT' && (

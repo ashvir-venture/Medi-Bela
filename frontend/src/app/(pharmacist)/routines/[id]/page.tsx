@@ -39,7 +39,7 @@ const fmt = (iso: string) => new Date(iso).toLocaleDateString();
 
 /**
  * One routine + its AI suggestions. The suggestion is only ever created when
- * the admin clicks "Request", and is only visible to the patient after an
+ * the pharmacist clicks "Request", and is only visible to the patient after an
  * explicit "Publish".
  */
 export default function RoutineDetailPage() {
@@ -108,7 +108,7 @@ export default function RoutineDetailPage() {
     <>
       <Topbar title={`Routine — ${routine.medicineName}`} />
       <div className="page">
-        <button className="btn" style={{ marginBottom: 16 }} onClick={() => router.push('/super-control-007/routines')}>
+        <button className="btn" style={{ marginBottom: 16 }} onClick={() => router.push('/routines')}>
           ← Back
         </button>
 
@@ -165,7 +165,7 @@ export default function RoutineDetailPage() {
                 </span>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <Link href={`/super-control-007/health-suggestions/${s.id}`} className="btn">
+                <Link href={`/health-suggestions/${s.id}`} className="btn">
                   Review &amp; edit
                 </Link>
                 {s.status === 'PUBLISHED' ? (

@@ -26,8 +26,16 @@
   --color-info-border: #bfdbfe;
   --color-info-text: #1d4ed8;
   --color-overlay: rgba(15, 23, 42, 0.35);
-  /* Behind the logo: its navy text needs a light plate in dark mode. */
-  --color-logo-plate: transparent;
+  /* Logo colors (wordmark), and the login brand panel, which stays light in
+     both themes so the logo's navy text always reads. */
+  --color-brand-navy: #1f3c73;
+  --color-brand-teal: #1f9a96;
+  --color-brand-panel-from: #e7f6f3;
+  --color-brand-panel-to: #e6edf9;
+  --color-brand-panel-text: #36507d;
+  --color-brand-art: rgba(31, 60, 115, 0.13);
+  --color-brand-art-pulse: rgba(31, 154, 150, 0.35);
+  --color-shadow: rgba(15, 23, 42, 0.08);
   color-scheme: light;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
@@ -65,7 +73,11 @@
     --color-info-border: rgba(96, 165, 250, 0.4);
     --color-info-text: #93c5fd;
     --color-overlay: rgba(2, 6, 23, 0.6);
-    --color-logo-plate: #f8fafc;
+    --color-brand-navy: #9db8e6;
+    --color-brand-teal: #5fd0c6;
+    --color-brand-panel-from: #dcefeb;
+    --color-brand-panel-to: #dae4f4;
+    --color-shadow: rgba(2, 6, 23, 0.4);
     color-scheme: dark;
   }
 }
@@ -97,7 +109,11 @@
   --color-info-border: rgba(96, 165, 250, 0.4);
   --color-info-text: #93c5fd;
   --color-overlay: rgba(2, 6, 23, 0.6);
-  --color-logo-plate: #f8fafc;
+  --color-brand-navy: #9db8e6;
+  --color-brand-teal: #5fd0c6;
+  --color-brand-panel-from: #dcefeb;
+  --color-brand-panel-to: #dae4f4;
+  --color-shadow: rgba(2, 6, 23, 0.4);
   color-scheme: dark;
 }
 
@@ -113,6 +129,23 @@ body {
 
 a {
   color: var(--color-primary);
+  text-decoration: none;
+}
+
+/* Inline text links underline on hover only; buttons and cards never do. */
+a:hover {
+  text-decoration: underline;
+}
+
+a.btn,
+a.btn:hover,
+a.list-item,
+a.list-item:hover,
+a.stat-card,
+a.stat-card:hover,
+a.sidebar-link,
+a.sidebar-link:hover {
+  text-decoration: none;
 }
 
 .page {
@@ -314,11 +347,6 @@ label {
   justify-content: center;
 }
 
-.login-card {
-  width: 100%;
-  max-width: 360px;
-}
-
 .badge-expired {
   background: var(--color-warning-bg);
   color: var(--color-warning);
@@ -415,15 +443,53 @@ label {
   padding: 18px 18px 14px;
 }
 
-.sidebar-logo {
-  height: 30px;
-  width: auto;
+/* Icon mark + "Medi-Bela / Management" wordmark (sidebar and phone bar). */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
-.shell-brand-text {
-  font-weight: 700;
+.brand-mark {
+  width: 40px;
+  height: 40px;
+  flex: none;
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.brand-name {
+  font-weight: 800;
+  font-size: 19px;
+  letter-spacing: 0.2px;
+  color: var(--color-brand-navy);
+}
+
+.brand-accent {
+  color: var(--color-brand-teal);
+}
+
+.brand-caption {
+  margin-top: 2px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.shell-mobilebar .brand-mark {
+  width: 32px;
+  height: 32px;
+}
+
+.shell-mobilebar .brand-name {
   font-size: 17px;
-  color: var(--color-primary-dark);
 }
 
 .icon-btn.sidebar-close {
@@ -566,7 +632,10 @@ label {
 
 .page-header-actions {
   display: flex;
+  align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+  margin-left: auto;
 }
 
 .page {
@@ -686,12 +755,6 @@ label {
   justify-content: center;
   gap: 16px;
   margin-top: 16px;
-}
-
-.login-logo {
-  height: 40px;
-  width: auto;
-  margin-bottom: 8px;
 }
 
 .stat-card {
@@ -1053,23 +1116,25 @@ a.stat-card:hover {
   }
 }
 
-/* --- Theme toggle (sidebar footer, login page) --- */
+/* --- Theme toggle (page headers, login page) --- */
 
 .theme-toggle {
-  display: flex;
+  display: inline-flex;
   gap: 2px;
-  padding: 2px;
-  margin-bottom: 10px;
+  padding: 3px;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: 999px;
   background: var(--color-surface-alt);
 }
 
 .theme-toggle button {
-  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   min-height: 32px;
+  padding: 0 12px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 999px;
   background: transparent;
   color: var(--color-muted);
   font: inherit;
@@ -1077,15 +1142,268 @@ a.stat-card:hover {
   cursor: pointer;
 }
 
-.theme-toggle button.active {
-  background: var(--color-surface);
+.theme-toggle button:hover {
   color: var(--color-text);
-  font-weight: 600;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
 }
 
-.sidebar-logo,
-.login-logo {
-  background: var(--color-logo-plate);
-  border-radius: 6px;
+.theme-toggle button.active {
+  background: var(--color-surface);
+  color: var(--color-primary-dark);
+  font-weight: 600;
+  box-shadow: 0 1px 3px var(--color-shadow);
+}
+
+@media (max-width: 640px) {
+  /* Icons only on phones; the active one keeps its label. */
+  .theme-toggle button:not(.active) .theme-toggle-label {
+    display: none;
+  }
+
+  .theme-toggle button {
+    padding: 0 10px;
+  }
+}
+
+/* --- Login: brand panel left, form right --- */
+
+.auth {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  background: var(--color-bg);
+}
+
+.auth-brand {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 40px;
+  background: linear-gradient(160deg, var(--color-brand-panel-from), var(--color-brand-panel-to));
+  color: var(--color-brand-panel-text);
+}
+
+.auth-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  stroke: var(--color-brand-art);
+}
+
+.auth-art .auth-art-pulse {
+  stroke: var(--color-brand-art-pulse);
+  stroke-width: 2.5;
+}
+
+.auth-brand-content {
+  position: relative;
+  max-width: 400px;
+  text-align: center;
+}
+
+.auth-logo {
+  display: block;
+  width: min(340px, 100%);
+  height: auto;
+  margin: 0 auto 20px;
+}
+
+.auth-brand-lead {
+  margin: 0 0 20px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.auth-points {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.auth-points li {
+  padding: 5px 12px;
+  border: 1px solid var(--color-brand-art);
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-brand-panel-text);
+}
+
+.auth-main {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 88px 32px 48px;
+}
+
+.auth-theme {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 36px 36px 32px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  box-shadow: 0 12px 32px var(--color-shadow);
+}
+
+.auth-card h1 {
+  margin: 0 0 6px;
+  font-size: 26px;
+}
+
+.auth-sub {
+  margin: 0 0 28px;
+  font-size: 14px;
+}
+
+.auth-form .field {
+  margin-bottom: 20px;
+}
+
+.auth-form label {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.auth-form .input {
+  padding: 12px 14px;
+  font-size: 15px;
+  border-radius: 10px;
+}
+
+.auth-submit {
+  justify-content: center;
+  margin-top: 8px;
+  padding: 12px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 10px;
+}
+
+@media (max-width: 900px) {
+  .auth {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-brand {
+    padding: 72px 24px 32px;
+  }
+
+  .auth-logo {
+    width: min(220px, 70%);
+    margin-bottom: 12px;
+  }
+
+  .auth-points {
+    display: none;
+  }
+
+  .auth-main {
+    padding: 24px 16px 48px;
+    align-items: flex-start;
+  }
+
+  .auth-theme {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 5;
+  }
+
+  .auth-card {
+    padding: 28px 20px 24px;
+  }
+}
+
+/* --- Audit log (admin) --- */
+
+.audit-row {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  margin-bottom: 10px;
+}
+
+.audit-row.open {
+  border-color: var(--color-primary);
+}
+
+.audit-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.audit-action {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary-dark);
+}
+
+.audit-time {
+  flex: none;
+}
+
+.audit-row-body {
+  padding: 0 16px 16px;
+}
+
+.audit-diff {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.audit-diff-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-muted);
+  margin-bottom: 4px;
+}
+
+.audit-diff pre {
+  margin: 0;
+  padding: 10px;
+  max-height: 320px;
+  overflow: auto;
+  border-radius: 8px;
+  background: var(--color-surface-alt);
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .audit-row-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .audit-diff {
+    grid-template-columns: 1fr;
+  }
 }

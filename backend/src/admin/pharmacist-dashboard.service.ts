@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrescriptionStatus } from '@prisma/client';
+import { PrescriptionStatus, SuggestionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { appDayBounds } from '../common/utils/time.util';
 import { DOCTOR_INCOMPLETE_WHERE, MEDICINE_INCOMPLETE_WHERE } from '../catalog/lib/catalog-completeness';
@@ -27,6 +27,7 @@ export class PharmacistDashboardService {
       rejectedByMeToday,
       incompleteDoctors,
       incompleteMedicines,
+      draftSuggestions,
       oldestPending,
     ] = await Promise.all([
       this.prisma.prescription.count({ where: { status: PrescriptionStatus.PENDING } }),
@@ -46,6 +47,7 @@ export class PharmacistDashboardService {
       }),
       this.prisma.doctor.count({ where: DOCTOR_INCOMPLETE_WHERE }),
       this.prisma.medicine.count({ where: MEDICINE_INCOMPLETE_WHERE }),
+      this.prisma.healthSuggestion.count({ where: { status: SuggestionStatus.DRAFT } }),
       this.prisma.prescription.findMany({
         where: { status: PrescriptionStatus.PENDING },
         orderBy: { createdAt: 'asc' },
@@ -64,6 +66,7 @@ export class PharmacistDashboardService {
       queue: { pending, reuploads, awaitingConfirmation },
       today: { prepared: preparedByMeToday, rejected: rejectedByMeToday },
       catalog: { incompleteDoctors, incompleteMedicines },
+      aiSuggestions: { drafts: draftSuggestions },
       oldestPending,
     };
   }

@@ -6,7 +6,8 @@ import { CatalogController } from '../catalog.controller';
 import { PrescriptionsController } from '../../prescriptions/prescriptions.controller';
 import { AdminDashboardController } from '../../admin/admin-dashboard.controller';
 import { PharmacistDashboardController } from '../../admin/pharmacist-dashboard.controller';
-import { AdminRoutinesController } from '../../health/admin-routines.controller';
+import { PharmacistRoutinesController } from '../../health/pharmacist-routines.controller';
+import { AuditLogController } from '../../audit/audit-log.controller';
 import { HealthSuggestionsController } from '../../health/health-suggestions.controller';
 
 type Ctor = { prototype: object };
@@ -51,12 +52,20 @@ describe('staff roles (Round 5 split)', () => {
     expect(roles(PharmacistDashboardController, 'get')).toEqual([Role.PHARMACIST]);
   });
 
-  it('routines panel and AI suggestions are admin only', () => {
-    expect(roles(AdminRoutinesController, 'request')).toEqual([Role.ADMIN]);
+  it('routines panel and AI suggestions are pharmacist only', () => {
+    for (const h of ['list', 'detail', 'request']) {
+      expect(roles(PharmacistRoutinesController, h)).toEqual([Role.PHARMACIST]);
+    }
     for (const h of ['list', 'getDetail', 'update', 'publish', 'unpublish']) {
-      expect(roles(HealthSuggestionsController, h)).toEqual([Role.ADMIN]);
+      expect(roles(HealthSuggestionsController, h)).toEqual([Role.PHARMACIST]);
     }
     // The user's own published suggestions stay open to every signed-in user.
     expect(roles(HealthSuggestionsController, 'getMine')).toEqual([Role.ADMIN, Role.PHARMACIST, Role.USER]);
+  });
+
+  it('the audit log is admin only', () => {
+    for (const h of ['list', 'filters', 'detail']) {
+      expect(roles(AuditLogController, h)).toEqual([Role.ADMIN]);
+    }
   });
 });

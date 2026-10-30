@@ -6,7 +6,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { AdminUser, clearTokens } from '@/lib/api-client';
 import { ADMIN_BASE } from '@/lib/paths';
 import { Icon, IconName } from '@/components/icons';
-import { ThemeToggle } from '@/components/theme-toggle';
 
 export interface NavItem {
   href: string;
@@ -20,6 +19,8 @@ export const PHARMACIST_NAV: NavItem[] = [
   { href: '/doctors', label: 'Doctors', icon: 'doctor' },
   { href: '/medicines', label: 'Medicines', icon: 'medicine' },
   { href: '/health-rules', label: 'Health rules', icon: 'rule' },
+  { href: '/routines', label: 'Routines', icon: 'routine' },
+  { href: '/health-suggestions', label: 'AI suggestions', icon: 'sparkle' },
   { href: '/notices', label: 'Notices', icon: 'notice' },
 ];
 
@@ -28,9 +29,8 @@ export const ADMIN_NAV: NavItem[] = [
   { href: `${ADMIN_BASE}/prescriptions`, label: 'Prescriptions', icon: 'prescription' },
   { href: `${ADMIN_BASE}/doctors`, label: 'Doctors', icon: 'doctor' },
   { href: `${ADMIN_BASE}/medicines`, label: 'Medicines', icon: 'medicine' },
-  { href: `${ADMIN_BASE}/routines`, label: 'Routines', icon: 'routine' },
-  { href: `${ADMIN_BASE}/health-suggestions`, label: 'AI suggestions', icon: 'sparkle' },
   { href: `${ADMIN_BASE}/notices`, label: 'Notices', icon: 'notice' },
+  { href: `${ADMIN_BASE}/audit-log`, label: 'Audit log', icon: 'audit' },
 ];
 
 const ROLE_LABEL: Record<AdminUser['role'], string> = {
@@ -71,23 +71,14 @@ export function AppShell({
         <button className="icon-btn" aria-label="Open menu" onClick={() => setOpen(true)}>
           <Icon name="menu" size={22} />
         </button>
-        <span className="shell-brand-text">Medi-Bela</span>
+        <Brand />
       </header>
 
       <div className="shell-backdrop" onClick={() => setOpen(false)} aria-hidden="true" />
 
       <aside className="sidebar" aria-label="Main navigation">
         <div className="sidebar-brand">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logoEn.png"
-            alt=""
-            className="sidebar-logo"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-            }}
-          />
-          <span className="shell-brand-text">Medi-Bela</span>
+          <Brand />
           <button className="icon-btn sidebar-close" aria-label="Close menu" onClick={() => setOpen(false)}>
             <Icon name="close" size={20} />
           </button>
@@ -111,7 +102,6 @@ export function AppShell({
             <div className="sidebar-user-name">{user.name}</div>
             <div className="muted">{ROLE_LABEL[user.role]}</div>
           </div>
-          <ThemeToggle />
           <button className="btn btn-block" onClick={logout}>
             <Icon name="logout" /> Log out
           </button>
@@ -120,6 +110,22 @@ export function AppShell({
 
       <main className="shell-main">{children}</main>
     </div>
+  );
+}
+
+/** Icon mark + wordmark, top of the sidebar and the phone bar. */
+function Brand() {
+  return (
+    <span className="brand">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/logo-mark.png" alt="" className="brand-mark" />
+      <span className="brand-text">
+        <span className="brand-name">
+          Medi<span className="brand-accent">-Bela</span>
+        </span>
+        <span className="brand-caption">Management</span>
+      </span>
+    </span>
   );
 }
 

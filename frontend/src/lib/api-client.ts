@@ -492,12 +492,12 @@ export function unpublishSuggestionRule(id: string) {
   return request<SuggestionRule>(`/admin/suggestion-rules/${id}/unpublish`, { method: 'POST' });
 }
 
-// --- AI health suggestions (admin) ---
+// --- AI health suggestions (pharmacist) ---
 // Separate from suggestion rules above: these are open-ended, per-user,
-// AI-generated (see the LLM system prompt) rather than admin-authored
-// deterministic rules. One row = one generation run for one user,
-// created automatically right after their prescription is completed
-// into a routine. Never shown to the user until published.
+// AI-generated (see the LLM system prompt) rather than pharmacist-authored
+// deterministic rules. One row = one generation run for one routine,
+// requested by a pharmacist from the routine panel (never automatic).
+// Never shown to the user until a pharmacist publishes it.
 
 export interface SuggestionItem {
   category: string;
@@ -518,7 +518,7 @@ export interface HealthSuggestion {
   routine?: { id: string; medicineName: string; dosage: string } | null;
 }
 
-// --- Routines panel (admin) ---
+// --- Routines panel (pharmacist) ---
 
 export type RoutineSuggestion = Omit<HealthSuggestion, 'user' | 'routine'>;
 
@@ -541,46 +541,99 @@ export interface RoutineDetail extends Omit<RoutineListItem, 'healthSuggestions'
   healthSuggestions: RoutineSuggestion[];
 }
 
-export function listRoutines(params: { active?: boolean } = {}) {
-  const qs = params.active === undefined ? '' : `?active=${params.active}`;
-  return request<RoutineListItem[]>(`/admin/routines${qs}`);
+function listQuery(params: Record<string, string | boolean | null | undefined>) {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) if (v) qs.set(k, String(v));
+  const s = qs.toString();
+  return s ? `?${s}` : '';
+}
+
+/** 20 per page, newest first; q matches medicine, patient name or phone. */
+export function listRoutines(params: { cursor?: string | null; q?: string; active?: boolean } = {}) {
+  return request<CursorPage<RoutineListItem>>(`/pharmacist/routines${listQuery(params)}`);
 }
 
 export function getRoutine(id: string) {
-  return request<RoutineDetail>(`/admin/routines/${id}`);
+  return request<RoutineDetail>(`/pharmacist/routines/${id}`);
 }
 
-/** Explicit admin action: one AI call for this routine; returns the DRAFT. Never publishes. */
+/** Explicit pharmacist action: one AI call for this routine; returns the DRAFT. Never publishes. */
 export function requestRoutineSuggestion(id: string) {
-  return request<HealthSuggestion>(`/admin/routines/${id}/suggestion`, { method: 'POST' });
+  return request<HealthSuggestion>(`/pharmacist/routines/${id}/suggestion`, { method: 'POST' });
 }
 
-export function listHealthSuggestions() {
-  return request<HealthSuggestion[]>('/admin/health-suggestions');
+/** 20 per page, newest first; q matches medicine, patient name or phone. */
+export function listHealthSuggestions(
+  params: { cursor?: string | null; q?: string; status?: HealthSuggestion['status'] } = {},
+) {
+  return request<CursorPage<HealthSuggestion>>(`/pharmacist/health-suggestions${listQuery(params)}`);
 }
 
 export function getHealthSuggestion(id: string) {
-  return request<HealthSuggestion>(`/admin/health-suggestions/${id}`);
+  return request<HealthSuggestion>(`/pharmacist/health-suggestions/${id}`);
 }
 
 export function updateHealthSuggestion(
   id: string,
   input: { itemsEn: SuggestionItem[]; itemsBn: SuggestionItem[] },
 ) {
-  return request<HealthSuggestion>(`/admin/health-suggestions/${id}`, {
+  return request<HealthSuggestion>(`/pharmacist/health-suggestions/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
   });
 }
 
 export function publishHealthSuggestion(id: string) {
-  return request<HealthSuggestion>(`/admin/health-suggestions/${id}/publish`, { method: 'POST' });
+  return request<HealthSuggestion>(`/pharmacist/health-suggestions/${id}/publish`, { method: 'POST' });
 }
 
 export function unpublishHealthSuggestion(id: string) {
-  return request<HealthSuggestion>(`/admin/health-suggestions/${id}/unpublish`, {
+  return request<HealthSuggestion>(`/pharmacist/health-suggestions/${id}/unpublish`, {
     method: 'POST',
   });
+}
+
+// --- Audit log (admin, read-only) ---
+
+export interface AuditLogRow {
+  id: string;
+  createdAt: string;
+  /** e.g. "prescription.reject" */
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  actor: { id: string; name: string; role: AdminUser['role'] } | null;
+  /** The patient the change was about, if any. */
+  subjectUser: { id: string; name: string } | null;
+}
+
+export interface AuditLogDetail extends AuditLogRow {
+  before: unknown;
+  after: unknown;
+}
+
+export interface AuditLogParams {
+  cursor?: string | null;
+  action?: string;
+  actorId?: string;
+  actorRole?: AdminUser['role'];
+  /** YYYY-MM-DD, inclusive */
+  from?: string;
+  to?: string;
+}
+
+export function listAuditLogs(params: AuditLogParams = {}) {
+  return request<CursorPage<AuditLogRow>>(`/admin/audit-logs${listQuery({ ...params })}`);
+}
+
+export function getAuditLogFilters() {
+  return request<{ actions: string[]; actors: { id: string; name: string; role: AdminUser['role'] }[] }>(
+    '/admin/audit-logs/filters',
+  );
+}
+
+export function getAuditLog(id: string) {
+  return request<AuditLogDetail>(`/admin/audit-logs/${id}`);
 }
 
 // --- Govt notices (admin) ---
@@ -772,6 +825,8 @@ export interface PharmacistDashboardData {
   queue: { pending: number; reuploads: number; awaitingConfirmation: number };
   today: { prepared: number; rejected: number };
   catalog: { incompleteDoctors: number; incompleteMedicines: number };
+  /** Unpublished AI suggestions (drafts). */
+  aiSuggestions: { drafts: number };
   oldestPending: {
     id: string;
     createdAt: string;

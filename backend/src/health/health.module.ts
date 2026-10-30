@@ -8,7 +8,7 @@ import { SuggestionRulesService } from './suggestion-rules.service';
 import { RuleEvaluationService } from './rule-evaluation.service';
 import { HealthSuggestionsController } from './health-suggestions.controller';
 import { HealthSuggestionsService } from './health-suggestions.service';
-import { AdminRoutinesController } from './admin-routines.controller';
+import { PharmacistRoutinesController } from './pharmacist-routines.controller';
 import { AiSuggestionService } from './ai-suggestion.service';
 
 @Module({
@@ -17,7 +17,7 @@ import { AiSuggestionService } from './ai-suggestion.service';
     HealthRecordsController,
     SuggestionRulesController,
     HealthSuggestionsController,
-    AdminRoutinesController,
+    PharmacistRoutinesController,
   ],
   providers: [
     HealthRemindersService,

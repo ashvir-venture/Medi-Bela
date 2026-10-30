@@ -39,7 +39,7 @@ d('Phase 4B over HTTP (real AppModule + Postgres)', () => {
   beforeEach(async () => { await resetDb(prisma); await prisma.$executeRawUnsafe('TRUNCATE notices, health_suggestion_rules, health_reminders, prescriptions CASCADE'); });
 
   describe('admin authorization matrix', () => {
-    const adminGets = ['/admin/dashboard', '/admin/notices', '/admin/suggestion-rules', '/admin/health-suggestions', '/prescriptions/admin/pending'];
+    const adminGets = ['/admin/dashboard', '/admin/notices', '/admin/suggestion-rules', '/admin/audit-logs', '/pharmacist/health-suggestions', '/pharmacist/routines', '/prescriptions/admin/pending'];
     const adminWrites: Array<[string, string, object?]> = [
       ['post', '/admin/notices', { title: 't', content: 'c' }],
       ['patch', `/admin/notices/${ZERO_UUID}`, { title: 't' }],
@@ -72,6 +72,23 @@ d('Phase 4B over HTTP (real AppModule + Postgres)', () => {
       await http().get('/api/admin/dashboard').set(auth(pharmacist.token)).expect(403);
       await http().get('/api/pharmacist/dashboard').set(auth(pharmacist.token)).expect(200);
       await http().get('/api/pharmacist/dashboard').set(auth(admin.token)).expect(403);
+    });
+
+    it('routines and AI suggestions belong to pharmacists; the audit log to admins', async () => {
+      const admin = await account('ADMIN');
+      const pharmacist = await account('PHARMACIST');
+      for (const p of ['/pharmacist/routines', '/pharmacist/health-suggestions']) {
+        const page = await http().get(`/api${p}`).set(auth(pharmacist.token)).expect(200);
+        expect(page.body).toEqual({ items: [], nextCursor: null });
+        await http().get(`/api${p}`).set(auth(admin.token)).expect(403);
+      }
+      await http().get('/api/admin/routines').set(auth(admin.token)).expect(404);
+      await http().get('/api/admin/health-suggestions').set(auth(admin.token)).expect(404);
+      const logs = await http().get('/api/admin/audit-logs?from=2026-01-01').set(auth(admin.token)).expect(200);
+      expect(logs.body.nextCursor).toBeNull();
+      await http().get('/api/admin/audit-logs/filters').set(auth(admin.token)).expect(200);
+      await http().get('/api/admin/audit-logs').set(auth(pharmacist.token)).expect(403);
+      await http().get('/api/admin/audit-logs?from=yesterday').set(auth(admin.token)).expect(400);
     });
 
     it('a demoted/suspended admin loses access immediately (role re-read from DB each request)', async () => {

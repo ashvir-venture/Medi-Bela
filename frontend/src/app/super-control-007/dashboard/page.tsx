@@ -113,18 +113,15 @@ export default function DashboardPage() {
                 <div className="stat-value">{data.analytics.liveNotices}</div>
                 <div className="muted">Live notices</div>
               </Link>
-              {/* Health rules are managed by pharmacists. */}
+              {/* Health rules and AI suggestions are managed by pharmacists. */}
               <div className="stat-card">
                 <div className="stat-value">{data.analytics.activeRules}</div>
                 <div className="muted">Active health rules</div>
               </div>
-              <Link
-                href="/super-control-007/health-suggestions"
-                className={`stat-card ${data.analytics.aiSuggestionsAwaitingReview > 0 ? 'warn' : ''}`}
-              >
+              <div className="stat-card">
                 <div className="stat-value">{data.analytics.aiSuggestionsAwaitingReview}</div>
-                <div className="muted">AI suggestions awaiting review</div>
-              </Link>
+                <div className="muted">AI suggestions awaiting pharmacist review</div>
+              </div>
             </div>
 
             <div className="card">

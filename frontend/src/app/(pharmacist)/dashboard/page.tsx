@@ -89,6 +89,13 @@ export default function PharmacistDashboardPage() {
                 <div className="stat-value">{data.catalog.incompleteMedicines}</div>
                 <div className="muted">Medicines missing form, category or manufacturer</div>
               </Link>
+              <Link
+                href="/health-suggestions?status=DRAFT"
+                className={`stat-card ${data.aiSuggestions.drafts > 0 ? 'warn' : ''}`}
+              >
+                <div className="stat-value">{data.aiSuggestions.drafts}</div>
+                <div className="muted">AI suggestions awaiting review</div>
+              </Link>
             </div>
 
             <div className="card">
