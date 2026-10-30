@@ -30,6 +30,14 @@ describe('parseCloudinaryImageUrl', () => {
     expect(parseCloudinaryImageUrl(PUBLIC_URL)?.type).toBe('upload');
     expect(parseCloudinaryImageUrl('https://evil.example.com/image/authenticated/v1/a.jpg')).toBeNull();
   });
+
+  it('ignores the query string the Cloudinary SDK appends (?_a=...)', () => {
+    expect(
+      parseCloudinaryImageUrl(
+        'https://res.cloudinary.com/demo/image/authenticated/v1699/prescriptions/entzltissdcvsukcdd6c.jpg?_a=BAMAROiw0',
+      ),
+    ).toEqual({ type: 'authenticated', publicId: 'prescriptions/entzltissdcvsukcdd6c', format: 'jpg' });
+  });
 });
 
 describe('CloudinaryService.signedImageUrl', () => {
@@ -44,6 +52,13 @@ describe('CloudinaryService.signedImageUrl', () => {
     expect(url.searchParams.get('signature')).toBeTruthy();
     expect(Number(url.searchParams.get('expires_at'))).toBe(now / 1000 + SIGNED_URL_TTL_SECONDS);
     expect(url.toString()).not.toContain('secret');
+  });
+
+  it('signs a stored URL that carries the SDK query string', () => {
+    const url = new URL(makeService().signedImageUrl(`${PRIVATE_URL}?_a=BAMAROiw0`));
+
+    expect(url.searchParams.get('public_id')).toBe('prescriptions/abc123');
+    expect(url.searchParams.get('format')).toBe('jpg');
   });
 
   it('returns older public images and foreign URLs unchanged', () => {

@@ -11,6 +11,7 @@ import '../../../router/app_router.dart';
 import '../../../widgets/load_more_list.dart';
 import '../../../widgets/state_views.dart';
 import '../domain/prescription_draft_model.dart';
+import '../domain/prescription_photo.dart';
 import 'member_prescriptions_screen.dart' show ServerPrescriptionTile;
 import 'prescription_controller.dart';
 
@@ -214,7 +215,12 @@ class _PrescriptionEntryFormState extends ConsumerState<_PrescriptionEntryForm> 
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final file = await picker.pickImage(source: ImageSource.gallery);
+    final file = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: prescriptionPhotoMaxSide,
+      maxHeight: prescriptionPhotoMaxSide,
+      imageQuality: prescriptionPhotoQuality,
+    );
     if (file != null) {
       setState(() => _imagePath = file.path);
     }

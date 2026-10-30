@@ -14,6 +14,7 @@ import '../../../widgets/caregiver_tag.dart';
 import '../../../widgets/load_more_list.dart';
 import '../../../widgets/state_views.dart';
 import '../domain/prescription_models.dart';
+import '../domain/prescription_photo.dart';
 import 'prescription_controller.dart';
 
 /// The caregiver's view of one family member's prescriptions: upload one
@@ -34,7 +35,12 @@ class _MemberPrescriptionsScreenState extends ConsumerState<MemberPrescriptionsS
   Future<void> _upload(ImageSource source) async {
     final strings = ref.read(stringsProvider);
     final messenger = ScaffoldMessenger.of(context);
-    final file = await ImagePicker().pickImage(source: source, imageQuality: 85);
+    final file = await ImagePicker().pickImage(
+      source: source,
+      maxWidth: prescriptionPhotoMaxSide,
+      maxHeight: prescriptionPhotoMaxSide,
+      imageQuality: prescriptionPhotoQuality,
+    );
     if (file == null || !mounted) return;
     setState(() => _uploading = true);
     try {

@@ -128,12 +128,15 @@ export interface CloudinaryImageRef {
  * `https://res.cloudinary.com/<cloud>/image/authenticated/v123/prescriptions/abc.jpg`
  * -> `{ type: 'authenticated', publicId: 'prescriptions/abc', format: 'jpg' }`.
  * Accepts `upload` (older, public) and `authenticated` (private) URLs, with or
- * without a `s--signature--` segment. Anything else returns null.
+ * without a `s--signature--` segment. A query string or fragment (the SDK's
+ * `cloudinary.url()` appends `?_a=...`, so stored URLs carry one) is not part
+ * of the public id and is dropped. Anything else returns null.
  */
 export function parseCloudinaryImageUrl(url: string): CloudinaryImageRef | null {
+  const path = url.split(/[?#]/, 1)[0];
   const match =
     /^https:\/\/res\.cloudinary\.com\/[^/]+\/image\/(upload|authenticated)\/(?:s--[^/]+--\/)?(?:v\d+\/)?(.+?)(?:\.([A-Za-z0-9]+))?$/.exec(
-      url,
+      path,
     );
   if (!match) return null;
   return {
