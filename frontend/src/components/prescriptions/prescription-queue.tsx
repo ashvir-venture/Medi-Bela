@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { QueueStatus, listPrescriptionQueue } from '@/lib/api-client';
 import { DataList } from '@/components/data-list';
 import { Topbar } from '@/components/topbar';

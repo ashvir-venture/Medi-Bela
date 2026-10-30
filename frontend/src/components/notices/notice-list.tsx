@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ApiError, Notice, listNotices } from '@/lib/api-client';
 import { DataList } from '@/components/data-list';
@@ -36,11 +36,7 @@ export function NoticeList({ basePath, role }: { basePath: string; role: 'ADMIN'
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    load();
-  }, []);
-
-  async function load() {
+  const load = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -52,7 +48,11 @@ export function NoticeList({ basePath, role }: { basePath: string; role: 'ADMIN'
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [role]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { ALL: notices.length };

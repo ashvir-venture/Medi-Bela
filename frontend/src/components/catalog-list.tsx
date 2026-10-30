@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { CatalogListParams, CursorPage } from '@/lib/api-client';
 import { DataList } from '@/components/data-list';

@@ -69,9 +69,9 @@ cp .env.example .env.local        # NEXT_PUBLIC_API_BASE_URL=http://localhost:30
 npm run dev
 npm run build
 npm run start
-npm run lint                      # next lint
+npm run lint                      # eslint . (flat config eslint.config.mjs: next/core-web-vitals + next/typescript; next build runs it too)
 
-No test script exists. next lint has no ESLint dependency or config in package.json [ASK] whether lint is expected to work here.
+No test script exists. ESLint (eslint 9, eslint-config-next 15.5, @eslint/eslintrc for the flat config) was added 2026-10-31; keep lint at 0 warnings.
 Local preview: .claude/launch.json runs `next start` on the built panel (port 3100) through node directly (the npm wrapper fails in the preview tool); run `npm run build` first.
 
 Mobile (cd mobile)

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { listRoutines } from '@/lib/api-client';
 import { PatientName } from '@/components/patient-name';
 import { DataList } from '@/components/data-list';

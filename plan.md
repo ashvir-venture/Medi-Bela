@@ -433,7 +433,8 @@ Checked: backend lint (only the old warning), 303 unit tests incl. new error-fil
 Not done / open (owner):
 - Owner decisions 2026-10-31: the unused full-size photos were deleted (only the 320x320 copies ship); own prescription upload and Notices stay offline-capable (upload queued, saved notices shown), on purpose; Render's DOSE_MISSED_GRACE_MINUTES is 62; drafted texts not commented on are accepted.
 - Shortened by the owner 2026-10-31: delete screen 1 shows one sentence ("Deleting your account will erase all your information, and it can't be undone." / "অ্যাকাউন্ট ডিলিট করলে আপনার সব তথ্য মুছে যাবে এবং তা পুনরায় ফিরিয়ে আনা সম্ভব নয়।") plus Deactivate instead / Continue to delete; deactivate dialog: "This will pause your activity." / "এটি আপনার কার্যক্রম বন্ধ রাখবে।"; Leave family: "Are you sure?" / "আপনি কি নিশ্চিত?".
-- Open: panel ESLint (set up eslint + eslint-config-next, or drop the lint script) waits for the owner; TEST_DATABASE_URL for the DB-backed specs.
+- Panel ESLint set up 2026-10-31 (owner's yes): eslint 9 + eslint-config-next 15.5 + @eslint/eslintrc, `npm run lint` = `eslint .`; the 8 first findings fixed (unused imports, three effects now depend on a useCallback load, autosuggest aria-controls).
+- Open: TEST_DATABASE_URL for the DB-backed specs.
 - Drafted text for review (EN / BN): Support how-to steps and FAQ answers, the error messages (errorNetwork ... errorGeneric, sessionEnded), noInternetHint, couldNotOpenLink, About headings ("What we work for", "Team", BN "আমরা যা চাই", "দল", vision label "স্বপ্ন"), panel 404 / error page lines.
 - Signed-in panel pages with toasts / skeletons were not looked at in a browser (no API with a staff account); not run on a phone.
 - The response field `path` now omits the query string (no client reads it).

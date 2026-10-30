@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 const DEBOUNCE_MS = 250;
 
@@ -35,6 +35,9 @@ export function Autosuggest<T>({
 }) {
   const [items, setItems] = useState<T[]>([]);
   const [open, setOpen] = useState(false);
+  // The suggestion list, named by the input's aria-controls.
+  const fallbackId = useId();
+  const listId = `${id ?? fallbackId}-list`;
   const [highlight, setHighlight] = useState(0);
   const [loading, setLoading] = useState(false);
   // Only search after the user typed, not when the parent sets a value.
@@ -105,6 +108,7 @@ export function Autosuggest<T>({
         autoComplete="off"
         role="combobox"
         aria-expanded={open}
+        aria-controls={listId}
         aria-autocomplete="list"
         onChange={(e) => {
           typed.current = true;
@@ -117,7 +121,7 @@ export function Autosuggest<T>({
       />
       {loading && <span className="autosuggest-spinner" aria-hidden="true" />}
       {open && (
-        <ul className="autosuggest-list" role="listbox">
+        <ul id={listId} className="autosuggest-list" role="listbox">
           {items.length === 0 ? (
             <li className="autosuggest-empty">No match. Keep typing to add it as new.</li>
           ) : (

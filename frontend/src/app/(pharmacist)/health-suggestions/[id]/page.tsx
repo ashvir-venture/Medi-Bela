@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ApiError,
@@ -86,12 +86,7 @@ export default function HealthSuggestionDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    if (!ready) return;
-    load();
-  }, [ready, id]);
-
-  async function load() {
+  const load = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -104,7 +99,12 @@ export default function HealthSuggestionDetailPage() {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [id]);
+
+  useEffect(() => {
+    if (!ready) return;
+    load();
+  }, [ready, load]);
 
   async function handleSave() {
     setIsSaving(true);

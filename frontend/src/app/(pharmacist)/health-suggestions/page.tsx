@@ -1,7 +1,6 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { HealthSuggestion, listHealthSuggestions } from '@/lib/api-client';
 import { DataList } from '@/components/data-list';

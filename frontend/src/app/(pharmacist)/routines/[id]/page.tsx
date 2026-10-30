@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
@@ -57,12 +57,7 @@ export default function RoutineDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [busy, setBusy] = useState<null | 'request' | string>(null);
 
-  useEffect(() => {
-    if (!ready) return;
-    load();
-  }, [ready, id]);
-
-  async function load() {
+  const load = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -72,7 +67,12 @@ export default function RoutineDetailPage() {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [id]);
+
+  useEffect(() => {
+    if (!ready) return;
+    load();
+  }, [ready, load]);
 
   async function run(key: string, action: () => Promise<unknown>, failMsg: string) {
     setBusy(key);
