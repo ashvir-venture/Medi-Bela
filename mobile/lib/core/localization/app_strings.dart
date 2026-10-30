@@ -285,13 +285,7 @@ class AppStrings {
     required this.accountSuspended,
     required this.pressBackAgainToExit,
     required this.medicinesTab,
-    required this.deleteWarningTitle,
-    required this.deleteErasedHeading,
-    required this.deleteErasedList,
-    required this.deleteKeptHeading,
-    required this.deleteKeptList,
     required this.deleteCannotUndo,
-    required this.deactivateHint,
     required this.deleteConfirmTitle,
     required this.deletePhrasePrompt,
     required this.deletePhrase,
@@ -634,13 +628,7 @@ class AppStrings {
   final String accountSuspended;
   final String pressBackAgainToExit;
   final String medicinesTab;
-  final String deleteWarningTitle;
-  final String deleteErasedHeading;
-  final String deleteErasedList;
-  final String deleteKeptHeading;
-  final String deleteKeptList;
   final String deleteCannotUndo;
-  final String deactivateHint;
   final String deleteConfirmTitle;
   final String deletePhrasePrompt;
   /// The sentence typed to confirm deletion, in the app's language.
@@ -999,19 +987,13 @@ const AppStrings enStrings = AppStrings(
   accountSuspended: 'This account is under suspension. Please contact Medi-Bela Authority.',
   pressBackAgainToExit: 'Press back again to exit',
   medicinesTab: 'Medicines',
-  deleteWarningTitle: 'Before you delete',
-  deleteErasedHeading: 'What is erased',
-  deleteErasedList: 'Your name, phone number, address and date of birth; health records; health reminders and AI suggestions; assistant conversations; notifications; your place in your family.',
-  deleteKeptHeading: 'What is kept, without your name',
-  deleteKeptList: 'Prescriptions a pharmacist already checked and your medicine history, with your gender, birth year, division and district, for medical records and statistics.',
-  deleteCannotUndo: 'Nothing can be restored. Your phone number becomes free for a new account.',
-  deactivateHint: 'You can deactivate instead and come back later.',
+  deleteCannotUndo: 'Deleting your account will erase all your information, and it can\'t be undone.',
   deleteConfirmTitle: 'Confirm deletion',
   deletePhrasePrompt: 'Type this sentence exactly:',
   deletePhrase: 'I am sure about deletion and know the consequences',
-  deactivateExplain: 'Your reminders stop and you are signed out on every phone. Your family sees "Account paused". Sign in again any time to come back; nothing is lost.',
+  deactivateExplain: 'This will pause your activity.',
   deactivateAction: 'Deactivate',
-  leaveFamilyConfirm: 'Leave your family? They will no longer see your medicines or get your missed-dose alerts. If you are the caregiver, the member who joined first becomes caregiver.',
+  leaveFamilyConfirm: 'Are you sure?',
   leaveAction: 'Leave',
   removeMemberConfirmTemplate: 'Remove {name} from the family? You will no longer see their medicines.',
   removeAction: 'Remove',
@@ -1344,19 +1326,13 @@ const AppStrings bnStrings = AppStrings(
   accountSuspended: 'এই অ্যাকাউন্টটি স্থগিত আছে। মেডি-বেলা কর্তৃপক্ষের সাথে যোগাযোগ করুন।',
   pressBackAgainToExit: 'বের হতে আবার চাপুন',
   medicinesTab: 'ওষুধ',
-  deleteWarningTitle: 'মুছে ফেলার আগে',
-  deleteErasedHeading: 'যা মুছে যাবে',
-  deleteErasedList: 'আপনার নাম, ফোন নম্বর, ঠিকানা ও জন্ম তারিখ; স্বাস্থ্যের রেকর্ড; স্বাস্থ্য রিমাইন্ডার ও এআই পরামর্শ; সহকারীর কথোপকথন; নোটিফিকেশন; পরিবারে আপনার সদস্যপদ।',
-  deleteKeptHeading: 'যা থাকবে, আপনার নাম ছাড়া',
-  deleteKeptList: 'ফার্মাসিস্টের যাচাই করা প্রেসক্রিপশন ও আপনার ওষুধের ইতিহাস, সাথে লিঙ্গ, জন্মসাল, বিভাগ ও জেলা, চিকিৎসা-রেকর্ড ও পরিসংখ্যানের জন্য।',
-  deleteCannotUndo: 'কিছুই ফেরানো যাবে না। আপনার ফোন নম্বর দিয়ে নতুন অ্যাকাউন্ট খোলা যাবে।',
-  deactivateHint: 'চাইলে বরং সাময়িক বন্ধ করে পরে ফিরে আসতে পারেন।',
+  deleteCannotUndo: 'অ্যাকাউন্ট ডিলিট করলে আপনার সব তথ্য মুছে যাবে এবং তা পুনরায় ফিরিয়ে আনা সম্ভব নয়।',
   deleteConfirmTitle: 'মুছে ফেলা নিশ্চিত করুন',
   deletePhrasePrompt: 'এই বাক্যটি হুবহু লিখুন:',
   deletePhrase: 'আমি মুছে ফেলার বিষয়ে নিশ্চিত এবং পরিণতি জানি',
-  deactivateExplain: 'আপনার রিমাইন্ডার বন্ধ হবে এবং সব ফোন থেকে সাইন আউট হবেন। পরিবার দেখবে "অ্যাকাউন্ট বন্ধ আছে"। যেকোনো সময় আবার সাইন ইন করে ফিরে আসতে পারবেন; কিছুই হারাবে না।',
+  deactivateExplain: 'এটি আপনার কার্যক্রম বন্ধ রাখবে।',
   deactivateAction: 'সাময়িক বন্ধ করুন',
-  leaveFamilyConfirm: 'পরিবার ছেড়ে দেবেন? তাঁরা আর আপনার ওষুধ দেখতে বা ডোজ বাদ পড়ার সতর্কতা পেতে পারবেন না। আপনি পরিচর্যাকারী হলে সবচেয়ে আগে যোগ দেওয়া সদস্য পরিচর্যাকারী হবেন।',
+  leaveFamilyConfirm: 'আপনি কি নিশ্চিত?',
   leaveAction: 'ছেড়ে দিন',
   removeMemberConfirmTemplate: '{name}-কে পরিবার থেকে সরাবেন? আপনি আর তাঁর ওষুধ দেখতে পারবেন না।',
   removeAction: 'সরান',

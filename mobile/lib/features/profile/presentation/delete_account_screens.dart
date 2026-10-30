@@ -8,7 +8,7 @@ import '../../auth/presentation/auth_controller.dart';
 import '../domain/delete_phrase.dart';
 import 'account_dialogs.dart';
 
-/// Delete, screen 1: what is erased and what is kept, with the gentler
+/// Delete, screen 1: one sentence on what deleting means, with the gentler
 /// option (deactivate) offered first.
 class DeleteAccountWarningScreen extends ConsumerWidget {
   const DeleteAccountWarningScreen({super.key});
@@ -22,20 +22,9 @@ class DeleteAccountWarningScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          Text(strings.deleteWarningTitle, style: theme.textTheme.headlineSmall),
-          const SizedBox(height: 20),
-          Text(strings.deleteErasedHeading, style: theme.textTheme.titleMedium),
-          const SizedBox(height: 6),
-          Text(strings.deleteErasedList),
-          const SizedBox(height: 20),
-          Text(strings.deleteKeptHeading, style: theme.textTheme.titleMedium),
-          const SizedBox(height: 6),
-          Text(strings.deleteKeptList),
-          const SizedBox(height: 20),
-          Text(strings.deleteCannotUndo, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+          // One sentence (owner, 2026-10-31): no lists of what is erased or kept.
+          Text(strings.deleteCannotUndo, style: theme.textTheme.titleMedium),
           const SizedBox(height: 28),
-          Text(strings.deactivateHint),
-          const SizedBox(height: 12),
           FilledButton(
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
             onPressed: () => showDeactivateDialog(context),
