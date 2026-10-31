@@ -1,5 +1,5 @@
 import { DoseStatus, NotificationType } from '@prisma/client';
-import { MissedDoseAlertService, BACKSTOP_AFTER_MINUTES } from '../missed-dose-alert.service';
+import { MissedDoseAlertService, backstopAfterMinutes } from '../missed-dose-alert.service';
 import { missedGraceMinutes, DEFAULT_MISSED_GRACE_MINUTES } from '../lib/dose-status.util';
 
 const NOW = new Date('2026-10-29T08:45:00.000Z');
@@ -38,10 +38,10 @@ describe('missed-dose grace default', () => {
     else process.env.DOSE_MISSED_GRACE_MINUTES = saved;
   });
 
-  it('defaults to 62 minutes (last snoozed reminder at +60 plus its 2-minute ring)', () => {
+  it('defaults to 50 minutes (the 4th ring at +45 at the latest, plus its 2-minute ring)', () => {
     delete process.env.DOSE_MISSED_GRACE_MINUTES;
-    expect(DEFAULT_MISSED_GRACE_MINUTES).toBe(62);
-    expect(missedGraceMinutes()).toBe(62);
+    expect(DEFAULT_MISSED_GRACE_MINUTES).toBe(50);
+    expect(missedGraceMinutes()).toBe(50);
   });
 
   it('a value set in .env still wins', () => {
@@ -62,8 +62,8 @@ describe('reminder backstop push', () => {
     expect(query.sql).toMatch(/"medicineRemindersEnabled"/);
     // Groups that already have their backstop are skipped, so later groups get theirs.
     expect(query.sql).toMatch(/NOT EXISTS/);
-    expect(query.values).toContain(minutesAgo(BACKSTOP_AFTER_MINUTES).toISOString());
-    expect(query.values).toContain(minutesAgo(62).toISOString());
+    expect(query.values).toContain(minutesAgo(backstopAfterMinutes()).toISOString());
+    expect(query.values).toContain(minutesAgo(DEFAULT_MISSED_GRACE_MINUTES).toISOString());
   });
 
   it('sends one neutral, data-only-ready notification per user and scheduled time, to the patient', async () => {

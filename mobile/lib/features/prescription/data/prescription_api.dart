@@ -65,7 +65,7 @@ class PrescriptionApi {
   }
 
   /// Confirm or Edit. [lines] holds only changed lines:
-  /// `{id, scheduleTimes?, startDate?, mealTimingId?, remove?}`.
+  /// `{id, scheduleTimes?, startDate?, mealTimingId?, intervalDays?, remove?}`.
   Future<PrescriptionDetailModel> confirm(
     String id, {
     required List<Map<String, dynamic>> lines,
@@ -74,6 +74,16 @@ class PrescriptionApi {
     final response = await _dio.post<Map<String, dynamic>>(
       ApiEndpoints.prescriptionConfirm(id),
       data: {'lines': lines},
+      queryParameters: {if (forUserId != null) 'forUserId': forUserId},
+    );
+    return PrescriptionDetailModel.fromJson(response.data!);
+  }
+
+  /// "Request edit" instead of confirming: back to the pharmacist with [note].
+  Future<PrescriptionDetailModel> requestEdit(String id, {required String note, String? forUserId}) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      ApiEndpoints.prescriptionRequestEdit(id),
+      data: {'note': note},
       queryParameters: {if (forUserId != null) 'forUserId': forUserId},
     );
     return PrescriptionDetailModel.fromJson(response.data!);

@@ -22,6 +22,8 @@ async function setup(opts: { role?: string } = {}) {
     prescription: { deleteMany: log('prescriptions.delete'), updateMany: log('prescriptions.photo') },
     healthRecord: { deleteMany: log('healthRecords') },
     healthReminder: { deleteMany: log('healthReminders') },
+    personalReminder: { deleteMany: log('personalReminders') },
+    medicineStock: { deleteMany: log('medicineStocks') },
     healthSuggestion: { deleteMany: log('healthSuggestions') },
     assistantConversation: { deleteMany: log('conversations') },
     notification: { deleteMany: log('notifications') },
@@ -76,13 +78,13 @@ describe('deleteAccount (de-identify)', () => {
 
     expect(s.tx.prescription.deleteMany.mock.calls[0][0].where.status.in).toEqual(['PENDING', 'AWAITING_CONFIRMATION']);
     expect(s.tx.prescription.updateMany).toHaveBeenCalledWith({ where: { userId: 'u1' }, data: { imageUrl: null } });
-    for (const t of ['healthRecord', 'healthReminder', 'healthSuggestion', 'assistantConversation', 'notification', 'passwordResetCode']) {
+    for (const t of ['healthRecord', 'healthReminder', 'personalReminder', 'medicineStock', 'healthSuggestion', 'assistantConversation', 'notification', 'passwordResetCode']) {
       expect(s.tx[t].deleteMany).toHaveBeenCalledWith({ where: { userId: 'u1' } });
     }
     expect(s.tx.medicineRoutine.updateMany).toHaveBeenCalledWith({ where: { userId: 'u1', active: true }, data: { active: false } });
     expect(s.tx.familyInvitation.deleteMany.mock.calls.at(-1)[0].where.OR).toEqual([
       { invitedById: 'u1' },
-      { invitedPhone: '+8801712345678' },
+      { invitedPhone: { in: ['+8801712345678', '01712345678'] } },
     ]);
     expect(s.cloudinary.deleteImageByUrl).toHaveBeenCalledWith('https://res.cloudinary.com/x/image/upload/v1/prescriptions/a1.jpg');
   });

@@ -2,7 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-import '../../../notifications/local_notifications_gateway.dart' show androidChannelId;
+import '../../../notifications/local_notifications_gateway.dart'
+    show alarmChannelId, alarmChannelName, alarmChannelDescription, androidChannelId;
 import '../domain/reminder_status.dart';
 
 /// Reads and requests the phone settings reminders depend on. Uses the
@@ -34,7 +35,20 @@ class ReminderStatusService {
       notificationsAllowed: appEnabled && !channelBlocked,
       exactAlarmsAllowed: await android.canScheduleExactNotifications() ?? false,
       batteryUnrestricted: await _call<bool>('isIgnoringBatteryOptimizations') ?? true,
+      overlayAllowed: await _call<bool>('canDrawOverlays') ?? true,
+      fullScreenAllowed: await _call<bool>('canUseFullScreenIntent') ?? true,
     );
+  }
+
+  /// "Display over other apps" for this app (a system page; the user turns it on).
+  Future<void> requestOverlay() async {
+    if (_android == null) return;
+    await _call<bool>('openOverlaySettings');
+  }
+
+  /// Android 14+ page for full-screen notifications.
+  Future<void> requestFullScreen() async {
+    await _android?.requestFullScreenIntentPermission();
   }
 
   /// Shows the system prompt; once the user has refused it Android stops
@@ -54,6 +68,24 @@ class ReminderStatusService {
   /// Opens the "Alarms & reminders" page for this app.
   Future<void> requestExactAlarms() async {
     await _android?.requestExactAlarmsPermission();
+  }
+
+  /// Settings -> Reminder sound: Android's own page for the medicine alarm
+  /// channel, where any ringtone can be picked. Until then it keeps today's
+  /// sound (the phone's alarm tone); the channel is created first with it.
+  Future<void> openReminderSoundSettings() async {
+    final android = _android;
+    if (android == null) return;
+    await android.createNotificationChannel(
+      const AndroidNotificationChannel(
+        alarmChannelId,
+        alarmChannelName,
+        description: alarmChannelDescription,
+        importance: Importance.max,
+        sound: UriAndroidNotificationSound('content://settings/system/alarm_alert'),
+      ),
+    );
+    await _call<bool>('openChannelSettings', {'channelId': alarmChannelId});
   }
 
   Future<void> openBatterySettings() async {

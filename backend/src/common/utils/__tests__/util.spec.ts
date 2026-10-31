@@ -1,4 +1,5 @@
-import { normalizePhone } from '../phone.util';
+import { cleanPhone, normalizePhone, phoneVariants } from '../phone.util';
+import { PHONE_REGEX } from '../../constants/phone.constant';
 import { appDayBounds, atAppTime, startOfAppDay } from '../time.util';
 import { messages } from '../../../notifications/notification-messages';
 import { effectiveStatus } from '../../../medicine-schedule/lib/dose-status.util';
@@ -13,6 +14,24 @@ describe('normalizePhone', () => {
     ['(+880) 17.12345678', '+8801712345678'],
   ])('%s -> %s', (input, expected) => expect(normalizePhone(input)).toBe(expected));
   it('is idempotent', () => expect(normalizePhone(normalizePhone('01712345678'))).toBe('+8801712345678'));
+});
+
+describe('phones stored as typed (sign-up, invitations)', () => {
+  it('cleanPhone keeps the digits as typed, adds no +880', () => {
+    expect(cleanPhone(' 017-1234 5678 ')).toBe('01712345678');
+    expect(cleanPhone('12345678901')).toBe('12345678901');
+  });
+  it.each(['01712345678', '12345678901', '99999999999'])('accepts any 11 digits: %s', (p) =>
+    expect(PHONE_REGEX.test(p)).toBe(true),
+  );
+  it.each(['+8801712345678', '0171234567', '017123456789', '0171234567a'])('refuses %s', (p) =>
+    expect(PHONE_REGEX.test(p)).toBe(false),
+  );
+  it('variants find older +880 accounts and the 01 form of them', () => {
+    expect(phoneVariants('01712345678').sort()).toEqual(['+8801712345678', '01712345678'].sort());
+    expect(phoneVariants('+8801712345678').sort()).toEqual(['+8801712345678', '01712345678'].sort());
+    expect(phoneVariants('12345678901').sort()).toEqual(['+12345678901', '12345678901'].sort());
+  });
 });
 
 describe('app timezone helpers (Asia/Dhaka, UTC+6)', () => {

@@ -15,6 +15,7 @@ import { FamilyMembershipService } from '../family/family-membership.service';
 import { pauseSchedules } from '../medicine-schedule/rolling-dose.job';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CloudinaryService } from '../prescriptions/lib/cloudinary.service';
+import { phoneVariants } from '../common/utils/phone.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { sanitizeUser, SafeUser } from '../common/utils/sanitize-user';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -111,7 +112,7 @@ export class UsersService {
       const outcome = await this.family.depart(tx, userId, 'LEFT', userId);
       // Every invitation they sent, and any still addressed to their number.
       await tx.familyInvitation.deleteMany({
-        where: { OR: [{ invitedById: userId }, ...(user.phone ? [{ invitedPhone: user.phone }] : [])] },
+        where: { OR: [{ invitedById: userId }, ...(user.phone ? [{ invitedPhone: { in: phoneVariants(user.phone) } }] : [])] },
       });
 
       await pauseSchedules(tx, userId, now);
@@ -127,6 +128,8 @@ export class UsersService {
 
       await tx.healthRecord.deleteMany({ where: { userId } });
       await tx.healthReminder.deleteMany({ where: { userId } });
+      await tx.personalReminder.deleteMany({ where: { userId } });
+      await tx.medicineStock.deleteMany({ where: { userId } });
       await tx.healthSuggestion.deleteMany({ where: { userId } });
       await tx.assistantConversation.deleteMany({ where: { userId } });
       await tx.notification.deleteMany({ where: { userId } });

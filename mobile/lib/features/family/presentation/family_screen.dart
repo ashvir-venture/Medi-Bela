@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/localization/app_strings.dart';
 import '../../../core/localization/locale_controller.dart';
+import '../../../core/utils/phone.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../widgets/state_views.dart';
 import '../../auth/presentation/auth_controller.dart';
@@ -538,9 +539,13 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
 
   Future<void> _submit() async {
     final strings = ref.read(stringsProvider);
-    final phone = _phoneController.text.trim();
+    final phone = cleanPhone(_phoneController.text);
     if (phone.isEmpty) {
       setState(() => _errorMessage = strings.requiredField);
+      return;
+    }
+    if (!isValidPhone(phone)) {
+      setState(() => _errorMessage = strings.invalidPhone);
       return;
     }
 

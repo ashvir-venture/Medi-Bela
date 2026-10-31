@@ -340,6 +340,88 @@ class AppStrings {
     required this.noReadingsYet,
     required this.inboxEmpty,
     required this.checkInvitations,
+    required this.reminderSoundLabel,
+    required this.reminderSoundHelp,
+    required this.testReminderTitle,
+    required this.testReminderBody,
+    required this.testLaterAction,
+    required this.errorDoseNotDue,
+    required this.errorDoseWindowClosed,
+    required this.reminderAllTaken,
+    required this.reminderNotDueYet,
+    required this.testDayOfTemplate,
+    required this.testDoneStatus,
+    required this.close,
+    required this.repeatLabel,
+    required this.everyDay,
+    required this.everyNDaysTemplate,
+    required this.requestEditButton,
+    required this.requestEditTitle,
+    required this.requestEditHint,
+    required this.requestEditSend,
+    required this.requestEditSent,
+    required this.testsHeading,
+    required this.testDefaultDate,
+    required this.startsDayAfterConfirmed,
+    required this.medicineFormLabel,
+    required this.tomorrow,
+    required this.takenAction,
+    required this.testDoneAction,
+    required this.notNow,
+    required this.setUpAction,
+    required this.overlayLabel,
+    required this.overlayAllowed,
+    required this.overlayDenied,
+    required this.fullScreenIntentLabel,
+    required this.fullScreenIntentAllowed,
+    required this.fullScreenIntentDenied,
+    required this.fullScreenTitle,
+    required this.fullScreenHelp,
+    required this.fullScreenPrompt,
+    required this.fullScreenFallback,
+    required this.overlayStepHelp,
+    required this.fullScreenStepHelp,
+    required this.personalRemindersTitle,
+    required this.personalRemindersShort,
+    required this.addReminder,
+    required this.editReminder,
+    required this.reminderNameLabel,
+    required this.reminderNameHint,
+    required this.reminderWhatLabel,
+    required this.reminderWhatHint,
+    required this.reminderTimesLabel,
+    required this.endDateLabel,
+    required this.noEndDate,
+    required this.setUpByCaregiver,
+    required this.noPersonalReminders,
+    required this.personalReminderTitle,
+    required this.personalLaterAction,
+    required this.removeReminder,
+    required this.removeReminderConfirm,
+    required this.medicineBoxTitle,
+    required this.medicineBoxCardSubtitle,
+    required this.startMedicineBox,
+    required this.medicineBoxIntro,
+    required this.medicineBoxHelp,
+    required this.boxNoMedicines,
+    required this.notCountedYet,
+    required this.unitsLeftTemplate,
+    required this.dosesLeftTemplate,
+    required this.countAction,
+    required this.howManyYouHave,
+    required this.youHave,
+    required this.boxFormHelp,
+    required this.boxEnterOne,
+    required this.quantityInvalid,
+    required this.boxSaved,
+    required this.boxRefillAction,
+    required this.boxIgnoreAction,
+    required this.boxLowTitle,
+    required this.boxLowBody,
+    required this.boxEmptyTitle,
+    required this.boxEmptyBody,
+    required this.boxRanOutTemplate,
+    required this.boxEmptyHelp,
   });
 
   final String appName;
@@ -705,6 +787,94 @@ class AppStrings {
   final String noReadingsYet;
   final String inboxEmpty;
   final String checkInvitations;
+  final String reminderSoundLabel;
+  final String reminderSoundHelp;
+  final String testReminderTitle;
+  final String testReminderBody;
+  final String testLaterAction;
+  final String errorDoseNotDue;
+  final String errorDoseWindowClosed;
+  final String reminderAllTaken;
+  final String reminderNotDueYet;
+  final String testDayOfTemplate;
+  final String testDoneStatus;
+  final String close;
+  final String repeatLabel;
+  final String everyDay;
+  final String everyNDaysTemplate;
+  final String requestEditButton;
+  final String requestEditTitle;
+  final String requestEditHint;
+  final String requestEditSend;
+  final String requestEditSent;
+  final String testsHeading;
+  final String testDefaultDate;
+  final String startsDayAfterConfirmed;
+  final String medicineFormLabel;
+  final String tomorrow;
+  String testDayOf(int day, int of) =>
+      testDayOfTemplate.replaceAll('{day}', '$day').replaceAll('{of}', '$of');
+  String everyNDays(int n) => everyNDaysTemplate.replaceAll('{n}', '$n');
+  String unitsLeft(String n) => unitsLeftTemplate.replaceAll('{n}', n);
+  String dosesLeft(int n) => dosesLeftTemplate.replaceAll('{n}', '$n');
+  String boxRanOut(String name) => boxRanOutTemplate.replaceAll('{name}', name);
+  final String takenAction;
+  final String testDoneAction;
+  final String notNow;
+  final String setUpAction;
+  final String overlayLabel;
+  final String overlayAllowed;
+  final String overlayDenied;
+  final String fullScreenIntentLabel;
+  final String fullScreenIntentAllowed;
+  final String fullScreenIntentDenied;
+  final String fullScreenTitle;
+  final String fullScreenHelp;
+  final String fullScreenPrompt;
+  final String fullScreenFallback;
+  final String overlayStepHelp;
+  final String fullScreenStepHelp;
+  final String personalRemindersTitle;
+  final String personalRemindersShort;
+  final String addReminder;
+  final String editReminder;
+  final String reminderNameLabel;
+  final String reminderNameHint;
+  final String reminderWhatLabel;
+  final String reminderWhatHint;
+  final String reminderTimesLabel;
+  final String endDateLabel;
+  final String noEndDate;
+  final String setUpByCaregiver;
+  final String noPersonalReminders;
+  final String personalReminderTitle;
+  final String personalLaterAction;
+  final String removeReminder;
+  final String removeReminderConfirm;
+  final String medicineBoxTitle;
+  final String medicineBoxCardSubtitle;
+  final String startMedicineBox;
+  final String medicineBoxIntro;
+  final String medicineBoxHelp;
+  final String boxNoMedicines;
+  final String notCountedYet;
+  final String unitsLeftTemplate;
+  final String dosesLeftTemplate;
+  final String countAction;
+  final String howManyYouHave;
+  final String youHave;
+  final String boxFormHelp;
+  final String boxEnterOne;
+  final String quantityInvalid;
+  final String boxSaved;
+  final String boxRefillAction;
+  final String boxIgnoreAction;
+  final String boxLowTitle;
+  final String boxLowBody;
+  final String boxEmptyTitle;
+  final String boxEmptyBody;
+  final String boxRanOutTemplate;
+  final String boxEmptyHelp;
 }
 
 const AppStrings enStrings = AppStrings(
@@ -846,7 +1016,7 @@ const AppStrings enStrings = AppStrings(
       'connection, and a pharmacist will review it shortly after.',
   cancel: 'Cancel',
   requiredField: 'This field is required',
-  invalidPhone: 'Enter a valid phone number',
+  invalidPhone: 'Enter an 11-digit phone number',
   passwordTooShort: 'Password must be at least 6 characters',
   forgotPassword: 'Forgot password?',
   resetPasswordTitle: 'Reset password',
@@ -907,7 +1077,7 @@ const AppStrings enStrings = AppStrings(
   reminderBodyOne: 'A medicine is due at {time}. Open the app to see which.',
   reminderBodyMany: '{count} medicines are due at {time}. Open the app to see which.',
   reminderDoneAction: 'Done',
-  reminderLaterAction: 'Later (30 min)',
+  reminderLaterAction: 'Later (15 min)',
   medicineRemindersLabel: 'Medicine reminders',
   medicineRemindersHelp: 'Rings at each medicine time, even offline. Your family is alerted if a dose is missed.',
   medicineRemindersOffTitle: 'Turn off medicine reminders?',
@@ -1046,6 +1216,88 @@ const AppStrings enStrings = AppStrings(
   noReadingsYet: 'No readings yet',
   inboxEmpty: 'Inbox is empty',
   checkInvitations: 'Check invitations',
+  reminderSoundLabel: 'Reminder sound',
+  reminderSoundHelp: 'Choose the sound medicine reminders ring with. Until you change it, it\'s the phone\'s alarm tone.',
+  testReminderTitle: 'Test reminder',
+  testReminderBody: 'A test is due today. Open the app to see which.',
+  testLaterAction: 'Remind me tomorrow',
+  errorDoseNotDue: 'It isn\'t time for this yet.',
+  errorDoseWindowClosed: 'It\'s too late to mark this one.',
+  reminderAllTaken: 'All taken. Well done!',
+  reminderNotDueYet: 'It isn\'t time yet. You can mark it from its time.',
+  testDayOfTemplate: 'Day {day} of {of}',
+  testDoneStatus: 'Done',
+  close: 'Close',
+  repeatLabel: 'Repeat',
+  everyDay: 'Every day',
+  everyNDaysTemplate: 'Every {n} days',
+  requestEditButton: 'Request edit',
+  requestEditTitle: 'What should the pharmacist change?',
+  requestEditHint: 'For example: the night dose should be at 10 PM',
+  requestEditSend: 'Send',
+  requestEditSent: 'Sent to the pharmacist. You will be told when it is ready again.',
+  testsHeading: 'Tests',
+  testDefaultDate: '3 days after you confirm',
+  startsDayAfterConfirmed: 'The day after you confirm',
+  medicineFormLabel: 'Form',
+  tomorrow: 'Tomorrow',
+  takenAction: 'Taken',
+  testDoneAction: 'Done',
+  notNow: 'Not now',
+  setUpAction: 'Set up',
+  overlayLabel: 'Show over other apps',
+  overlayAllowed: 'Reminders open on full screen, even while you use another app.',
+  overlayDenied: 'Off: while the phone is in use, reminders only show as a banner.',
+  fullScreenIntentLabel: 'Full screen on the lock screen',
+  fullScreenIntentAllowed: 'Reminders open on full screen when the phone is locked.',
+  fullScreenIntentDenied: 'Off: a locked phone only shows a banner.',
+  fullScreenTitle: 'Show reminders on full screen',
+  fullScreenHelp: 'Like an alarm clock: when it is time, the reminder fills the screen with big Taken and Later buttons, so it is hard to miss. Turn on these two settings.',
+  fullScreenPrompt: 'Want medicine and test reminders to fill the screen like an alarm, so you never miss one? It takes two quick settings.',
+  fullScreenFallback: 'Without these, reminders still ring as a banner at the top of the screen.',
+  overlayStepHelp: 'Tap Allow, find Medi-Bela and turn on "Allow display over other apps". Then come back.',
+  fullScreenStepHelp: 'Tap Allow and turn on full-screen notifications for Medi-Bela. Then come back.',
+  personalRemindersTitle: 'My reminders',
+  personalRemindersShort: 'Reminders',
+  addReminder: 'Add reminder',
+  editReminder: 'Edit reminder',
+  reminderNameLabel: 'Name',
+  reminderNameHint: 'For example: walk, drink water, check sugar',
+  reminderWhatLabel: 'What to remind (optional)',
+  reminderWhatHint: 'For example: a 30-minute walk after breakfast',
+  reminderTimesLabel: 'Times',
+  endDateLabel: 'Last day (optional)',
+  noEndDate: 'No last day',
+  setUpByCaregiver: 'Set up by your caregiver',
+  noPersonalReminders: 'No reminders yet. Add one for anything you want to remember.',
+  personalReminderTitle: 'Time for your {name}',
+  personalLaterAction: 'Later',
+  removeReminder: 'Remove reminder',
+  removeReminderConfirm: 'This reminder will stop. Remove it?',
+  medicineBoxTitle: 'Medicine box',
+  medicineBoxCardSubtitle: 'See how many of each medicine you have left',
+  startMedicineBox: 'Start your medicine box',
+  medicineBoxIntro: 'Tell us how many of each medicine you have. As you mark doses taken, we count down and remind you before a medicine runs out.',
+  medicineBoxHelp: 'Counts go down as you mark doses taken.',
+  boxNoMedicines: 'No medicines in your routine yet.',
+  notCountedYet: 'Not counted yet',
+  unitsLeftTemplate: '{n} left',
+  dosesLeftTemplate: 'about {n} doses',
+  countAction: 'Count',
+  howManyYouHave: 'How many do you have now?',
+  youHave: 'you have',
+  boxFormHelp: 'Count the tablets (or doses) in hand. Leave a box empty to skip it.',
+  boxEnterOne: 'Enter a number for at least one medicine.',
+  quantityInvalid: 'Enter a number, 0 or more.',
+  boxSaved: 'Medicine box saved.',
+  boxRefillAction: 'Refill',
+  boxIgnoreAction: 'Ignore',
+  boxLowTitle: 'Medicine running low',
+  boxLowBody: 'A medicine in your box has 3 doses or fewer left. Refill soon.',
+  boxEmptyTitle: 'Medicine ran out',
+  boxEmptyBody: 'A medicine in your box has run out. Open the app to refill.',
+  boxRanOutTemplate: '{name} has run out',
+  boxEmptyHelp: 'Refill: enter how many you have now. Ignore: your caregiver will be told.',
 );
 
 const AppStrings bnStrings = AppStrings(
@@ -1187,7 +1439,7 @@ const AppStrings bnStrings = AppStrings(
       'শীঘ্রই একজন ফার্মাসিস্ট এটি পর্যালোচনা করবেন।',
   cancel: 'বাতিল',
   requiredField: 'এই ঘরটি পূরণ করা আবশ্যক',
-  invalidPhone: 'সঠিক ফোন নম্বর দিন',
+  invalidPhone: '১১ সংখ্যার ফোন নম্বর দিন',
   passwordTooShort: 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে',
   forgotPassword: 'পাসওয়ার্ড ভুলে গেছেন?',
   resetPasswordTitle: 'পাসওয়ার্ড রিসেট',
@@ -1248,7 +1500,7 @@ const AppStrings bnStrings = AppStrings(
   reminderBodyOne: '{time}-এ একটি ওষুধ খাওয়ার সময়। কোনটি দেখতে অ্যাপ খুলুন।',
   reminderBodyMany: '{time}-এ {count}টি ওষুধ খাওয়ার সময়। কোনগুলো দেখতে অ্যাপ খুলুন।',
   reminderDoneAction: 'নিয়েছি',
-  reminderLaterAction: 'পরে (৩০ মিনিট)',
+  reminderLaterAction: 'পরে (১৫ মিনিট)',
   medicineRemindersLabel: 'ওষুধের রিমাইন্ডার',
   medicineRemindersHelp: 'প্রতিটি ওষুধের সময়ে বাজবে, অফলাইনেও। কোনো ডোজ মিস হলে আপনার পরিবারকে জানানো হবে।',
   medicineRemindersOffTitle: 'ওষুধের রিমাইন্ডার বন্ধ করবেন?',
@@ -1387,4 +1639,86 @@ const AppStrings bnStrings = AppStrings(
   noReadingsYet: 'এখনো কোনো রিডিং নেই',
   inboxEmpty: 'ইনবক্স খালি',
   checkInvitations: 'আমন্ত্রণ দেখুন',
+  reminderSoundLabel: 'রিমাইন্ডারের শব্দ',
+  reminderSoundHelp: 'ওষুধের রিমাইন্ডার কোন শব্দে বাজবে তা বেছে নিন। না বদলালে ফোনের অ্যালার্মের শব্দই থাকবে।',
+  testReminderTitle: 'পরীক্ষার রিমাইন্ডার',
+  testReminderBody: 'আজ একটি পরীক্ষা করানোর দিন। কোনটি দেখতে অ্যাপ খুলুন।',
+  testLaterAction: 'কাল মনে করিয়ে দিন',
+  errorDoseNotDue: 'এখনো এর সময় হয়নি।',
+  errorDoseWindowClosed: 'এটি চিহ্নিত করার সময় পেরিয়ে গেছে।',
+  reminderAllTaken: 'সব নেওয়া হয়েছে। খুব ভালো!',
+  reminderNotDueYet: 'এখনো সময় হয়নি। সময় হলে চিহ্নিত করতে পারবেন।',
+  testDayOfTemplate: '{of} দিনের {day} দিন',
+  testDoneStatus: 'সম্পন্ন',
+  close: 'বন্ধ করুন',
+  repeatLabel: 'কত দিন পরপর',
+  everyDay: 'প্রতিদিন',
+  everyNDaysTemplate: 'প্রতি {n} দিন পরপর',
+  requestEditButton: 'পরিবর্তনের অনুরোধ',
+  requestEditTitle: 'ফার্মাসিস্ট কী পরিবর্তন করবেন?',
+  requestEditHint: 'যেমন: রাতের ডোজ রাত ১০টায় হবে',
+  requestEditSend: 'পাঠান',
+  requestEditSent: 'ফার্মাসিস্টের কাছে পাঠানো হয়েছে। আবার প্রস্তুত হলে জানানো হবে।',
+  testsHeading: 'পরীক্ষা',
+  testDefaultDate: 'নিশ্চিত করার ৩ দিন পর',
+  startsDayAfterConfirmed: 'নিশ্চিত করার পরের দিন',
+  medicineFormLabel: 'ধরন',
+  tomorrow: 'আগামীকাল',
+  takenAction: 'নিয়েছি',
+  testDoneAction: 'করেছি',
+  notNow: 'এখন না',
+  setUpAction: 'চালু করুন',
+  overlayLabel: 'অন্য অ্যাপের ওপর দেখান',
+  overlayAllowed: 'অন্য অ্যাপ চালানোর সময়ও রিমাইন্ডার পুরো স্ক্রিনে খুলবে।',
+  overlayDenied: 'বন্ধ: ফোন ব্যবহারের সময় রিমাইন্ডার শুধু ব্যানারে দেখাবে।',
+  fullScreenIntentLabel: 'লক স্ক্রিনে পুরো স্ক্রিন',
+  fullScreenIntentAllowed: 'ফোন লক থাকলেও রিমাইন্ডার পুরো স্ক্রিনে খুলবে।',
+  fullScreenIntentDenied: 'বন্ধ: লক করা ফোনে শুধু ব্যানার দেখাবে।',
+  fullScreenTitle: 'রিমাইন্ডার পুরো স্ক্রিনে দেখান',
+  fullScreenHelp: 'অ্যালার্ম ঘড়ির মতো: সময় হলে রিমাইন্ডার বড় "নিয়েছি" ও "পরে" বোতাম নিয়ে পুরো স্ক্রিনে খুলবে, তাই মিস হবে না। নিচের দুটি সেটিং চালু করুন।',
+  fullScreenPrompt: 'ওষুধ ও পরীক্ষার রিমাইন্ডার কি অ্যালার্মের মতো পুরো স্ক্রিনে দেখতে চান, যাতে কখনো মিস না হয়? দুটি ছোট সেটিং লাগবে।',
+  fullScreenFallback: 'এগুলো ছাড়াও রিমাইন্ডার স্ক্রিনের ওপরে ব্যানার হিসেবে বাজবে।',
+  overlayStepHelp: '"অনুমতি দিন" চাপুন, মেডি-বেলা খুঁজে "অন্য অ্যাপের ওপর দেখানোর অনুমতি" চালু করুন। তারপর ফিরে আসুন।',
+  fullScreenStepHelp: '"অনুমতি দিন" চাপুন এবং মেডি-বেলার জন্য পুরো স্ক্রিনের নোটিফিকেশন চালু করুন। তারপর ফিরে আসুন।',
+  personalRemindersTitle: 'আমার রিমাইন্ডার',
+  personalRemindersShort: 'রিমাইন্ডার',
+  addReminder: 'রিমাইন্ডার যোগ করুন',
+  editReminder: 'রিমাইন্ডার বদলান',
+  reminderNameLabel: 'নাম',
+  reminderNameHint: 'যেমন: হাঁটা, পানি পান, সুগার মাপা',
+  reminderWhatLabel: 'কী মনে করাবে (ঐচ্ছিক)',
+  reminderWhatHint: 'যেমন: নাশতার পর ৩০ মিনিট হাঁটা',
+  reminderTimesLabel: 'সময়',
+  endDateLabel: 'শেষ দিন (ঐচ্ছিক)',
+  noEndDate: 'শেষ দিন নেই',
+  setUpByCaregiver: 'আপনার পরিচর্যাকারী যোগ করেছেন',
+  noPersonalReminders: 'এখনো কোনো রিমাইন্ডার নেই। যা মনে রাখতে চান তার জন্য একটি যোগ করুন।',
+  personalReminderTitle: 'আপনার {name}-এর সময় হয়েছে',
+  personalLaterAction: 'পরে',
+  removeReminder: 'রিমাইন্ডার সরান',
+  removeReminderConfirm: 'এই রিমাইন্ডারটি আর বাজবে না। সরাবেন?',
+  medicineBoxTitle: 'ওষুধের বাক্স',
+  medicineBoxCardSubtitle: 'কোন ওষুধ কতগুলো বাকি আছে দেখুন',
+  startMedicineBox: 'ওষুধের বাক্স চালু করুন',
+  medicineBoxIntro: 'প্রতিটি ওষুধ কতগুলো আছে জানান। ডোজ নেওয়া চিহ্নিত করলে আমরা গুনে রাখব এবং ওষুধ শেষ হওয়ার আগে মনে করিয়ে দেব।',
+  medicineBoxHelp: 'ডোজ নেওয়া চিহ্নিত করলে সংখ্যা কমে।',
+  boxNoMedicines: 'আপনার রুটিনে এখনো কোনো ওষুধ নেই।',
+  notCountedYet: 'এখনো গোনা হয়নি',
+  unitsLeftTemplate: '{n}টি বাকি',
+  dosesLeftTemplate: 'প্রায় {n} ডোজ',
+  countAction: 'গুনুন',
+  howManyYouHave: 'এখন কতগুলো আছে?',
+  youHave: 'আছে',
+  boxFormHelp: 'হাতে থাকা ট্যাবলেট (বা ডোজ) গুনে লিখুন। কোনোটি বাদ দিতে ঘরটি ফাঁকা রাখুন।',
+  boxEnterOne: 'অন্তত একটি ওষুধের সংখ্যা লিখুন।',
+  quantityInvalid: '০ বা তার বেশি একটি সংখ্যা লিখুন।',
+  boxSaved: 'ওষুধের বাক্স সংরক্ষণ হয়েছে।',
+  boxRefillAction: 'আবার কিনেছি',
+  boxIgnoreAction: 'উপেক্ষা',
+  boxLowTitle: 'ওষুধ প্রায় শেষ',
+  boxLowBody: 'আপনার বাক্সের একটি ওষুধ মাত্র ৩ ডোজ বা তার কম বাকি। শিগগির কিনে নিন।',
+  boxEmptyTitle: 'ওষুধ শেষ',
+  boxEmptyBody: 'আপনার বাক্সের একটি ওষুধ শেষ হয়ে গেছে। আবার কিনে অ্যাপে জানান।',
+  boxRanOutTemplate: '{name} শেষ হয়ে গেছে',
+  boxEmptyHelp: '"আবার কিনেছি": এখন কতগুলো আছে লিখুন। "উপেক্ষা": আপনার পরিচর্যাকারীকে জানানো হবে।',
 );

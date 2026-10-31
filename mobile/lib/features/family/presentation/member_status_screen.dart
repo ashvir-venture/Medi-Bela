@@ -129,6 +129,27 @@ class _CaregiverShortcuts extends ConsumerWidget {
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        // Round 13: the member's own reminders and medicine box.
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => context.push(AppRoutes.personalRemindersPath(forUserId: userId, name: name)),
+                icon: const Icon(Icons.alarm_add_outlined),
+                label: Text(strings.personalRemindersShort),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => context.push(AppRoutes.medicineBoxPath(forUserId: userId, name: name)),
+                icon: const Icon(Icons.inventory_2_outlined),
+                label: Text(strings.medicineBoxTitle),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }

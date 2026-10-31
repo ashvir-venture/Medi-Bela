@@ -11,6 +11,13 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <!-- Full-screen reminders (Round 13): over other apps when the user
+         allows "Display over other apps" (also lets the reminder open from
+         the background); the ringing notification's full-screen intent on a
+         locked phone (Android 14+ asks the user for it). Both are optional:
+         without them the ringing banner stays. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
     <application
         android:label="Medi-Bela"
         android:name="${applicationName}"
@@ -48,6 +55,13 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
+        <!-- Full-screen reminders: fires them, and re-registers them after a reboot or update. -->
+        <receiver android:exported="false" android:name=".ReminderAlarmReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
             </intent-filter>
         </receiver>
         <!-- Don't delete the meta-data below.

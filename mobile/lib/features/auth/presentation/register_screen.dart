@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/localization/locale_controller.dart';
+import '../../../core/utils/phone.dart';
 import '../../../router/app_router.dart';
 import '../../../widgets/details_fields.dart';
 import '../../../widgets/language_switcher.dart';
@@ -50,7 +51,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     final locale = ref.read(localeControllerProvider);
     final result = await ref.read(authControllerProvider.notifier).register(
-          phone: _phoneController.text.trim(),
+          phone: cleanPhone(_phoneController.text),
           name: _nameController.text.trim(),
           password: _passwordController.text,
           address: _addressController.text.trim().isEmpty
@@ -115,9 +116,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         if (v == null || v.trim().isEmpty) {
                           return strings.requiredField;
                         }
-                        final valid = RegExp(r'^\+?[1-9]\d{6,14}$')
-                            .hasMatch(v.trim());
-                        return valid ? null : strings.invalidPhone;
+                        return isValidPhone(v) ? null : strings.invalidPhone;
                       },
                     ),
                     const SizedBox(height: 16),

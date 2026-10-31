@@ -175,13 +175,49 @@ class CachedHealthReminders extends Table {
   TextColumn get title => text()();
   TextColumn get description => text().nullable()();
   DateTimeColumn get scheduledAt => dateTime()();
-  TextColumn get status => text()(); // PENDING|COMPLETED|DISMISSED
+  TextColumn get status => text()(); // PENDING|COMPLETED|DISMISSED|MISSED
   DateTimeColumn get completedAt => dateTime().nullable()();
   TextColumn get syncState => text().withDefault(const Constant('synced'))();
+  DateTimeColumn get cachedAt => dateTime()();
+  // Round 12: RULE (health rule) | TEST (a prescription's test, rings 3 days).
+  TextColumn get kind => text().withDefault(const Constant('RULE'))();
+  // Test reminders: the meal timing's name (e.g. "Before meal").
+  TextColumn get mealTiming => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Personal health reminders (Round 13), from `GET /personal-reminders`.
+/// Read-only cache: the phone schedules them from here, offline too.
+@DataClassName('CachedPersonalReminder')
+class CachedPersonalReminders extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  TextColumn get description => text().nullable()();
+  TextColumn get scheduleTimes => text()(); // "HH:mm" JSON array
+  IntColumn get intervalDays => integer().withDefault(const Constant(1))();
+  DateTimeColumn get startDate => dateTime()();
+  DateTimeColumn get endDate => dateTime().nullable()();
+  // Set up by the caregiver: Later on it tells them.
+  BoolColumn get byCaregiver => boolean().withDefault(const Constant(false))();
   DateTimeColumn get cachedAt => dateTime()();
 
   @override
   Set<Column> get primaryKey => {id};
+}
+
+/// Small server responses kept whole as JSON (Round 13: the medicine box,
+/// key `medicine_box`; also the alerts already shown for it). Cleared with
+/// the rest on sign-out.
+@DataClassName('CachedDocument')
+class CachedDocuments extends Table {
+  TextColumn get key => text()();
+  TextColumn get json => text()();
+  DateTimeColumn get cachedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {key};
 }
 
 /// User-authored basic health records (blood pressure, blood sugar,
@@ -217,6 +253,8 @@ class HealthRecordDrafts extends Table {
     ScheduledMedicineNotifications,
     CachedHealthReminders,
     HealthRecordDrafts,
+    CachedPersonalReminders,
+    CachedDocuments,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -243,7 +281,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -261,6 +299,14 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(scheduledMedicineNotifications);
             await m.createTable(cachedHealthReminders);
             await m.createTable(healthRecordDrafts);
+          }
+          if (from >= 3 && from < 4) {
+            await m.addColumn(cachedHealthReminders, cachedHealthReminders.kind);
+            await m.addColumn(cachedHealthReminders, cachedHealthReminders.mealTiming);
+          }
+          if (from < 5) {
+            await m.createTable(cachedPersonalReminders);
+            await m.createTable(cachedDocuments);
           }
         },
       );

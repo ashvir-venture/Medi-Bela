@@ -50,6 +50,10 @@ String textForErrorCode(String? code, AppStrings s, {String? serverMessage, Stri
       return s.errorResetCode;
     case 'PHONE_TAKEN':
       return s.errorPhoneTaken;
+    case 'DOSE_NOT_DUE':
+      return s.errorDoseNotDue;
+    case 'DOSE_WINDOW_CLOSED':
+      return s.errorDoseWindowClosed;
     case 'NOT_FOUND':
       return s.errorNotFound;
     case 'FORBIDDEN':

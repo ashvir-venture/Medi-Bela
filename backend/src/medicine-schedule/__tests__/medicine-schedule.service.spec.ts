@@ -1,4 +1,4 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { DoseStatus } from '@prisma/client';
 import { MedicineScheduleService } from '../medicine-schedule.service';
 
@@ -18,6 +18,8 @@ function makeFakePrisma() {
           return true;
         });
       }),
+      // The next dose of the routine (taken window); none stored by default.
+      findFirst: jest.fn(async () => null),
       update: jest.fn(async ({ where, data }: any) => {
         const dose = doses.get(where.id);
         Object.assign(dose, data);
@@ -41,6 +43,8 @@ function makeFakePrisma() {
     medicineRoutine: {
       findMany: jest.fn(async () => []),
       findFirst: jest.fn(async () => null),
+      // No stored times: the window closes a day (minus 1 h) after the dose.
+      findUnique: jest.fn(async () => ({ scheduleTimes: null, intervalDays: 1 })),
     },
   } as any;
 }
@@ -77,7 +81,7 @@ describe('MedicineScheduleService — dose tracking', () => {
     });
 
     it('defaults takenAt to now when not provided', async () => {
-      prisma._doses.set('dose-1', makeDose());
+      prisma._doses.set('dose-1', makeDose({ scheduledAt: new Date(Date.now() - 10 * 60_000) }));
       const before = Date.now();
       const result = await service.markDoseTaken('user-1', 'dose-1');
       expect(result.takenAt.getTime()).toBeGreaterThanOrEqual(before);
@@ -94,9 +98,39 @@ describe('MedicineScheduleService — dose tracking', () => {
     });
 
     it('allows confirming TAKEN after the system auto-marked a dose MISSED', async () => {
-      prisma._doses.set('dose-1', makeDose({ status: DoseStatus.MISSED }));
+      prisma._doses.set(
+        'dose-1',
+        makeDose({ status: DoseStatus.MISSED, scheduledAt: new Date(Date.now() - 2 * 60 * 60_000) }),
+      );
       const result = await service.markDoseTaken('user-1', 'dose-1');
       expect(result.status).toBe(DoseStatus.TAKEN);
+    });
+
+    // Owner, 2026-10-31: from the dose's time until 1 h before the next dose.
+    it('refuses an upcoming dose (DOSE_NOT_DUE)', async () => {
+      prisma._doses.set('dose-1', makeDose());
+      const early = service.markDoseTaken('user-1', 'dose-1', '2026-03-01T07:50:00.000Z');
+      await expect(early).rejects.toThrow(ConflictException);
+      await expect(early).rejects.toMatchObject({ errorCode: 'DOSE_NOT_DUE' });
+      expect(prisma.medicineDose.update).not.toHaveBeenCalled();
+    });
+
+    it('allows a tap a minute early (phone clock)', async () => {
+      prisma._doses.set('dose-1', makeDose());
+      const result = await service.markDoseTaken('user-1', 'dose-1', '2026-03-01T07:59:00.000Z');
+      expect(result.status).toBe(DoseStatus.TAKEN);
+    });
+
+    it('refuses later than 1 h before the next dose (DOSE_WINDOW_CLOSED)', async () => {
+      prisma._doses.set('dose-1', makeDose());
+      prisma.medicineDose.findFirst.mockResolvedValueOnce({ scheduledAt: new Date('2026-03-01T14:00:00.000Z') });
+      prisma.medicineDose.findFirst.mockResolvedValueOnce({ scheduledAt: new Date('2026-03-01T14:00:00.000Z') });
+      await expect(service.markDoseTaken('user-1', 'dose-1', '2026-03-01T13:00:00.000Z')).resolves.toMatchObject({
+        status: DoseStatus.TAKEN,
+      });
+      prisma._doses.set('dose-1', makeDose());
+      const late = service.markDoseTaken('user-1', 'dose-1', '2026-03-01T13:01:00.000Z');
+      await expect(late).rejects.toMatchObject({ errorCode: 'DOSE_WINDOW_CLOSED' });
     });
 
     it('refuses to mark a SKIPPED dose as taken', async () => {

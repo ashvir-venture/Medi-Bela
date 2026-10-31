@@ -317,7 +317,13 @@ export class CatalogService {
    * becomes a stub (brand name only) for a pharmacist to complete later.
    * Matching is case-insensitive on the brand name.
    */
-  async findOrCreateMedicineStub(actorId: string, brandName: string, tx: Prisma.TransactionClient) {
+  /** `formId` (the line's form) goes on a newly created stub only. */
+  async findOrCreateMedicineStub(
+    actorId: string,
+    brandName: string,
+    tx: Prisma.TransactionClient,
+    formId?: number | null,
+  ) {
     const name = brandName.trim();
     const existing = await tx.medicine.findFirst({
       where: { brandName: { equals: name, mode: 'insensitive' } },
@@ -326,7 +332,7 @@ export class CatalogService {
     });
     if (existing) return existing.id;
     const created = await tx.medicine.create({
-      data: { brandName: name, createdById: actorId },
+      data: { brandName: name, createdById: actorId, formId: formId ?? null },
       select: { id: true, brandName: true, genericId: true, formId: true, categoryId: true, manufacturer: true },
     });
     await this.audit.record(

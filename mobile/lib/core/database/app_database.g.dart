@@ -3816,6 +3816,27 @@ class $CachedHealthRemindersTable extends CachedHealthReminders
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  @override
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('RULE'),
+  );
+  static const VerificationMeta _mealTimingMeta = const VerificationMeta(
+    'mealTiming',
+  );
+  @override
+  late final GeneratedColumn<String> mealTiming = GeneratedColumn<String>(
+    'meal_timing',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3826,6 +3847,8 @@ class $CachedHealthRemindersTable extends CachedHealthReminders
     completedAt,
     syncState,
     cachedAt,
+    kind,
+    mealTiming,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3903,6 +3926,18 @@ class $CachedHealthRemindersTable extends CachedHealthReminders
     } else if (isInserting) {
       context.missing(_cachedAtMeta);
     }
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    }
+    if (data.containsKey('meal_timing')) {
+      context.handle(
+        _mealTimingMeta,
+        mealTiming.isAcceptableOrUnknown(data['meal_timing']!, _mealTimingMeta),
+      );
+    }
     return context;
   }
 
@@ -3944,6 +3979,14 @@ class $CachedHealthRemindersTable extends CachedHealthReminders
         DriftSqlType.dateTime,
         data['${effectivePrefix}cached_at'],
       )!,
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      )!,
+      mealTiming: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}meal_timing'],
+      ),
     );
   }
 
@@ -3963,6 +4006,8 @@ class CachedHealthReminder extends DataClass
   final DateTime? completedAt;
   final String syncState;
   final DateTime cachedAt;
+  final String kind;
+  final String? mealTiming;
   const CachedHealthReminder({
     required this.id,
     required this.title,
@@ -3972,6 +4017,8 @@ class CachedHealthReminder extends DataClass
     this.completedAt,
     required this.syncState,
     required this.cachedAt,
+    required this.kind,
+    this.mealTiming,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3988,6 +4035,10 @@ class CachedHealthReminder extends DataClass
     }
     map['sync_state'] = Variable<String>(syncState);
     map['cached_at'] = Variable<DateTime>(cachedAt);
+    map['kind'] = Variable<String>(kind);
+    if (!nullToAbsent || mealTiming != null) {
+      map['meal_timing'] = Variable<String>(mealTiming);
+    }
     return map;
   }
 
@@ -4005,6 +4056,10 @@ class CachedHealthReminder extends DataClass
           : Value(completedAt),
       syncState: Value(syncState),
       cachedAt: Value(cachedAt),
+      kind: Value(kind),
+      mealTiming: mealTiming == null && nullToAbsent
+          ? const Value.absent()
+          : Value(mealTiming),
     );
   }
 
@@ -4022,6 +4077,8 @@ class CachedHealthReminder extends DataClass
       completedAt: serializer.fromJson<DateTime?>(json['completedAt']),
       syncState: serializer.fromJson<String>(json['syncState']),
       cachedAt: serializer.fromJson<DateTime>(json['cachedAt']),
+      kind: serializer.fromJson<String>(json['kind']),
+      mealTiming: serializer.fromJson<String?>(json['mealTiming']),
     );
   }
   @override
@@ -4036,6 +4093,8 @@ class CachedHealthReminder extends DataClass
       'completedAt': serializer.toJson<DateTime?>(completedAt),
       'syncState': serializer.toJson<String>(syncState),
       'cachedAt': serializer.toJson<DateTime>(cachedAt),
+      'kind': serializer.toJson<String>(kind),
+      'mealTiming': serializer.toJson<String?>(mealTiming),
     };
   }
 
@@ -4048,6 +4107,8 @@ class CachedHealthReminder extends DataClass
     Value<DateTime?> completedAt = const Value.absent(),
     String? syncState,
     DateTime? cachedAt,
+    String? kind,
+    Value<String?> mealTiming = const Value.absent(),
   }) => CachedHealthReminder(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -4057,6 +4118,8 @@ class CachedHealthReminder extends DataClass
     completedAt: completedAt.present ? completedAt.value : this.completedAt,
     syncState: syncState ?? this.syncState,
     cachedAt: cachedAt ?? this.cachedAt,
+    kind: kind ?? this.kind,
+    mealTiming: mealTiming.present ? mealTiming.value : this.mealTiming,
   );
   CachedHealthReminder copyWithCompanion(CachedHealthRemindersCompanion data) {
     return CachedHealthReminder(
@@ -4074,6 +4137,10 @@ class CachedHealthReminder extends DataClass
           : this.completedAt,
       syncState: data.syncState.present ? data.syncState.value : this.syncState,
       cachedAt: data.cachedAt.present ? data.cachedAt.value : this.cachedAt,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      mealTiming: data.mealTiming.present
+          ? data.mealTiming.value
+          : this.mealTiming,
     );
   }
 
@@ -4087,7 +4154,9 @@ class CachedHealthReminder extends DataClass
           ..write('status: $status, ')
           ..write('completedAt: $completedAt, ')
           ..write('syncState: $syncState, ')
-          ..write('cachedAt: $cachedAt')
+          ..write('cachedAt: $cachedAt, ')
+          ..write('kind: $kind, ')
+          ..write('mealTiming: $mealTiming')
           ..write(')'))
         .toString();
   }
@@ -4102,6 +4171,8 @@ class CachedHealthReminder extends DataClass
     completedAt,
     syncState,
     cachedAt,
+    kind,
+    mealTiming,
   );
   @override
   bool operator ==(Object other) =>
@@ -4114,7 +4185,9 @@ class CachedHealthReminder extends DataClass
           other.status == this.status &&
           other.completedAt == this.completedAt &&
           other.syncState == this.syncState &&
-          other.cachedAt == this.cachedAt);
+          other.cachedAt == this.cachedAt &&
+          other.kind == this.kind &&
+          other.mealTiming == this.mealTiming);
 }
 
 class CachedHealthRemindersCompanion
@@ -4127,6 +4200,8 @@ class CachedHealthRemindersCompanion
   final Value<DateTime?> completedAt;
   final Value<String> syncState;
   final Value<DateTime> cachedAt;
+  final Value<String> kind;
+  final Value<String?> mealTiming;
   final Value<int> rowid;
   const CachedHealthRemindersCompanion({
     this.id = const Value.absent(),
@@ -4137,6 +4212,8 @@ class CachedHealthRemindersCompanion
     this.completedAt = const Value.absent(),
     this.syncState = const Value.absent(),
     this.cachedAt = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.mealTiming = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CachedHealthRemindersCompanion.insert({
@@ -4148,6 +4225,8 @@ class CachedHealthRemindersCompanion
     this.completedAt = const Value.absent(),
     this.syncState = const Value.absent(),
     required DateTime cachedAt,
+    this.kind = const Value.absent(),
+    this.mealTiming = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        title = Value(title),
@@ -4163,6 +4242,8 @@ class CachedHealthRemindersCompanion
     Expression<DateTime>? completedAt,
     Expression<String>? syncState,
     Expression<DateTime>? cachedAt,
+    Expression<String>? kind,
+    Expression<String>? mealTiming,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4174,6 +4255,8 @@ class CachedHealthRemindersCompanion
       if (completedAt != null) 'completed_at': completedAt,
       if (syncState != null) 'sync_state': syncState,
       if (cachedAt != null) 'cached_at': cachedAt,
+      if (kind != null) 'kind': kind,
+      if (mealTiming != null) 'meal_timing': mealTiming,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4187,6 +4270,8 @@ class CachedHealthRemindersCompanion
     Value<DateTime?>? completedAt,
     Value<String>? syncState,
     Value<DateTime>? cachedAt,
+    Value<String>? kind,
+    Value<String?>? mealTiming,
     Value<int>? rowid,
   }) {
     return CachedHealthRemindersCompanion(
@@ -4198,6 +4283,8 @@ class CachedHealthRemindersCompanion
       completedAt: completedAt ?? this.completedAt,
       syncState: syncState ?? this.syncState,
       cachedAt: cachedAt ?? this.cachedAt,
+      kind: kind ?? this.kind,
+      mealTiming: mealTiming ?? this.mealTiming,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4229,6 +4316,12 @@ class CachedHealthRemindersCompanion
     if (cachedAt.present) {
       map['cached_at'] = Variable<DateTime>(cachedAt.value);
     }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
+    if (mealTiming.present) {
+      map['meal_timing'] = Variable<String>(mealTiming.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4246,6 +4339,8 @@ class CachedHealthRemindersCompanion
           ..write('completedAt: $completedAt, ')
           ..write('syncState: $syncState, ')
           ..write('cachedAt: $cachedAt, ')
+          ..write('kind: $kind, ')
+          ..write('mealTiming: $mealTiming, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4852,6 +4947,851 @@ class HealthRecordDraftsCompanion extends UpdateCompanion<HealthRecordDraft> {
   }
 }
 
+class $CachedPersonalRemindersTable extends CachedPersonalReminders
+    with TableInfo<$CachedPersonalRemindersTable, CachedPersonalReminder> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CachedPersonalRemindersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _scheduleTimesMeta = const VerificationMeta(
+    'scheduleTimes',
+  );
+  @override
+  late final GeneratedColumn<String> scheduleTimes = GeneratedColumn<String>(
+    'schedule_times',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _intervalDaysMeta = const VerificationMeta(
+    'intervalDays',
+  );
+  @override
+  late final GeneratedColumn<int> intervalDays = GeneratedColumn<int>(
+    'interval_days',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _startDateMeta = const VerificationMeta(
+    'startDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> startDate = GeneratedColumn<DateTime>(
+    'start_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _endDateMeta = const VerificationMeta(
+    'endDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> endDate = GeneratedColumn<DateTime>(
+    'end_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _byCaregiverMeta = const VerificationMeta(
+    'byCaregiver',
+  );
+  @override
+  late final GeneratedColumn<bool> byCaregiver = GeneratedColumn<bool>(
+    'by_caregiver',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("by_caregiver" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _cachedAtMeta = const VerificationMeta(
+    'cachedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> cachedAt = GeneratedColumn<DateTime>(
+    'cached_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    description,
+    scheduleTimes,
+    intervalDays,
+    startDate,
+    endDate,
+    byCaregiver,
+    cachedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'cached_personal_reminders';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CachedPersonalReminder> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('schedule_times')) {
+      context.handle(
+        _scheduleTimesMeta,
+        scheduleTimes.isAcceptableOrUnknown(
+          data['schedule_times']!,
+          _scheduleTimesMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_scheduleTimesMeta);
+    }
+    if (data.containsKey('interval_days')) {
+      context.handle(
+        _intervalDaysMeta,
+        intervalDays.isAcceptableOrUnknown(
+          data['interval_days']!,
+          _intervalDaysMeta,
+        ),
+      );
+    }
+    if (data.containsKey('start_date')) {
+      context.handle(
+        _startDateMeta,
+        startDate.isAcceptableOrUnknown(data['start_date']!, _startDateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_startDateMeta);
+    }
+    if (data.containsKey('end_date')) {
+      context.handle(
+        _endDateMeta,
+        endDate.isAcceptableOrUnknown(data['end_date']!, _endDateMeta),
+      );
+    }
+    if (data.containsKey('by_caregiver')) {
+      context.handle(
+        _byCaregiverMeta,
+        byCaregiver.isAcceptableOrUnknown(
+          data['by_caregiver']!,
+          _byCaregiverMeta,
+        ),
+      );
+    }
+    if (data.containsKey('cached_at')) {
+      context.handle(
+        _cachedAtMeta,
+        cachedAt.isAcceptableOrUnknown(data['cached_at']!, _cachedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_cachedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CachedPersonalReminder map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CachedPersonalReminder(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
+      scheduleTimes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}schedule_times'],
+      )!,
+      intervalDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}interval_days'],
+      )!,
+      startDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}start_date'],
+      )!,
+      endDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}end_date'],
+      ),
+      byCaregiver: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}by_caregiver'],
+      )!,
+      cachedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}cached_at'],
+      )!,
+    );
+  }
+
+  @override
+  $CachedPersonalRemindersTable createAlias(String alias) {
+    return $CachedPersonalRemindersTable(attachedDatabase, alias);
+  }
+}
+
+class CachedPersonalReminder extends DataClass
+    implements Insertable<CachedPersonalReminder> {
+  final String id;
+  final String name;
+  final String? description;
+  final String scheduleTimes;
+  final int intervalDays;
+  final DateTime startDate;
+  final DateTime? endDate;
+  final bool byCaregiver;
+  final DateTime cachedAt;
+  const CachedPersonalReminder({
+    required this.id,
+    required this.name,
+    this.description,
+    required this.scheduleTimes,
+    required this.intervalDays,
+    required this.startDate,
+    this.endDate,
+    required this.byCaregiver,
+    required this.cachedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
+    map['schedule_times'] = Variable<String>(scheduleTimes);
+    map['interval_days'] = Variable<int>(intervalDays);
+    map['start_date'] = Variable<DateTime>(startDate);
+    if (!nullToAbsent || endDate != null) {
+      map['end_date'] = Variable<DateTime>(endDate);
+    }
+    map['by_caregiver'] = Variable<bool>(byCaregiver);
+    map['cached_at'] = Variable<DateTime>(cachedAt);
+    return map;
+  }
+
+  CachedPersonalRemindersCompanion toCompanion(bool nullToAbsent) {
+    return CachedPersonalRemindersCompanion(
+      id: Value(id),
+      name: Value(name),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
+      scheduleTimes: Value(scheduleTimes),
+      intervalDays: Value(intervalDays),
+      startDate: Value(startDate),
+      endDate: endDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(endDate),
+      byCaregiver: Value(byCaregiver),
+      cachedAt: Value(cachedAt),
+    );
+  }
+
+  factory CachedPersonalReminder.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CachedPersonalReminder(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      description: serializer.fromJson<String?>(json['description']),
+      scheduleTimes: serializer.fromJson<String>(json['scheduleTimes']),
+      intervalDays: serializer.fromJson<int>(json['intervalDays']),
+      startDate: serializer.fromJson<DateTime>(json['startDate']),
+      endDate: serializer.fromJson<DateTime?>(json['endDate']),
+      byCaregiver: serializer.fromJson<bool>(json['byCaregiver']),
+      cachedAt: serializer.fromJson<DateTime>(json['cachedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'description': serializer.toJson<String?>(description),
+      'scheduleTimes': serializer.toJson<String>(scheduleTimes),
+      'intervalDays': serializer.toJson<int>(intervalDays),
+      'startDate': serializer.toJson<DateTime>(startDate),
+      'endDate': serializer.toJson<DateTime?>(endDate),
+      'byCaregiver': serializer.toJson<bool>(byCaregiver),
+      'cachedAt': serializer.toJson<DateTime>(cachedAt),
+    };
+  }
+
+  CachedPersonalReminder copyWith({
+    String? id,
+    String? name,
+    Value<String?> description = const Value.absent(),
+    String? scheduleTimes,
+    int? intervalDays,
+    DateTime? startDate,
+    Value<DateTime?> endDate = const Value.absent(),
+    bool? byCaregiver,
+    DateTime? cachedAt,
+  }) => CachedPersonalReminder(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    description: description.present ? description.value : this.description,
+    scheduleTimes: scheduleTimes ?? this.scheduleTimes,
+    intervalDays: intervalDays ?? this.intervalDays,
+    startDate: startDate ?? this.startDate,
+    endDate: endDate.present ? endDate.value : this.endDate,
+    byCaregiver: byCaregiver ?? this.byCaregiver,
+    cachedAt: cachedAt ?? this.cachedAt,
+  );
+  CachedPersonalReminder copyWithCompanion(
+    CachedPersonalRemindersCompanion data,
+  ) {
+    return CachedPersonalReminder(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
+      scheduleTimes: data.scheduleTimes.present
+          ? data.scheduleTimes.value
+          : this.scheduleTimes,
+      intervalDays: data.intervalDays.present
+          ? data.intervalDays.value
+          : this.intervalDays,
+      startDate: data.startDate.present ? data.startDate.value : this.startDate,
+      endDate: data.endDate.present ? data.endDate.value : this.endDate,
+      byCaregiver: data.byCaregiver.present
+          ? data.byCaregiver.value
+          : this.byCaregiver,
+      cachedAt: data.cachedAt.present ? data.cachedAt.value : this.cachedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CachedPersonalReminder(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('description: $description, ')
+          ..write('scheduleTimes: $scheduleTimes, ')
+          ..write('intervalDays: $intervalDays, ')
+          ..write('startDate: $startDate, ')
+          ..write('endDate: $endDate, ')
+          ..write('byCaregiver: $byCaregiver, ')
+          ..write('cachedAt: $cachedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    description,
+    scheduleTimes,
+    intervalDays,
+    startDate,
+    endDate,
+    byCaregiver,
+    cachedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CachedPersonalReminder &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.description == this.description &&
+          other.scheduleTimes == this.scheduleTimes &&
+          other.intervalDays == this.intervalDays &&
+          other.startDate == this.startDate &&
+          other.endDate == this.endDate &&
+          other.byCaregiver == this.byCaregiver &&
+          other.cachedAt == this.cachedAt);
+}
+
+class CachedPersonalRemindersCompanion
+    extends UpdateCompanion<CachedPersonalReminder> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String?> description;
+  final Value<String> scheduleTimes;
+  final Value<int> intervalDays;
+  final Value<DateTime> startDate;
+  final Value<DateTime?> endDate;
+  final Value<bool> byCaregiver;
+  final Value<DateTime> cachedAt;
+  final Value<int> rowid;
+  const CachedPersonalRemindersCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.description = const Value.absent(),
+    this.scheduleTimes = const Value.absent(),
+    this.intervalDays = const Value.absent(),
+    this.startDate = const Value.absent(),
+    this.endDate = const Value.absent(),
+    this.byCaregiver = const Value.absent(),
+    this.cachedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CachedPersonalRemindersCompanion.insert({
+    required String id,
+    required String name,
+    this.description = const Value.absent(),
+    required String scheduleTimes,
+    this.intervalDays = const Value.absent(),
+    required DateTime startDate,
+    this.endDate = const Value.absent(),
+    this.byCaregiver = const Value.absent(),
+    required DateTime cachedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       scheduleTimes = Value(scheduleTimes),
+       startDate = Value(startDate),
+       cachedAt = Value(cachedAt);
+  static Insertable<CachedPersonalReminder> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? description,
+    Expression<String>? scheduleTimes,
+    Expression<int>? intervalDays,
+    Expression<DateTime>? startDate,
+    Expression<DateTime>? endDate,
+    Expression<bool>? byCaregiver,
+    Expression<DateTime>? cachedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (description != null) 'description': description,
+      if (scheduleTimes != null) 'schedule_times': scheduleTimes,
+      if (intervalDays != null) 'interval_days': intervalDays,
+      if (startDate != null) 'start_date': startDate,
+      if (endDate != null) 'end_date': endDate,
+      if (byCaregiver != null) 'by_caregiver': byCaregiver,
+      if (cachedAt != null) 'cached_at': cachedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CachedPersonalRemindersCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String?>? description,
+    Value<String>? scheduleTimes,
+    Value<int>? intervalDays,
+    Value<DateTime>? startDate,
+    Value<DateTime?>? endDate,
+    Value<bool>? byCaregiver,
+    Value<DateTime>? cachedAt,
+    Value<int>? rowid,
+  }) {
+    return CachedPersonalRemindersCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      scheduleTimes: scheduleTimes ?? this.scheduleTimes,
+      intervalDays: intervalDays ?? this.intervalDays,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      byCaregiver: byCaregiver ?? this.byCaregiver,
+      cachedAt: cachedAt ?? this.cachedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (scheduleTimes.present) {
+      map['schedule_times'] = Variable<String>(scheduleTimes.value);
+    }
+    if (intervalDays.present) {
+      map['interval_days'] = Variable<int>(intervalDays.value);
+    }
+    if (startDate.present) {
+      map['start_date'] = Variable<DateTime>(startDate.value);
+    }
+    if (endDate.present) {
+      map['end_date'] = Variable<DateTime>(endDate.value);
+    }
+    if (byCaregiver.present) {
+      map['by_caregiver'] = Variable<bool>(byCaregiver.value);
+    }
+    if (cachedAt.present) {
+      map['cached_at'] = Variable<DateTime>(cachedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CachedPersonalRemindersCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('description: $description, ')
+          ..write('scheduleTimes: $scheduleTimes, ')
+          ..write('intervalDays: $intervalDays, ')
+          ..write('startDate: $startDate, ')
+          ..write('endDate: $endDate, ')
+          ..write('byCaregiver: $byCaregiver, ')
+          ..write('cachedAt: $cachedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CachedDocumentsTable extends CachedDocuments
+    with TableInfo<$CachedDocumentsTable, CachedDocument> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CachedDocumentsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _keyMeta = const VerificationMeta('key');
+  @override
+  late final GeneratedColumn<String> key = GeneratedColumn<String>(
+    'key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _jsonMeta = const VerificationMeta('json');
+  @override
+  late final GeneratedColumn<String> json = GeneratedColumn<String>(
+    'json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _cachedAtMeta = const VerificationMeta(
+    'cachedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> cachedAt = GeneratedColumn<DateTime>(
+    'cached_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [key, json, cachedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'cached_documents';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CachedDocument> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('key')) {
+      context.handle(
+        _keyMeta,
+        key.isAcceptableOrUnknown(data['key']!, _keyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_keyMeta);
+    }
+    if (data.containsKey('json')) {
+      context.handle(
+        _jsonMeta,
+        json.isAcceptableOrUnknown(data['json']!, _jsonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_jsonMeta);
+    }
+    if (data.containsKey('cached_at')) {
+      context.handle(
+        _cachedAtMeta,
+        cachedAt.isAcceptableOrUnknown(data['cached_at']!, _cachedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_cachedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {key};
+  @override
+  CachedDocument map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CachedDocument(
+      key: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}key'],
+      )!,
+      json: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}json'],
+      )!,
+      cachedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}cached_at'],
+      )!,
+    );
+  }
+
+  @override
+  $CachedDocumentsTable createAlias(String alias) {
+    return $CachedDocumentsTable(attachedDatabase, alias);
+  }
+}
+
+class CachedDocument extends DataClass implements Insertable<CachedDocument> {
+  final String key;
+  final String json;
+  final DateTime cachedAt;
+  const CachedDocument({
+    required this.key,
+    required this.json,
+    required this.cachedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['key'] = Variable<String>(key);
+    map['json'] = Variable<String>(json);
+    map['cached_at'] = Variable<DateTime>(cachedAt);
+    return map;
+  }
+
+  CachedDocumentsCompanion toCompanion(bool nullToAbsent) {
+    return CachedDocumentsCompanion(
+      key: Value(key),
+      json: Value(json),
+      cachedAt: Value(cachedAt),
+    );
+  }
+
+  factory CachedDocument.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CachedDocument(
+      key: serializer.fromJson<String>(json['key']),
+      json: serializer.fromJson<String>(json['json']),
+      cachedAt: serializer.fromJson<DateTime>(json['cachedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'key': serializer.toJson<String>(key),
+      'json': serializer.toJson<String>(json),
+      'cachedAt': serializer.toJson<DateTime>(cachedAt),
+    };
+  }
+
+  CachedDocument copyWith({String? key, String? json, DateTime? cachedAt}) =>
+      CachedDocument(
+        key: key ?? this.key,
+        json: json ?? this.json,
+        cachedAt: cachedAt ?? this.cachedAt,
+      );
+  CachedDocument copyWithCompanion(CachedDocumentsCompanion data) {
+    return CachedDocument(
+      key: data.key.present ? data.key.value : this.key,
+      json: data.json.present ? data.json.value : this.json,
+      cachedAt: data.cachedAt.present ? data.cachedAt.value : this.cachedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CachedDocument(')
+          ..write('key: $key, ')
+          ..write('json: $json, ')
+          ..write('cachedAt: $cachedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(key, json, cachedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CachedDocument &&
+          other.key == this.key &&
+          other.json == this.json &&
+          other.cachedAt == this.cachedAt);
+}
+
+class CachedDocumentsCompanion extends UpdateCompanion<CachedDocument> {
+  final Value<String> key;
+  final Value<String> json;
+  final Value<DateTime> cachedAt;
+  final Value<int> rowid;
+  const CachedDocumentsCompanion({
+    this.key = const Value.absent(),
+    this.json = const Value.absent(),
+    this.cachedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CachedDocumentsCompanion.insert({
+    required String key,
+    required String json,
+    required DateTime cachedAt,
+    this.rowid = const Value.absent(),
+  }) : key = Value(key),
+       json = Value(json),
+       cachedAt = Value(cachedAt);
+  static Insertable<CachedDocument> custom({
+    Expression<String>? key,
+    Expression<String>? json,
+    Expression<DateTime>? cachedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (key != null) 'key': key,
+      if (json != null) 'json': json,
+      if (cachedAt != null) 'cached_at': cachedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CachedDocumentsCompanion copyWith({
+    Value<String>? key,
+    Value<String>? json,
+    Value<DateTime>? cachedAt,
+    Value<int>? rowid,
+  }) {
+    return CachedDocumentsCompanion(
+      key: key ?? this.key,
+      json: json ?? this.json,
+      cachedAt: cachedAt ?? this.cachedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (key.present) {
+      map['key'] = Variable<String>(key.value);
+    }
+    if (json.present) {
+      map['json'] = Variable<String>(json.value);
+    }
+    if (cachedAt.present) {
+      map['cached_at'] = Variable<DateTime>(cachedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CachedDocumentsCompanion(')
+          ..write('key: $key, ')
+          ..write('json: $json, ')
+          ..write('cachedAt: $cachedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -4871,6 +5811,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $CachedHealthRemindersTable(this);
   late final $HealthRecordDraftsTable healthRecordDrafts =
       $HealthRecordDraftsTable(this);
+  late final $CachedPersonalRemindersTable cachedPersonalReminders =
+      $CachedPersonalRemindersTable(this);
+  late final $CachedDocumentsTable cachedDocuments = $CachedDocumentsTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4885,6 +5830,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     scheduledMedicineNotifications,
     cachedHealthReminders,
     healthRecordDrafts,
+    cachedPersonalReminders,
+    cachedDocuments,
   ];
 }
 
@@ -6835,6 +7782,8 @@ typedef $$CachedHealthRemindersTableCreateCompanionBuilder =
       Value<DateTime?> completedAt,
       Value<String> syncState,
       required DateTime cachedAt,
+      Value<String> kind,
+      Value<String?> mealTiming,
       Value<int> rowid,
     });
 typedef $$CachedHealthRemindersTableUpdateCompanionBuilder =
@@ -6847,6 +7796,8 @@ typedef $$CachedHealthRemindersTableUpdateCompanionBuilder =
       Value<DateTime?> completedAt,
       Value<String> syncState,
       Value<DateTime> cachedAt,
+      Value<String> kind,
+      Value<String?> mealTiming,
       Value<int> rowid,
     });
 
@@ -6896,6 +7847,16 @@ class $$CachedHealthRemindersTableFilterComposer
 
   ColumnFilters<DateTime> get cachedAt => $composableBuilder(
     column: $table.cachedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mealTiming => $composableBuilder(
+    column: $table.mealTiming,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -6948,6 +7909,16 @@ class $$CachedHealthRemindersTableOrderingComposer
     column: $table.cachedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mealTiming => $composableBuilder(
+    column: $table.mealTiming,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$CachedHealthRemindersTableAnnotationComposer
@@ -6988,6 +7959,14 @@ class $$CachedHealthRemindersTableAnnotationComposer
 
   GeneratedColumn<DateTime> get cachedAt =>
       $composableBuilder(column: $table.cachedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get mealTiming => $composableBuilder(
+    column: $table.mealTiming,
+    builder: (column) => column,
+  );
 }
 
 class $$CachedHealthRemindersTableTableManager
@@ -7044,6 +8023,8 @@ class $$CachedHealthRemindersTableTableManager
                 Value<DateTime?> completedAt = const Value.absent(),
                 Value<String> syncState = const Value.absent(),
                 Value<DateTime> cachedAt = const Value.absent(),
+                Value<String> kind = const Value.absent(),
+                Value<String?> mealTiming = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CachedHealthRemindersCompanion(
                 id: id,
@@ -7054,6 +8035,8 @@ class $$CachedHealthRemindersTableTableManager
                 completedAt: completedAt,
                 syncState: syncState,
                 cachedAt: cachedAt,
+                kind: kind,
+                mealTiming: mealTiming,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7066,6 +8049,8 @@ class $$CachedHealthRemindersTableTableManager
                 Value<DateTime?> completedAt = const Value.absent(),
                 Value<String> syncState = const Value.absent(),
                 required DateTime cachedAt,
+                Value<String> kind = const Value.absent(),
+                Value<String?> mealTiming = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CachedHealthRemindersCompanion.insert(
                 id: id,
@@ -7076,6 +8061,8 @@ class $$CachedHealthRemindersTableTableManager
                 completedAt: completedAt,
                 syncState: syncState,
                 cachedAt: cachedAt,
+                kind: kind,
+                mealTiming: mealTiming,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -7417,6 +8404,477 @@ typedef $$HealthRecordDraftsTableProcessedTableManager =
       HealthRecordDraft,
       PrefetchHooks Function()
     >;
+typedef $$CachedPersonalRemindersTableCreateCompanionBuilder =
+    CachedPersonalRemindersCompanion Function({
+      required String id,
+      required String name,
+      Value<String?> description,
+      required String scheduleTimes,
+      Value<int> intervalDays,
+      required DateTime startDate,
+      Value<DateTime?> endDate,
+      Value<bool> byCaregiver,
+      required DateTime cachedAt,
+      Value<int> rowid,
+    });
+typedef $$CachedPersonalRemindersTableUpdateCompanionBuilder =
+    CachedPersonalRemindersCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String?> description,
+      Value<String> scheduleTimes,
+      Value<int> intervalDays,
+      Value<DateTime> startDate,
+      Value<DateTime?> endDate,
+      Value<bool> byCaregiver,
+      Value<DateTime> cachedAt,
+      Value<int> rowid,
+    });
+
+class $$CachedPersonalRemindersTableFilterComposer
+    extends Composer<_$AppDatabase, $CachedPersonalRemindersTable> {
+  $$CachedPersonalRemindersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get scheduleTimes => $composableBuilder(
+    column: $table.scheduleTimes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get intervalDays => $composableBuilder(
+    column: $table.intervalDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get startDate => $composableBuilder(
+    column: $table.startDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get endDate => $composableBuilder(
+    column: $table.endDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get byCaregiver => $composableBuilder(
+    column: $table.byCaregiver,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get cachedAt => $composableBuilder(
+    column: $table.cachedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CachedPersonalRemindersTableOrderingComposer
+    extends Composer<_$AppDatabase, $CachedPersonalRemindersTable> {
+  $$CachedPersonalRemindersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get scheduleTimes => $composableBuilder(
+    column: $table.scheduleTimes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get intervalDays => $composableBuilder(
+    column: $table.intervalDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get startDate => $composableBuilder(
+    column: $table.startDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get endDate => $composableBuilder(
+    column: $table.endDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get byCaregiver => $composableBuilder(
+    column: $table.byCaregiver,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get cachedAt => $composableBuilder(
+    column: $table.cachedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CachedPersonalRemindersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CachedPersonalRemindersTable> {
+  $$CachedPersonalRemindersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get scheduleTimes => $composableBuilder(
+    column: $table.scheduleTimes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get intervalDays => $composableBuilder(
+    column: $table.intervalDays,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get startDate =>
+      $composableBuilder(column: $table.startDate, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get endDate =>
+      $composableBuilder(column: $table.endDate, builder: (column) => column);
+
+  GeneratedColumn<bool> get byCaregiver => $composableBuilder(
+    column: $table.byCaregiver,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get cachedAt =>
+      $composableBuilder(column: $table.cachedAt, builder: (column) => column);
+}
+
+class $$CachedPersonalRemindersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CachedPersonalRemindersTable,
+          CachedPersonalReminder,
+          $$CachedPersonalRemindersTableFilterComposer,
+          $$CachedPersonalRemindersTableOrderingComposer,
+          $$CachedPersonalRemindersTableAnnotationComposer,
+          $$CachedPersonalRemindersTableCreateCompanionBuilder,
+          $$CachedPersonalRemindersTableUpdateCompanionBuilder,
+          (
+            CachedPersonalReminder,
+            BaseReferences<
+              _$AppDatabase,
+              $CachedPersonalRemindersTable,
+              CachedPersonalReminder
+            >,
+          ),
+          CachedPersonalReminder,
+          PrefetchHooks Function()
+        > {
+  $$CachedPersonalRemindersTableTableManager(
+    _$AppDatabase db,
+    $CachedPersonalRemindersTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CachedPersonalRemindersTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$CachedPersonalRemindersTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$CachedPersonalRemindersTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                Value<String> scheduleTimes = const Value.absent(),
+                Value<int> intervalDays = const Value.absent(),
+                Value<DateTime> startDate = const Value.absent(),
+                Value<DateTime?> endDate = const Value.absent(),
+                Value<bool> byCaregiver = const Value.absent(),
+                Value<DateTime> cachedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CachedPersonalRemindersCompanion(
+                id: id,
+                name: name,
+                description: description,
+                scheduleTimes: scheduleTimes,
+                intervalDays: intervalDays,
+                startDate: startDate,
+                endDate: endDate,
+                byCaregiver: byCaregiver,
+                cachedAt: cachedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                Value<String?> description = const Value.absent(),
+                required String scheduleTimes,
+                Value<int> intervalDays = const Value.absent(),
+                required DateTime startDate,
+                Value<DateTime?> endDate = const Value.absent(),
+                Value<bool> byCaregiver = const Value.absent(),
+                required DateTime cachedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => CachedPersonalRemindersCompanion.insert(
+                id: id,
+                name: name,
+                description: description,
+                scheduleTimes: scheduleTimes,
+                intervalDays: intervalDays,
+                startDate: startDate,
+                endDate: endDate,
+                byCaregiver: byCaregiver,
+                cachedAt: cachedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CachedPersonalRemindersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CachedPersonalRemindersTable,
+      CachedPersonalReminder,
+      $$CachedPersonalRemindersTableFilterComposer,
+      $$CachedPersonalRemindersTableOrderingComposer,
+      $$CachedPersonalRemindersTableAnnotationComposer,
+      $$CachedPersonalRemindersTableCreateCompanionBuilder,
+      $$CachedPersonalRemindersTableUpdateCompanionBuilder,
+      (
+        CachedPersonalReminder,
+        BaseReferences<
+          _$AppDatabase,
+          $CachedPersonalRemindersTable,
+          CachedPersonalReminder
+        >,
+      ),
+      CachedPersonalReminder,
+      PrefetchHooks Function()
+    >;
+typedef $$CachedDocumentsTableCreateCompanionBuilder =
+    CachedDocumentsCompanion Function({
+      required String key,
+      required String json,
+      required DateTime cachedAt,
+      Value<int> rowid,
+    });
+typedef $$CachedDocumentsTableUpdateCompanionBuilder =
+    CachedDocumentsCompanion Function({
+      Value<String> key,
+      Value<String> json,
+      Value<DateTime> cachedAt,
+      Value<int> rowid,
+    });
+
+class $$CachedDocumentsTableFilterComposer
+    extends Composer<_$AppDatabase, $CachedDocumentsTable> {
+  $$CachedDocumentsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get json => $composableBuilder(
+    column: $table.json,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get cachedAt => $composableBuilder(
+    column: $table.cachedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CachedDocumentsTableOrderingComposer
+    extends Composer<_$AppDatabase, $CachedDocumentsTable> {
+  $$CachedDocumentsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get json => $composableBuilder(
+    column: $table.json,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get cachedAt => $composableBuilder(
+    column: $table.cachedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CachedDocumentsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CachedDocumentsTable> {
+  $$CachedDocumentsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get key =>
+      $composableBuilder(column: $table.key, builder: (column) => column);
+
+  GeneratedColumn<String> get json =>
+      $composableBuilder(column: $table.json, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get cachedAt =>
+      $composableBuilder(column: $table.cachedAt, builder: (column) => column);
+}
+
+class $$CachedDocumentsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CachedDocumentsTable,
+          CachedDocument,
+          $$CachedDocumentsTableFilterComposer,
+          $$CachedDocumentsTableOrderingComposer,
+          $$CachedDocumentsTableAnnotationComposer,
+          $$CachedDocumentsTableCreateCompanionBuilder,
+          $$CachedDocumentsTableUpdateCompanionBuilder,
+          (
+            CachedDocument,
+            BaseReferences<
+              _$AppDatabase,
+              $CachedDocumentsTable,
+              CachedDocument
+            >,
+          ),
+          CachedDocument,
+          PrefetchHooks Function()
+        > {
+  $$CachedDocumentsTableTableManager(
+    _$AppDatabase db,
+    $CachedDocumentsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CachedDocumentsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CachedDocumentsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CachedDocumentsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> key = const Value.absent(),
+                Value<String> json = const Value.absent(),
+                Value<DateTime> cachedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CachedDocumentsCompanion(
+                key: key,
+                json: json,
+                cachedAt: cachedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String key,
+                required String json,
+                required DateTime cachedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => CachedDocumentsCompanion.insert(
+                key: key,
+                json: json,
+                cachedAt: cachedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CachedDocumentsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CachedDocumentsTable,
+      CachedDocument,
+      $$CachedDocumentsTableFilterComposer,
+      $$CachedDocumentsTableOrderingComposer,
+      $$CachedDocumentsTableAnnotationComposer,
+      $$CachedDocumentsTableCreateCompanionBuilder,
+      $$CachedDocumentsTableUpdateCompanionBuilder,
+      (
+        CachedDocument,
+        BaseReferences<_$AppDatabase, $CachedDocumentsTable, CachedDocument>,
+      ),
+      CachedDocument,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -7446,4 +8904,11 @@ class $AppDatabaseManager {
       $$CachedHealthRemindersTableTableManager(_db, _db.cachedHealthReminders);
   $$HealthRecordDraftsTableTableManager get healthRecordDrafts =>
       $$HealthRecordDraftsTableTableManager(_db, _db.healthRecordDrafts);
+  $$CachedPersonalRemindersTableTableManager get cachedPersonalReminders =>
+      $$CachedPersonalRemindersTableTableManager(
+        _db,
+        _db.cachedPersonalReminders,
+      );
+  $$CachedDocumentsTableTableManager get cachedDocuments =>
+      $$CachedDocumentsTableTableManager(_db, _db.cachedDocuments);
 }

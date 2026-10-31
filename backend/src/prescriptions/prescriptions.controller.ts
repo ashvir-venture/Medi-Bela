@@ -24,7 +24,7 @@ import { SaveMedicinesDto } from './dto/save-medicines.dto';
 import { SavePrescriptionDetailsDto } from './dto/save-details.dto';
 import { QueueQueryDto } from './dto/queue-query.dto';
 import { RejectPrescriptionDto } from './dto/reject-prescription.dto';
-import { ConfirmPrescriptionDto } from './dto/confirm-prescription.dto';
+import { ConfirmPrescriptionDto, RequestEditDto } from './dto/confirm-prescription.dto';
 import { CaregiverAccessService } from '../family/caregiver-access.service';
 import { prescriptionImageMulterOptions } from './lib/prescription-image.storage';
 import { PrescriptionImageUrlInterceptor } from './lib/prescription-image-url.interceptor';
@@ -95,6 +95,18 @@ export class PrescriptionsController {
   ) {
     const acting = await this.caregivers.resolve(userId, forUserId);
     return this.prescriptions.confirm(acting, id, dto);
+  }
+
+  /** Instead of confirming: back to the pharmacist with a note. */
+  @Post(':id/request-edit')
+  async requestEdit(
+    @CurrentUser('id') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RequestEditDto,
+    @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
+  ) {
+    const acting = await this.caregivers.resolve(userId, forUserId);
+    return this.prescriptions.requestEdit(acting, id, dto.note);
   }
 
   // --- Admin / Pharmacist --------------------------------------------

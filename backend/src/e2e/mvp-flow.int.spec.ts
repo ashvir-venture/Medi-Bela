@@ -41,7 +41,7 @@ d('MVP end-to-end flow', () => {
 
   async function account(role: 'USER' | 'ADMIN' | 'PHARMACIST', name: string) {
     seq += 1;
-    const phone = `+88017200${String(seq).padStart(5, '0')}`;
+    const phone = `017200${String(seq).padStart(5, '0')}`;
     const res = await http().post('/api/auth/register').send({ phone, name, password: 'pass1234', ...(await signupDetails(prisma)) }).expect(201);
     if (role !== 'USER') await prisma.user.update({ where: { id: res.body.user.id }, data: { role } });
     return { token: res.body.tokens.accessToken as string, id: res.body.user.id as string, phone };
@@ -133,7 +133,9 @@ d('MVP end-to-end flow', () => {
     // --- 4. Routine + doses generated (3 days x 2) ------------------------------
     expect(await prisma.medicineRoutine.count({ where: { userId: patient.id } })).toBe(1);
     const doses = await prisma.medicineDose.findMany({ where: { userId: patient.id }, orderBy: { scheduledAt: 'asc' } });
-    expect(doses).toHaveLength(6);
+    // 3 days x 2, less today's times already past (no dose before now).
+    expect(doses.length).toBeGreaterThanOrEqual(4);
+    expect(doses.length).toBeLessThanOrEqual(6);
     const routines = (await http().get('/api/medicine-schedule/routines').set(auth(patient.token)).expect(200)).body;
     expect(routines).toHaveLength(1);
     expect((await http().get('/api/medicine-schedule/routines').set(auth(stranger.token)).expect(200)).body).toEqual([]);
@@ -156,9 +158,13 @@ d('MVP end-to-end flow', () => {
 
     // --- 6. User takes a dose (twice = an offline retry): logged once, stranger blocked ----
     const takenAt = new Date().toISOString();
-    await http().post(`/api/medicine-schedule/doses/${doses[5].id}/taken`).set(auth(stranger.token)).send({ takenAt }).expect(404);
-    const t1 = (await http().post(`/api/medicine-schedule/doses/${doses[5].id}/taken`).set(auth(patient.token)).send({ takenAt }).expect(201)).body;
-    const t2 = (await http().post(`/api/medicine-schedule/doses/${doses[5].id}/taken`).set(auth(patient.token)).send({ takenAt: new Date(Date.now() + 5000).toISOString() }).expect(201)).body;
+    const last = doses[doses.length - 1];
+    // Only from its time on (Round 12): too early first, then make it due.
+    await http().post(`/api/medicine-schedule/doses/${last.id}/taken`).set(auth(patient.token)).send({ takenAt }).expect(409);
+    await prisma.medicineDose.update({ where: { id: last.id }, data: { scheduledAt: new Date(Date.now() - 10 * 60_000) } });
+    await http().post(`/api/medicine-schedule/doses/${last.id}/taken`).set(auth(stranger.token)).send({ takenAt }).expect(404);
+    const t1 = (await http().post(`/api/medicine-schedule/doses/${last.id}/taken`).set(auth(patient.token)).send({ takenAt }).expect(201)).body;
+    const t2 = (await http().post(`/api/medicine-schedule/doses/${last.id}/taken`).set(auth(patient.token)).send({ takenAt: new Date(Date.now() + 5000).toISOString() }).expect(201)).body;
     expect(t1.status).toBe('TAKEN');
     expect(t2.takenAt).toBe(t1.takenAt);                                         // first timestamp wins; no double log
 
@@ -304,10 +310,10 @@ d('MVP end-to-end flow', () => {
     });
 
     it('login: generic failure, brute force throttled (429), good password blocked while throttled, passwords >= 6 chars', async () => {
-      await http().post('/api/auth/register').send({ phone: '+8801730000001', name: 'Short Pw', password: 'abc12', ...(await signupDetails(prisma)) }).expect(400);
+      await http().post('/api/auth/register').send({ phone: '01730000001', name: 'Short Pw', password: 'abc12', ...(await signupDetails(prisma)) }).expect(400);
       const u = await account('USER', 'Victim');
       const wrong = (phone: string) => http().post('/api/auth/login').send({ phone, password: 'wrong-password' });
-      const unknown = await wrong('+8801799999999').expect(401);
+      const unknown = await wrong('01799999999').expect(401);
       const known = await wrong(u.phone).expect(401);
       expect(unknown.body.message).toBe(known.body.message);                    // no account enumeration
       for (let i = 0; i < 7; i++) await wrong(u.phone).expect(401);   // 8 failures in total are allowed...

@@ -32,7 +32,7 @@ d('HTTP end-to-end (real AppModule + Postgres)', () => {
 
   it('auth works end to end with a single JWT (register, login, protected call, bad token)', async () => {
     const r = await http().post('/api/auth/register').send({ phone: '01711000001', name: 'Local User', password: 'pass1234', ...(await signupDetails(prisma)) }).expect(201);
-    expect(r.body.user.phone).toBe('+8801711000001');                       // normalised on the way in
+    expect(r.body.user.phone).toBe('01711000001');                       // stored as typed (no +880 added)
     expect(Object.keys(r.body.tokens)).toEqual(['accessToken']);
     expect(JSON.stringify(r.body)).not.toMatch(/passwordHash|refresh/i);
     const login = await http().post('/api/auth/login').send({ phone: '+88 01711-000001', password: 'pass1234' }).expect(200);
@@ -53,9 +53,9 @@ d('HTTP end-to-end (real AppModule + Postgres)', () => {
   });
 
   it('full family flow over HTTP, with isolation between two families', async () => {
-    const owner = await reg('+8801711000010', 'Owner');
-    const mem = await reg('+8801711000011', 'Member');
-    const out = await reg('+8801711000012', 'Outsider');
+    const owner = await reg('01711000010', 'Owner');
+    const mem = await reg('01711000011', 'Member');
+    const out = await reg('01711000012', 'Outsider');
 
     await http().post('/api/family').set(auth(owner.token)).send({ name: 'Home' }).expect(201);
     await http().post('/api/family').set(auth(owner.token)).send({}).expect(409);
@@ -63,7 +63,7 @@ d('HTTP end-to-end (real AppModule + Postgres)', () => {
 
     const inv = await http().post('/api/family/invitations').set(auth(owner.token)).send({ phone: '01711000011' }).expect(201);
     expect(Object.keys(inv.body).sort()).toEqual(['createdAt', 'expiresAt', 'familyId', 'id', 'invitedPhone', 'status']);
-    await http().post('/api/family/invitations').set(auth(mem.token)).send({ phone: '+8801711000099' }).expect(404); // not in a family
+    await http().post('/api/family/invitations').set(auth(mem.token)).send({ phone: '01711000099' }).expect(404); // not in a family
 
     const incoming = await http().get('/api/family/invitations').set(auth(mem.token)).expect(200);
     expect(incoming.body).toHaveLength(1);
@@ -84,7 +84,7 @@ d('HTTP end-to-end (real AppModule + Postgres)', () => {
   });
 
   it('device token + inbox endpoints validate input and never echo tokens back', async () => {
-    const u = await reg('+8801711000020', 'User');
+    const u = await reg('01711000020', 'User');
     const token = 'x'.repeat(60);
     await http().post('/api/notifications/devices').set(auth(u.token)).send({ token: 'short', platform: 'ANDROID' }).expect(400);
     await http().post('/api/notifications/devices').set(auth(u.token)).send({ token, platform: 'WINDOWS' }).expect(400);

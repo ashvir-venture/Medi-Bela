@@ -71,7 +71,20 @@ export class CreateRoutineDto {
   @IsBoolean()
   continuous?: boolean;
 
-  /** YYYY-MM-DD, today or later; default today. */
+  /** Every N days (1 = every day, the default). */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(90)
+  intervalDays?: number;
+
+  /** A medicine_forms row (Tablet, Syrup...). */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  formId?: number;
+
+  /** YYYY-MM-DD, today or later; default today (tomorrow for every N days). */
   @IsOptional()
   @IsDateString({ strict: true })
   startDate?: string;
@@ -79,7 +92,8 @@ export class CreateRoutineDto {
 
 /**
  * Changes to a routine. A pharmacist's medicine accepts only dose times
- * (same count) and meal timing; a self-added one accepts every field.
+ * (same count), meal timing and every N days; a self-added one accepts
+ * every field.
  */
 export class UpdateRoutineDto {
   @IsOptional()
@@ -129,4 +143,16 @@ export class UpdateRoutineDto {
   @IsOptional()
   @IsBoolean()
   continuous?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(90)
+  intervalDays?: number;
+
+  /** null clears it. Self-added medicines only. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  formId?: number | null;
 }

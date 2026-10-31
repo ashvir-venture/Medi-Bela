@@ -1,8 +1,10 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DoseStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeDisplayStatus, missedCutoff } from './lib/dose-status.util';
 import { addAppDays, appDayBounds } from '../common/utils/time.util';
+import { ErrorCode, withCode } from '../common/filters/error-codes';
+import { TAKEN_CLOCK_TOLERANCE_MS, takenWindow } from './lib/taken-window';
 
 @Injectable()
 export class MedicineScheduleService {
@@ -89,6 +91,10 @@ export class MedicineScheduleService {
    *    here on purpose: a user is allowed to confirm "I did take it"
    *    after the system auto-marked it missed.
    *  - SKIPPED is left alone; there's no product flow for un-skipping.
+   * Only inside the dose's window ([takenWindow]): not before its time
+   * (DOSE_NOT_DUE), not later than 1 h before the medicine's next dose
+   * (DOSE_WINDOW_CLOSED). The app's own `takenAt` (an offline tap synced
+   * later) is what is checked.
    */
   async markDoseTaken(userId: string, doseId: string, takenAt?: string) {
     const dose = await this.prisma.medicineDose.findUnique({ where: { id: doseId } });
@@ -102,12 +108,29 @@ export class MedicineScheduleService {
       throw new ForbiddenException('This dose was skipped and cannot be marked taken');
     }
 
+    const at = takenAt ? new Date(takenAt) : new Date();
+    const [routine, next] = await Promise.all([
+      this.prisma.medicineRoutine.findUnique({
+        where: { id: dose.routineId },
+        select: { scheduleTimes: true, intervalDays: true },
+      }),
+      this.prisma.medicineDose.findFirst({
+        where: { routineId: dose.routineId, scheduledAt: { gt: dose.scheduledAt } },
+        orderBy: { scheduledAt: 'asc' },
+        select: { scheduledAt: true },
+      }),
+    ]);
+    const window = takenWindow(dose, routine ?? { scheduleTimes: null, intervalDays: 1 }, next?.scheduledAt ?? null);
+    if (at.getTime() < window.opensAt.getTime() - TAKEN_CLOCK_TOLERANCE_MS) {
+      throw withCode(new ConflictException('This dose is not due yet'), ErrorCode.DOSE_NOT_DUE);
+    }
+    if (at > window.closesAt) {
+      throw withCode(new ConflictException('It is too late to mark this dose taken'), ErrorCode.DOSE_WINDOW_CLOSED);
+    }
+
     await this.prisma.medicineDose.update({
       where: { id: doseId },
-      data: {
-        status: DoseStatus.TAKEN,
-        takenAt: takenAt ? new Date(takenAt) : new Date(),
-      },
+      data: { status: DoseStatus.TAKEN, takenAt: at },
     });
 
     return this.getDoseDetail(userId, doseId);

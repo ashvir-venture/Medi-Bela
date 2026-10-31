@@ -10,7 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { messages } from '../notifications/notification-messages';
 import { appDayBounds } from '../common/utils/time.util';
-import { normalizePhone } from '../common/utils/phone.util';
+import { cleanPhone, phoneVariants } from '../common/utils/phone.util';
 import { effectiveStatus } from '../medicine-schedule/lib/dose-status.util';
 import { CURSOR_ORDER, cursorWhere, toCursorPage, USER_PAGE_SIZE } from '../common/utils/cursor-pagination';
 import { DELETED_USER_NAME } from '../users/lib/deleted-user';
@@ -327,17 +327,18 @@ export class FamilyService {
       throw new ForbiddenException('Only the caregiver can invite members');
     }
 
-    const phone = normalizePhone(dto.phone);
+    const phone = cleanPhone(dto.phone);
+    const variants = phoneVariants(phone);
     const inviter = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { phone: true, name: true },
     });
     if (!inviter) throw new NotFoundException('User not found');
-    if (phone === inviter.phone) throw new BadRequestException('You cannot invite yourself');
+    if (inviter.phone && variants.includes(inviter.phone)) throw new BadRequestException('You cannot invite yourself');
 
     // Only reveals membership of the caller's OWN family.
     const alreadyMember = await this.prisma.familyMember.findFirst({
-      where: { familyId: membership.familyId, user: { phone } },
+      where: { familyId: membership.familyId, user: { phone: { in: variants } } },
       select: { id: true },
     });
     if (alreadyMember) throw new ConflictException('This person is already a family member');
@@ -353,7 +354,7 @@ export class FamilyService {
       where: { familyId: membership.familyId, status: InvitationStatus.PENDING },
       select: { invitedPhone: true },
     });
-    if (pending.some((p) => p.invitedPhone === phone)) {
+    if (pending.some((p) => variants.includes(p.invitedPhone))) {
       throw new ConflictException('An invitation to this phone number is already pending');
     }
     if (pending.length >= MAX_PENDING_INVITATIONS) {
@@ -377,8 +378,8 @@ export class FamilyService {
     // The same response whether or not `phone` has an account: this endpoint
     // must not become a "which phone numbers are registered" oracle. If they
     // do have one, tell them (best-effort, never fails the invite).
-    const invitee = await this.prisma.user.findUnique({
-      where: { phone },
+    const invitee = await this.prisma.user.findFirst({
+      where: { phone: { in: variants } },
       select: { id: true, languagePreference: true, accountStatus: true },
     });
     if (invitee && invitee.accountStatus === 'ACTIVE') {
@@ -399,13 +400,13 @@ export class FamilyService {
   }
 
   async listIncomingInvitations(userPhone: string) {
-    const phone = normalizePhone(userPhone);
+    const phones = phoneVariants(userPhone);
     await this.prisma.familyInvitation.updateMany({
-      where: { invitedPhone: phone, status: InvitationStatus.PENDING, expiresAt: { lt: new Date() } },
+      where: { invitedPhone: { in: phones }, status: InvitationStatus.PENDING, expiresAt: { lt: new Date() } },
       data: { status: InvitationStatus.EXPIRED },
     });
     const rows = await this.prisma.familyInvitation.findMany({
-      where: { invitedPhone: phone, status: InvitationStatus.PENDING },
+      where: { invitedPhone: { in: phones }, status: InvitationStatus.PENDING },
       include: {
         family: { select: { id: true, name: true } },
         // The invitee is NOT yet a family member: show who is asking by name only.
@@ -498,7 +499,7 @@ export class FamilyService {
    */
   private async getOwnedInvitationOrThrow(invitationId: string, userPhone: string) {
     const invitation = await this.prisma.familyInvitation.findUnique({ where: { id: invitationId } });
-    if (!invitation || invitation.invitedPhone !== normalizePhone(userPhone)) {
+    if (!invitation || !phoneVariants(userPhone).includes(invitation.invitedPhone)) {
       throw new NotFoundException('Invitation not found');
     }
     if (invitation.status === InvitationStatus.PENDING && invitation.expiresAt && invitation.expiresAt < new Date()) {

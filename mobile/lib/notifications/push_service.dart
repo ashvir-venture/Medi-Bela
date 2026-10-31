@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../core/constants/api_endpoints.dart';
@@ -39,17 +40,67 @@ String routeForNotificationData(Map<String, dynamic> data) {
           ? '/family/member/$member'
           : '/family';
     case 'PRESCRIPTION_UPDATE':
-      return '/prescription';
+      // A member's prescription, sent to their caregiver (Round 13).
+      final member = data['memberUserId'];
+      return member is String && member.isNotEmpty ? '/family/member/$member/prescriptions' : '/prescription';
     case 'NOTICE':
       final noticeId = data['noticeId'];
       return noticeId is String ? '/notices?id=$noticeId' : '/notices';
     case 'MEDICINE_REMINDER':
-      // Local reminders and the server's backstop: names are only in the app.
-      return '/prescription/today';
+      // Local reminders (at = ms) and the server's backstop (scheduledAt) open
+      // that time's reminder page; names are only in the app.
+      final at = data['at'];
+      final scheduledAt = data['scheduledAt'];
+      final ms = at is int
+          ? at
+          : scheduledAt is String
+              ? DateTime.tryParse(scheduledAt)?.millisecondsSinceEpoch
+              : null;
+      if (ms == null) return '/medicines?tab=today';
+      final stage = data['stage'] is int ? data['stage'] as int : (data['kind'] == 'backstop' ? 1 : 0);
+      return '/reminder?at=$ms&stage=$stage';
+    case 'MEDICINE_BOX':
+      final routine = data['routineId'];
+      if (routine is String && data['kind'] == 'empty') return '/medicine-box/empty?routine=$routine';
+      if (routine is String && data['kind'] == 'refill') return '/medicine-box/refill?routine=$routine';
+      return '/medicine-box';
+    case 'PERSONAL_REMINDER':
+      return '/health/personal-reminders';
+    case 'TEST_REMINDER':
+      final id = data['reminderId'];
+      final day = data['day'] is int ? data['day'] as int : 0;
+      return id is String ? '/test-reminder/$id?day=$day' : '/health/reminders';
     case 'SYSTEM':
-      return data['kind'] == 'family_invitation' ? '/family' : '/inbox';
+      final member = data['memberUserId'];
+      switch (data['kind']) {
+        case 'family_invitation':
+          return '/family';
+        case 'medicine_box_empty':
+          return member is String ? '/medicine-box?for=$member' : '/inbox';
+        case 'personal_reminder_later':
+          return member is String ? '/family/member/$member' : '/inbox';
+      }
+      return '/inbox';
     default:
       return '/inbox';
+  }
+}
+
+/// The route a ringing reminder opens as a full screen (only its buttons
+/// close it: `alarm=1`), or null for other notifications.
+String? alarmRouteForPayload(String? payload) {
+  if (payload == null || payload.isEmpty) return null;
+  try {
+    final data = Map<String, dynamic>.from(jsonDecode(payload) as Map);
+    final type = data['type'];
+    final ringing = type == 'MEDICINE_REMINDER' ||
+        type == 'TEST_REMINDER' ||
+        (type == 'MEDICINE_BOX' && data['kind'] == 'empty');
+    if (!ringing) return null;
+    final route = routeForNotificationData(data);
+    return route.contains('?') ? '$route&alarm=1' : '$route?alarm=1';
+  } catch (_) {
+    return null;
   }
 }
 
@@ -113,8 +164,58 @@ class PushService {
     return _firebaseReady;
   }
 
+  bool _localStarted = false;
+  static const _alarmChannel = MethodChannel('com.carebridge.app/reminder_status');
+  bool _launchHandled = false;
+
+  /// Taps on the app's own notifications (medicine / test reminders, and
+  /// pushes shown while open), with or without Firebase. A tap that started
+  /// the app from closed is read from the plugin's launch details.
+  Future<void> _startLocalTaps() async {
+    if (_localStarted) return;
+    _localStarted = true;
+    _subs.add(
+      localNotificationTaps.stream.listen((payload) {
+        if (payload == null || payload.isEmpty) return;
+        try {
+          _handleTap(Map<String, dynamic>.from(jsonDecode(payload) as Map));
+        } catch (_) {}
+      }),
+    );
+    // Full-screen reminders opened by Android over other apps (FullScreenAlarms.kt).
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      _alarmChannel.setMethodCallHandler((call) async {
+        if (call.method == 'openRoute' && call.arguments is String) _navigate(call.arguments as String);
+        return null;
+      });
+    }
+    if (_launchHandled) return;
+    _launchHandled = true;
+    try {
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        final route = await _alarmChannel.invokeMethod<String>('takeLaunchRoute');
+        if (route != null) {
+          _navigate(route);
+          return;
+        }
+      }
+    } catch (_) {}
+    try {
+      final launch = await _local.getNotificationAppLaunchDetails();
+      final response = launch?.notificationResponse;
+      final payload = response?.payload;
+      if ((launch?.didNotificationLaunchApp ?? false) &&
+          response?.actionId == null &&
+          payload != null &&
+          payload.isNotEmpty) {
+        _handleTap(Map<String, dynamic>.from(jsonDecode(payload) as Map));
+      }
+    } catch (_) {}
+  }
+
   /// Call once the user is logged in. Safe to call repeatedly.
   Future<void> start() async {
+    await _startLocalTaps();
     if (_started) {
       await retryRegistration();
       return;
@@ -151,15 +252,6 @@ class PushService {
     _subs.add(
       FirebaseMessaging.onMessageOpenedApp.listen((m) => _handleTap(m.data)),
     );
-    _subs.add(
-      localNotificationTaps.stream.listen((payload) {
-        if (payload == null || payload.isEmpty) return;
-        try {
-          _handleTap(Map<String, dynamic>.from(jsonDecode(payload) as Map));
-        } catch (_) {}
-      }),
-    );
-
     final initial = await messaging.getInitialMessage();
     if (initial != null) _handleTap(initial.data);
 
@@ -248,7 +340,8 @@ class PushService {
             .then((_) {}, onError: (_) {}),
       );
     }
-    _navigate(routeForNotificationData(data));
+    // A reminder opens its page in alarm mode: only Taken / Later close it.
+    _navigate(alarmRouteForPayload(jsonEncode(data)) ?? routeForNotificationData(data));
   }
 
   /// Must run BEFORE session tokens are cleared (the unregister call is
@@ -273,6 +366,7 @@ class PushService {
     }
     _subs.clear();
     _started = false;
+    _localStarted = false;
     _currentToken = null;
     _registrationPending = false;
 

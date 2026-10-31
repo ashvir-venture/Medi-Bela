@@ -10,6 +10,7 @@ import '../../../core/utils/error_mapper.dart';
 import '../../../providers/core_providers.dart';
 import '../../../widgets/caregiver_tag.dart';
 import '../../../widgets/details_fields.dart' show formatYmd;
+import '../../../widgets/interval_field.dart';
 import '../../../widgets/state_views.dart';
 import '../../medicine_schedule/presentation/medicine_schedule_controller.dart';
 import '../domain/prescription_models.dart';
@@ -30,17 +31,20 @@ class _LineChoice {
   _LineChoice(PrescriptionMedicineModel m)
       : times = List.of(m.scheduleTimes),
         startDate = m.startDate,
-        mealTimingId = m.mealTimingId;
+        mealTimingId = m.mealTimingId,
+        intervalDays = m.intervalDays;
 
   List<String> times;
   DateTime? startDate;
   int? mealTimingId;
+  int intervalDays;
   bool removed = false;
 }
 
 /// Confirm or Edit: the pharmacist prepared the routine; the patient (or the
-/// caregiver acting for them, [forUserId]) may change dose times, start date
-/// and meal timing, or remove a medicine. Reminders start on Confirm.
+/// caregiver acting for them, [forUserId]) may change dose times, start date,
+/// meal timing and every N days, or remove a medicine. Reminders start on
+/// Confirm. "Request edit" sends it back to the pharmacist with a note.
 class ConfirmPrescriptionScreen extends ConsumerStatefulWidget {
   const ConfirmPrescriptionScreen({super.key, required this.prescriptionId, this.forUserId});
 
@@ -95,6 +99,7 @@ class _ConfirmPrescriptionScreenState extends ConsumerState<ConfirmPrescriptionS
         if (c.times.join(',') != m.scheduleTimes.join(',')) change['scheduleTimes'] = c.times;
         if (c.startDate != m.startDate && c.startDate != null) change['startDate'] = formatYmd(c.startDate!);
         if (c.mealTimingId != m.mealTimingId) change['mealTimingId'] = c.mealTimingId;
+        if (c.intervalDays != m.intervalDays) change['intervalDays'] = c.intervalDays;
       }
       if (change.length > 1) changes.add(change);
     }
@@ -125,6 +130,36 @@ class _ConfirmPrescriptionScreenState extends ConsumerState<ConfirmPrescriptionS
       ref.invalidate(serverPrescriptionsProvider);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(strings.prescriptionConfirmedDone)));
+      context.pop(true);
+    } on DioException catch (e) {
+      setState(() => _error = friendlyErrorMessage(e));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  /// Note box -> Send: back to the pharmacist's queue with the note.
+  Future<void> _requestEdit() async {
+    final strings = ref.read(stringsProvider);
+    final note = await showDialog<String>(
+      context: context,
+      builder: (context) => _RequestEditDialog(strings: strings),
+    );
+    if (note == null || note.trim().length < 3) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await ref.read(prescriptionApiProvider).requestEdit(
+            widget.prescriptionId,
+            note: note.trim(),
+            forUserId: widget.forUserId,
+          );
+      if (widget.forUserId == null) await ref.read(prescriptionLocalRepositoryProvider).refreshStatuses();
+      ref.invalidate(serverPrescriptionsProvider);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(strings.requestEditSent)));
       context.pop(true);
     } on DioException catch (e) {
       setState(() => _error = friendlyErrorMessage(e));
@@ -165,6 +200,12 @@ class _ConfirmPrescriptionScreenState extends ConsumerState<ConfirmPrescriptionS
                             enabled: !_saving,
                             onChanged: () => setState(() {}),
                           )),
+                    if (p.awaitsConfirmation && p.tests.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(strings.testsHeading, style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 4),
+                      ...p.tests.map((t) => _TestCard(test: t, strings: strings)),
+                    ],
                     if (_error != null) ...[
                       const SizedBox(height: 8),
                       Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
@@ -176,12 +217,24 @@ class _ConfirmPrescriptionScreenState extends ConsumerState<ConfirmPrescriptionS
           ? SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child: ElevatedButton.icon(
-                  onPressed: _saving ? null : _confirm,
-                  icon: _saving
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.check),
-                  label: Text(strings.confirmAndStartReminders),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: _saving ? null : _confirm,
+                      icon: _saving
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.check),
+                      label: Text(strings.confirmAndStartReminders),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: _saving ? null : _requestEdit,
+                      icon: const Icon(Icons.edit_note),
+                      label: Text(strings.requestEditButton),
+                    ),
+                  ],
                 ),
               ),
             )
@@ -211,6 +264,7 @@ class _LineCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final details = [
+      medicine.formName,
       medicine.strength,
       medicine.doseAmount,
       medicine.continuous
@@ -274,11 +328,26 @@ class _LineCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
+                IntervalField(
+                  value: choice.intervalDays,
+                  strings: strings,
+                  enabled: enabled,
+                  onChanged: (n) {
+                    choice.intervalDays = n;
+                    onChanged();
+                  },
+                ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.event_outlined),
                   title: Text(strings.startDate),
-                  subtitle: Text(choice.startDate == null ? strings.startsWhenConfirmed : formatYmd(choice.startDate!)),
+                  subtitle: Text(
+                    choice.startDate != null
+                        ? formatYmd(choice.startDate!)
+                        : choice.intervalDays > 1
+                            ? strings.startsDayAfterConfirmed
+                            : strings.startsWhenConfirmed,
+                  ),
                   trailing: const Icon(Icons.edit_calendar_outlined),
                   onTap: enabled
                       ? () async {
@@ -319,6 +388,75 @@ class _LineCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A test with its reminder: date (or 3 days after confirming), time, meal
+/// timing and the pharmacist's note.
+class _TestCard extends StatelessWidget {
+  const _TestCard({required this.test, required this.strings});
+
+  final PrescriptionTestModel test;
+  final AppStrings strings;
+
+  @override
+  Widget build(BuildContext context) {
+    final when = [
+      test.date == null ? strings.testDefaultDate : formatYmd(test.date!),
+      formatHhmm(context, test.time ?? '08:00'),
+    ].join(' • ');
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        leading: const Icon(Icons.biotech_outlined),
+        title: Text(test.name),
+        subtitle: Text([when, test.mealTiming, test.note].whereType<String>().where((s) => s.isNotEmpty).join('\n')),
+        isThreeLine: test.mealTiming != null || (test.note?.isNotEmpty ?? false),
+      ),
+    );
+  }
+}
+
+class _RequestEditDialog extends StatefulWidget {
+  const _RequestEditDialog({required this.strings});
+
+  final AppStrings strings;
+
+  @override
+  State<_RequestEditDialog> createState() => _RequestEditDialogState();
+}
+
+class _RequestEditDialogState extends State<_RequestEditDialog> {
+  final _note = TextEditingController();
+
+  @override
+  void dispose() {
+    _note.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.strings;
+    return AlertDialog(
+      title: Text(s.requestEditTitle),
+      content: TextField(
+        controller: _note,
+        autofocus: true,
+        minLines: 3,
+        maxLines: 6,
+        maxLength: 500,
+        decoration: InputDecoration(hintText: s.requestEditHint, border: const OutlineInputBorder()),
+        onChanged: (_) => setState(() {}),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(s.cancel)),
+        FilledButton(
+          onPressed: _note.text.trim().length < 3 ? null : () => Navigator.of(context).pop(_note.text),
+          child: Text(s.requestEditSend),
+        ),
+      ],
     );
   }
 }

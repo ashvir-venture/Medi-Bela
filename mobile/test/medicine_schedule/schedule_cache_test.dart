@@ -84,16 +84,71 @@ void main() {
     expect(await cachedIds(), ['c']);
   });
 
+  MedicineScheduleRepository repoAt(DateTime Function() clock) => MedicineScheduleRepository(
+        api: api,
+        database: db,
+        notificationScheduler: NotificationScheduler(
+          gateway: _QuietGateway(),
+          database: db,
+          strings: () => enStrings,
+          remindersEnabled: () => true,
+        ),
+        clock: clock,
+      );
+
   test('a dose marked taken offline survives a refresh until it syncs', () async {
     api.doses = [_dose('a')];
     await repo.refreshFromServer();
-    await repo.markDoseTaken('a'); // local only: syncState pending
+    // Its time has come (it was 2 hours ahead).
+    final later = repoAt(() => DateTime.now().add(const Duration(hours: 2, minutes: 1)));
+    expect(await later.markDoseTaken('a'), isTrue); // local only: syncState pending
 
     api.doses = [];
     await repo.refreshFromServer();
     final kept = await db.select(db.cachedMedicineDoses).get();
     expect(kept.single.id, 'a');
     expect(kept.single.doseStatus, 'TAKEN');
+  });
+
+  // Owner, 2026-10-31: from the dose's time until 1 hour before the next one.
+  test('an upcoming dose can not be marked taken', () async {
+    api.doses = [_dose('a')];
+    await repo.refreshFromServer();
+    expect(await repo.markDoseTaken('a'), isFalse);
+    final row = (await db.select(db.cachedMedicineDoses).get()).single;
+    expect(row.doseStatus, 'PENDING');
+    expect(await db.select(db.outboxEntries).get(), isEmpty);
+  });
+
+  test("too late: 1 hour before the same medicine's next dose it closes", () async {
+    final first = DateTime.now().add(const Duration(hours: 2));
+    final next = first.add(const Duration(hours: 6));
+    api.doses = [
+      MedicineDoseModel(id: 'a', routineId: 'r1', medicineName: 'Napa', dosage: '1', scheduledAt: first, status: 'PENDING'),
+      MedicineDoseModel(id: 'b', routineId: 'r1', medicineName: 'Napa', dosage: '1', scheduledAt: next, status: 'PENDING'),
+    ];
+    await repo.refreshFromServer();
+    final tooLate = repoAt(() => next.subtract(const Duration(minutes: 59)));
+    expect(await tooLate.markDoseTaken('a'), isFalse);
+    final inTime = repoAt(() => next.subtract(const Duration(minutes: 61)));
+    expect(await inTime.markDoseTaken('a'), isTrue);
+  });
+
+  test('takenWindowEnd: 08:00 with 14:00 next closes at 13:00; no next = a day later less 1 h', () {
+    final eight = DateTime(2026, 10, 31, 8);
+    MedicineDoseModel d(String id, DateTime at, [String routine = 'r1']) =>
+        MedicineDoseModel(id: id, routineId: routine, medicineName: 'x', dosage: '1', scheduledAt: at, status: 'PENDING');
+    final dose = d('a', eight);
+    expect(
+      takenWindowEnd(dose, [dose, d('b', DateTime(2026, 10, 31, 14)), d('c', DateTime(2026, 10, 31, 10), 'other')]),
+      DateTime(2026, 10, 31, 13),
+    );
+    expect(takenWindowEnd(dose, [dose]), DateTime(2026, 11, 1, 7));
+    final windowed = dose.withTakenUntil(DateTime(2026, 10, 31, 13));
+    expect(windowed.canMarkTakenAt(DateTime(2026, 10, 31, 7, 30)), isFalse); // upcoming
+    expect(windowed.canMarkTakenAt(DateTime(2026, 10, 31, 8)), isTrue);
+    expect(windowed.canMarkTakenAt(DateTime(2026, 10, 31, 13)), isTrue);
+    expect(windowed.canMarkTakenAt(DateTime(2026, 10, 31, 13, 1)), isFalse);
   });
 
   test('routine labels come through for "My medicines"', () {

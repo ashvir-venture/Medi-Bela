@@ -1,3 +1,8 @@
+import '../../../notifications/reminder_timing.dart';
+
+/// Health-rule reminders and (Round 12) a prescription's test reminders.
+/// A test rings at [scheduledAt] and the next two days until Done
+/// ([testReminderDays]); the caregiver is told on the third day.
 class HealthReminderModel {
   const HealthReminderModel({
     required this.id,
@@ -7,22 +12,43 @@ class HealthReminderModel {
     required this.status,
     this.completedAt,
     this.syncState = 'synced',
+    this.kind = 'RULE',
+    this.mealTiming,
   });
 
   final String id;
   final String title;
+  /// For a test: the pharmacist's note.
   final String? description;
   final DateTime scheduledAt;
-  final String status; // PENDING | COMPLETED | DISMISSED
+  final String status; // PENDING | COMPLETED | DISMISSED | MISSED
   final DateTime? completedAt;
   /// synced | pending | syncing | failed — see [CachedHealthReminders.syncState].
   final String syncState;
+  /// RULE | TEST
+  final String kind;
+  /// Test reminders: the meal timing's name, e.g. "Before meal".
+  final String? mealTiming;
 
+  bool get isTest => kind == 'TEST';
   bool get isCompleted => status == 'COMPLETED';
   bool get isDue => status == 'PENDING' && !scheduledAt.isAfter(DateTime.now());
   bool get isUpcoming => status == 'PENDING' && scheduledAt.isAfter(DateTime.now());
 
+  /// Done only from its time on (never an upcoming one), while still open.
+  bool canCompleteAt(DateTime now) =>
+      status == 'PENDING' && !now.isBefore(scheduledAt.subtract(const Duration(minutes: 2)));
+
+  /// Which day of the three a test reminder is on at [now] (1-3), or null
+  /// before it starts.
+  int? testDayAt(DateTime now) {
+    if (now.isBefore(scheduledAt)) return null;
+    final day = now.difference(scheduledAt).inDays + 1;
+    return day > testReminderDays ? testReminderDays : day;
+  }
+
   factory HealthReminderModel.fromJson(Map<String, dynamic> json) {
+    final meal = json['mealTiming'];
     return HealthReminderModel(
       id: json['id'] as String,
       title: json['title'] as String,
@@ -31,9 +57,14 @@ class HealthReminderModel {
       status: json['status'] as String,
       completedAt:
           json['completedAt'] == null ? null : DateTime.parse(json['completedAt'] as String),
+      kind: json['kind'] as String? ?? (json['testId'] != null ? 'TEST' : 'RULE'),
+      mealTiming: meal is Map ? meal['name'] as String? : null,
     );
   }
 }
+
+/// A test reminder rings on this many days (TEST_REMINDER_DAYS on the server, default 3).
+int get testReminderDays => ReminderTiming.current.testReminderDays;
 
 /// Matches the backend's `HealthRecordType` enum exactly.
 class HealthRecordType {

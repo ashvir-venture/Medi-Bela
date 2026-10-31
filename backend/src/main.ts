@@ -1,14 +1,19 @@
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { PrismaService } from './prisma/prisma.service';
+import { timingWarning } from './common/config/reminder-timing';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const config = app.get(ConfigService);
+
+  // Reminder timings come from .env; a family alert before the last ring is a misconfiguration.
+  const timing = timingWarning();
+  if (timing) new Logger('ReminderTiming').warn(timing);
 
   // Behind a load balancer/reverse proxy, trust its X-Forwarded-For so the
   // login throttle sees real client IPs. Set TRUST_PROXY=1 in that case.

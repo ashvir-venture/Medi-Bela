@@ -117,7 +117,7 @@ describe('CatalogService', () => {
     prisma.medicine.findFirst.mockResolvedValue(null);
     const id = await service.findOrCreateMedicineStub('pharm-1', 'Newmed', prisma);
     expect(id).toBe('med-new');
-    expect(prisma.medicine.create.mock.calls[0][0].data).toEqual({ brandName: 'Newmed', createdById: 'pharm-1' });
+    expect(prisma.medicine.create.mock.calls[0][0].data).toEqual({ brandName: 'Newmed', createdById: 'pharm-1', formId: null });
     expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ action: 'medicine.create' }), prisma);
   });
 

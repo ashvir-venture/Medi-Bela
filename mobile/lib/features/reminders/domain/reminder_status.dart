@@ -4,6 +4,8 @@ class ReminderStatus {
     required this.notificationsAllowed,
     required this.exactAlarmsAllowed,
     required this.batteryUnrestricted,
+    this.overlayAllowed = true,
+    this.fullScreenAllowed = true,
   });
 
   /// Everything fine (or a platform without these settings, e.g. iOS).
@@ -23,6 +25,17 @@ class ReminderStatus {
   /// Exempt from battery optimization. Advisory only: shown on the Reminder
   /// check screen, never in the banner.
   final bool batteryUnrestricted;
+
+  /// "Display over other apps": reminders open as a full screen over
+  /// whatever is on screen (Round 13). Without it, the ringing banner.
+  final bool overlayAllowed;
+
+  /// Android 14+ "full-screen notifications": the reminder opens over the
+  /// lock screen.
+  final bool fullScreenAllowed;
+
+  /// Both full-screen permissions given.
+  bool get fullScreenReady => overlayAllowed && fullScreenAllowed;
 
   /// Reminders won't show at all.
   bool get blocked => !notificationsAllowed;

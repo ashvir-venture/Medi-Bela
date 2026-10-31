@@ -19,7 +19,7 @@ d('Notices: approval, scheduling and divisions', () => {
 
   async function account(role: 'USER' | 'ADMIN' | 'PHARMACIST', divisionId?: number) {
     seq += 1;
-    const phone = `+88017500${String(seq).padStart(5, '0')}`;
+    const phone = `017500${String(seq).padStart(5, '0')}`;
     const res = await http()
       .post('/api/auth/register')
       .send({ phone, name: `${role} ${seq}`, password: 'pass1234', ...(await signupDetails(prisma)) })

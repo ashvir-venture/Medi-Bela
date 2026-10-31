@@ -101,7 +101,7 @@ d('Missed-dose pipeline (real Postgres)', () => {
 
   it('does not alert for doses within grace, already taken, or stale backlog', async () => {
     const { subject, routine, dose } = await scenario();
-    await dose(subject.id, routine.id, 0.25);                                  // inside grace, before the backstop
+    await dose(subject.id, routine.id, 0.1);                                   // inside grace, before the backstop
     await dose(subject.id, routine.id, 3, { status: 'TAKEN', takenAt: new Date() });
     const stale = await dose(subject.id, routine.id, 30);                      // older than alert window
     await svc.run();
@@ -165,7 +165,7 @@ d('Missed-dose pipeline (real Postgres)', () => {
     const at = new Date(Date.now() - 40 * 60_000);
     await prisma.medicineDose.create({ data: { routineId: routine.id, userId: subject.id, scheduledAt: at } });
     await prisma.medicineDose.create({ data: { routineId: routine.id, userId: subject.id, scheduledAt: at } });
-    await dose(subject.id, routine.id, 0.25);                                  // not yet at the second reminder
+    await dose(subject.id, routine.id, 0.1);                                   // not yet at the second reminder
 
     await svc.run(); await svc.run();
 

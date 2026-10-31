@@ -33,23 +33,49 @@ class MedicineScheduleRepository {
     required MedicineScheduleApi api,
     required AppDatabase database,
     required NotificationScheduler notificationScheduler,
+    DateTime Function()? clock,
+    Future<void> Function(String routineId)? onTaken,
   })  : _api = api,
         _db = database,
-        _notifications = notificationScheduler;
+        _notifications = notificationScheduler,
+        _now = clock ?? DateTime.now,
+        _onTaken = onTaken;
 
   final MedicineScheduleApi _api;
   final AppDatabase _db;
   final NotificationScheduler _notifications;
+  final DateTime Function() _now;
+  /// After a dose is marked taken here: the medicine box checks what is left.
+  final Future<void> Function(String routineId)? _onTaken;
 
+  /// Today's doses, each with its taken window (worked out from the next
+  /// cached dose of the same medicine, so the whole cache is read).
   Stream<List<MedicineDoseModel>> watchToday() {
     final today = DateTime.now();
     final start = DateTime(today.year, today.month, today.day);
     final end = start.add(const Duration(days: 1));
 
     final query = _db.select(_db.cachedMedicineDoses)
-      ..where((t) => t.scheduledAt.isBiggerOrEqualValue(start) & t.scheduledAt.isSmallerThanValue(end))
       ..orderBy([(t) => OrderingTerm.asc(t.scheduledAt)]);
-    return query.watch().map((rows) => rows.map(_doseRowToModel).toList());
+    return query.watch().map((rows) {
+      final all = rows.map(_doseRowToModel).toList();
+      return [
+        for (final d in all)
+          if (!d.scheduledAt.isBefore(start) && d.scheduledAt.isBefore(end))
+            d.withTakenUntil(takenWindowEnd(d, all)),
+      ];
+    });
+  }
+
+  /// Doses of one reminder group (same time), with their taken windows.
+  Stream<List<MedicineDoseModel>> watchAt(DateTime at) {
+    return _db.select(_db.cachedMedicineDoses).watch().map((rows) {
+      final all = rows.map(_doseRowToModel).toList();
+      return [
+        for (final d in all)
+          if (d.scheduledAt == at) d.withTakenUntil(takenWindowEnd(d, all)),
+      ];
+    });
   }
 
   Stream<List<MedicineRoutineModel>> watchActiveRoutines() {
@@ -66,14 +92,22 @@ class MedicineScheduleRepository {
   ///
   /// Deliberately does nothing if the dose is already TAKEN or SKIPPED
   /// locally (mirrors the backend's own idempotency/terminal-state
-  /// rules) so a double-tap can't queue two outbox entries.
-  Future<void> markDoseTaken(String doseId) async {
+  /// rules) so a double-tap can't queue two outbox entries, or outside its
+  /// taken window (before its time, or later than 1 hour before the
+  /// medicine's next dose). Returns whether it was marked.
+  Future<bool> markDoseTaken(String doseId) async {
     final existing = await (_db.select(_db.cachedMedicineDoses)..where((t) => t.id.equals(doseId)))
         .getSingleOrNull();
-    if (existing == null) return;
-    if (existing.doseStatus == 'TAKEN' || existing.doseStatus == 'SKIPPED') return;
+    if (existing == null) return false;
+    if (existing.doseStatus == 'TAKEN' || existing.doseStatus == 'SKIPPED') return false;
 
-    final now = DateTime.now();
+    final now = _now();
+    final sameMedicine = await (_db.select(_db.cachedMedicineDoses)
+          ..where((t) => t.routineId.equals(existing.routineId)))
+        .get();
+    final dose = _doseRowToModel(existing);
+    final window = dose.withTakenUntil(takenWindowEnd(dose, sameMedicine.map(_doseRowToModel)));
+    if (!window.canMarkTakenAt(now)) return false;
 
     await _db.transaction(() async {
       await (_db.update(_db.cachedMedicineDoses)..where((t) => t.id.equals(doseId))).write(
@@ -102,6 +136,8 @@ class MedicineScheduleRepository {
     // A taken dose should never keep reminding — cancel right away
     // rather than waiting for the next reconcile pass.
     await _notifications.cancelForDose(doseId);
+    await _onTaken?.call(existing.routineId);
+    return true;
   }
 
   /// Re-derives on-device reminders from the local cache alone — no network.

@@ -29,12 +29,15 @@ class Lookups {
     required this.divisions,
     required this.districts,
     required this.mealTimings,
+    this.medicineForms = const [],
   });
 
   final List<LookupOption> genders;
   final List<LookupOption> divisions;
   final List<LookupOption> districts;
   final List<LookupOption> mealTimings;
+  /// Tablet, Syrup... (Add / edit medicine).
+  final List<LookupOption> medicineForms;
 
   factory Lookups.fromJson(Map<String, dynamic> json) {
     List<LookupOption> list(String key, {String? parentKey}) => (json[key] as List<dynamic>? ?? [])
@@ -45,6 +48,7 @@ class Lookups {
       divisions: list('divisions'),
       districts: list('districts', parentKey: 'divisionId'),
       mealTimings: list('mealTimings'),
+      medicineForms: list('medicineForms'),
     );
   }
 

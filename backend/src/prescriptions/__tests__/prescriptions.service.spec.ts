@@ -14,6 +14,9 @@ function makeFakePrisma() {
 
   return {
     _state: { prescriptions, medicines, routines, doses },
+    mealTiming: { findMany: jest.fn(async () => []), count: jest.fn(async () => 0) },
+    medicineForm: { count: jest.fn(async ({ where }: any) => where.id.in.length) },
+    healthReminder: { createMany: jest.fn(async () => ({ count: 0 })) },
     prescription: {
       findUnique: jest.fn(async ({ where, include }: any) => {
         if (where.id) {
@@ -21,7 +24,7 @@ function makeFakePrisma() {
           if (!p) return null;
           // Emulate `include: { medicines }` which complete() relies on.
           return include?.medicines
-            ? { ...p, medicines: [...medicines.values()].filter((m) => m.prescriptionId === p.id) }
+            ? { tests: [], ...p, medicines: [...medicines.values()].filter((m) => m.prescriptionId === p.id) }
             : p;
         }
         if (where.clientUploadId) {
@@ -124,7 +127,7 @@ describe('PrescriptionsService', () => {
   let fakeNotifications: { notify: jest.Mock };
   let fakeAudit: { record: jest.Mock };
   let fakeCatalog: { findOrCreateMedicineStub: jest.Mock; createDoctor: jest.Mock };
-  let fakeCaregivers: { notifyMember: jest.Mock };
+  let fakeCaregivers: { notifyMember: jest.Mock; caregiverOf: jest.Mock };
 
   beforeEach(() => {
     prisma = makeFakePrisma();
@@ -137,7 +140,10 @@ describe('PrescriptionsService', () => {
     fakeRuleEvaluation = { evaluateForMedicine: jest.fn().mockResolvedValue(undefined) };
     fakeNotifications = { notify: jest.fn().mockResolvedValue(undefined) };
     fakeAudit = { record: jest.fn().mockResolvedValue(undefined) };
-    fakeCaregivers = { notifyMember: jest.fn().mockResolvedValue(undefined) };
+    fakeCaregivers = {
+      notifyMember: jest.fn().mockResolvedValue(undefined),
+      caregiverOf: jest.fn().mockResolvedValue(null),
+    };
     fakeCatalog = {
       findOrCreateMedicineStub: jest.fn().mockResolvedValue('catalog-medicine-1'),
       createDoctor: jest.fn().mockResolvedValue({ id: 'doctor-new' }),
@@ -221,9 +227,25 @@ describe('PrescriptionsService', () => {
       );
     });
 
+    // Owner, 2026-10-31: the member's caregiver can confirm or request an edit too.
+    it("sending it for confirmation also tells the member's caregiver, naming the member", async () => {
+      fakeCaregivers.caregiverOf.mockResolvedValue({ id: 'carer', languagePreference: 'EN', memberName: 'Amina' });
+      const prescription = await pendingPrescriptionWithMedicine();
+      await service.complete('admin-1', prescription.id);
+      const items = fakeNotifications.notify.mock.calls.map((c: any[]) => c[0][0]);
+      const toCarer = items.find((n: any) => n.userId === 'carer');
+      expect(toCarer).toMatchObject({
+        type: 'PRESCRIPTION_UPDATE',
+        relatedEntityId: 'member:' + prescription.id,
+        data: { prescriptionId: prescription.id, memberUserId: 'user-1', kind: 'member_prescription_ready' },
+      });
+      expect(toCarer.body).toContain('Amina');
+      expect(JSON.stringify(toCarer)).not.toMatch(/Amoxicillin/);
+    });
+
     it('links a line without medicineId to the catalog by name', async () => {
       const prescription = await pendingPrescriptionWithMedicine();
-      expect(fakeCatalog.findOrCreateMedicineStub).toHaveBeenCalledWith('admin-1', 'Amoxicillin', expect.anything());
+      expect(fakeCatalog.findOrCreateMedicineStub).toHaveBeenCalledWith('admin-1', 'Amoxicillin', expect.anything(), undefined);
       const [line] = prisma._state.medicines.values();
       expect(line.prescriptionId).toBe(prescription.id);
       expect(line.medicineId).toBe('catalog-medicine-1');
@@ -300,7 +322,10 @@ describe('PrescriptionsService', () => {
       const result = await service.activate('user-1', prescription.id);
       expect(result.status).toBe(PrescriptionStatus.ACTIVE);
       expect(prisma._state.routines).toHaveLength(1);
-      expect(prisma._state.doses).toHaveLength(21); // 3/day * 7 days
+      // 3/day * 7 days, less today's times already past (no dose before now).
+      expect(prisma._state.doses.length).toBeGreaterThanOrEqual(18);
+      expect(prisma._state.doses.length).toBeLessThanOrEqual(21);
+      expect(prisma._state.doses.every((d: any) => d.scheduledAt > new Date(Date.now() - 60_000))).toBe(true);
       expect(fakeRuleEvaluation.evaluateForMedicine).toHaveBeenCalledTimes(1);
       const [[items]] = fakeNotifications.notify.mock.calls;
       expect(items[0].relatedEntityId).toBe(`active:${prescription.id}`);

@@ -18,7 +18,7 @@ import { AuditService } from '../audit/audit.service';
 import { resumeSchedules } from '../medicine-schedule/rolling-dose.job';
 import { JwtPayload } from '../common/interfaces/jwt-payload.interface';
 import { sanitizeUser, SafeUser } from '../common/utils/sanitize-user';
-import { normalizePhone } from '../common/utils/phone.util';
+import { normalizePhone, phoneVariants } from '../common/utils/phone.util';
 import { RegisterDto } from './dto/register.dto';
 import { assertValidDetails, dateOfBirthColumn } from '../users/lib/profile-details';
 import { LoginDto } from './dto/login.dto';
@@ -64,6 +64,12 @@ export class AuthService {
     dto: RegisterDto,
   ): Promise<{ user: SafeUser; tokens: TokenPair }> {
     await assertValidDetails(this.prisma, dto);
+    // 01... and an older +8801... account are the same number.
+    const taken = await this.prisma.user.findFirst({
+      where: { phone: { in: phoneVariants(dto.phone) } },
+      select: { id: true },
+    });
+    if (taken) throw withCode(new ConflictException('Phone number is already registered'), ErrorCode.PHONE_TAKEN);
     const passwordHash = await argon2.hash(dto.password);
 
     let user: User;
@@ -203,15 +209,14 @@ export class AuthService {
 
   /**
    * The account for a phone as typed at login or password reset. Seeded staff
-   * accounts store the number exactly as written in .env (prisma/seed.ts), app
-   * sign-ups store it normalized (+880...): the exact value wins, then the
-   * normalized one.
+   * accounts and new sign-ups store the number as typed; sign-ups before
+   * 2026-10-31 store +880...: the exact value wins, then the other spellings.
    */
   private async findUserByPhone(phone: string): Promise<User | null> {
     const exact = await this.prisma.user.findUnique({ where: { phone } });
     if (exact) return exact;
-    const normalized = normalizePhone(phone);
-    return normalized === phone ? null : this.prisma.user.findUnique({ where: { phone: normalized } });
+    const others = phoneVariants(phone).filter((p) => p !== phone);
+    return others.length ? this.prisma.user.findFirst({ where: { phone: { in: others } } }) : null;
   }
 
   private async issueResetCode(phone: string): Promise<void> {

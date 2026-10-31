@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../medicine_box/presentation/medicine_box_screens.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/localization/app_strings.dart';
@@ -53,6 +55,8 @@ class MedicinesTabScreen extends ConsumerWidget {
         MedicinesSegment.mine => const MyMedicinesScreen(),
         MedicinesSegment.prescriptions => const PrescriptionScreen(),
       },
+      // Round 13: the medicine box, a long button under Today and My medicines.
+      bottomNavigationBar: segment == MedicinesSegment.prescriptions ? null : const MedicineBoxButton(),
     );
   }
 }

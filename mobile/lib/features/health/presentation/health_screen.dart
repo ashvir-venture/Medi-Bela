@@ -36,6 +36,12 @@ class HealthScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           _HealthSectionCard(
+            icon: Icons.alarm_add_outlined,
+            title: strings.personalRemindersTitle,
+            onTap: () => context.push(AppRoutes.personalReminders),
+          ),
+          const SizedBox(height: 12),
+          _HealthSectionCard(
             icon: Icons.tips_and_updates_outlined,
             title: strings.aiHealthSuggestions,
             onTap: () => context.push(AppRoutes.healthSuggestions),

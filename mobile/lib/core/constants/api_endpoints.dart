@@ -49,6 +49,7 @@ class ApiEndpoints {
   static const String prescriptionHistory = '/prescriptions/mine';
   static String prescriptionDetail(String id) => '/prescriptions/$id';
   static String prescriptionConfirm(String id) => '/prescriptions/$id/confirm';
+  static String prescriptionRequestEdit(String id) => '/prescriptions/$id/request-edit';
 
   // Medicine schedule (Phase 3A/3B) — synchronized routines/doses
   // generated once a prescription is COMPLETED.
@@ -61,6 +62,13 @@ class ApiEndpoints {
 
   // Health reminders (Phase 3B)
   static const String healthReminders = '/health-reminders';
+  // Round 13: reminder timings from the server's .env, personal reminders, the medicine box.
+  static const String appConfig = '/app-config';
+  static const String personalReminders = '/personal-reminders';
+  static String personalReminder(String id) => '/personal-reminders/$id';
+  static String personalReminderLater(String id) => '/personal-reminders/$id/later';
+  static const String medicineBox = '/medicine-box';
+  static String medicineBoxIgnore(String routineId) => '/medicine-box/$routineId/ignore';
   static const String healthRemindersUpcoming = '/health-reminders/upcoming';
   static const String healthRemindersDue = '/health-reminders/due';
   static String healthReminderDetail(String id) => '/health-reminders/$id';

@@ -18,6 +18,10 @@ export const ErrorCode = {
   ACCOUNT_NOT_ACTIVE: 'ACCOUNT_NOT_ACTIVE',
   RESET_CODE_INVALID: 'RESET_CODE_INVALID',
   PHONE_TAKEN: 'PHONE_TAKEN',
+  /** Marking a dose / test done before its time. */
+  DOSE_NOT_DUE: 'DOSE_NOT_DUE',
+  /** Marking a dose taken later than 1 h before the medicine's next dose. */
+  DOSE_WINDOW_CLOSED: 'DOSE_WINDOW_CLOSED',
   NOT_FOUND: 'NOT_FOUND',
   CONFLICT: 'CONFLICT',
   PAYLOAD_TOO_LARGE: 'PAYLOAD_TOO_LARGE',

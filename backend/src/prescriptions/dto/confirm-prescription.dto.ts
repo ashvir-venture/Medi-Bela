@@ -9,7 +9,11 @@ import {
   IsOptional,
   IsUUID,
   Matches,
+  Max,
+  MaxLength,
   Min,
+  MinLength,
+  IsString,
   ValidateNested,
 } from 'class-validator';
 
@@ -17,8 +21,8 @@ const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/; // HH:mm, 24h
 
 /**
  * What the patient (or caregiver) may change on one medicine line before
- * confirming: dose times (same count), start date, meal timing, or remove
- * the line. Dose amount, strength and duration stay as the pharmacist set them.
+ * confirming: dose times (same count), start date, meal timing, every N
+ * days, or remove the line. Dose amount, strength and duration stay as the pharmacist set them.
  */
 export class ConfirmLineDto {
   @IsUUID()
@@ -45,6 +49,12 @@ export class ConfirmLineDto {
   @IsInt()
   @Min(1)
   mealTimingId?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(90)
+  intervalDays?: number;
 }
 
 export class ConfirmPrescriptionDto {
@@ -54,4 +64,12 @@ export class ConfirmPrescriptionDto {
   @ValidateNested({ each: true })
   @Type(() => ConfirmLineDto)
   lines?: ConfirmLineDto[];
+}
+
+/** "Request edit": the prescription goes back to the pharmacist with this note. */
+export class RequestEditDto {
+  @IsString()
+  @MinLength(3)
+  @MaxLength(500)
+  note: string;
 }

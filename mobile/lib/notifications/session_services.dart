@@ -7,6 +7,8 @@ import '../core/localization/locale_controller.dart';
 import '../features/auth/domain/user_model.dart';
 import '../features/auth/presentation/auth_controller.dart';
 import '../providers/core_providers.dart';
+import 'reminder_timing.dart';
+import '../core/constants/api_endpoints.dart';
 
 /// Things that must be running for as long as someone is logged in,
 /// independent of which screen is open:
@@ -19,13 +21,20 @@ import '../providers/core_providers.dart';
 ///     then. Now they are reconciled at login, on every app resume, and
 ///     whenever connectivity returns.
 ///  3. Server data pulled on those same moments (login, reactivation, resume,
-///     back online): doses, health reminders, prescriptions, health records.
+///     back online): doses, health reminders, prescriptions, health records,
+///     personal reminders and the medicine box; and (owner, 2026-10-31) every
+///     [periodicRefresh] while the app is open and online.
+/// How often the server is asked again while the app is in front
+/// (APP_SYNC_MINUTES on the server, default 10).
+Duration get periodicRefresh => Duration(minutes: ReminderTiming.current.appSyncMinutes);
+
 class SessionServices with WidgetsBindingObserver {
   SessionServices(this._ref);
 
   final Ref _ref;
   bool _running = false;
   bool _refreshing = false;
+  Timer? _timer;
   StreamSubscription<bool>? _connectivitySub;
   ProviderSubscription<AsyncValue<UserModel?>>? _userSub;
 
@@ -50,6 +59,30 @@ class SessionServices with WidgetsBindingObserver {
     try {
       await _ref.read(pushServiceProvider).start();
     } catch (_) {/* push is optional */}
+    _timer = Timer.periodic(periodicRefresh, (_) => unawaited(_periodic()));
+    await refresh();
+  }
+
+  Future<void> _pullTimings() async {
+    try {
+      final response = await _ref.read(dioClientProvider).dio.get<Map<String, dynamic>>(ApiEndpoints.appConfig);
+      final reminders = response.data?['reminders'];
+      if (reminders is! Map<String, dynamic>) return;
+      final syncBefore = ReminderTiming.current.appSyncMinutes;
+      if (await ReminderTiming.apply(reminders)) {
+        _ref.read(notificationSchedulerProvider).timingChanged();
+        if (ReminderTiming.current.appSyncMinutes != syncBefore && _timer != null) {
+          _timer!.cancel();
+          _timer = Timer.periodic(periodicRefresh, (_) => unawaited(_periodic()));
+        }
+      }
+    } catch (_) {/* offline: the saved values stay */}
+  }
+
+  /// Only while the app is in front and online (no battery spent in the background).
+  Future<void> _periodic() async {
+    if (!_running || WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) return;
+    if (!await _ref.read(connectivityServiceProvider).isOnline) return;
     await refresh();
   }
 
@@ -57,6 +90,8 @@ class SessionServices with WidgetsBindingObserver {
     if (!_running) return;
     _running = false;
     WidgetsBinding.instance.removeObserver(this);
+    _timer?.cancel();
+    _timer = null;
     await _connectivitySub?.cancel();
     _connectivitySub = null;
     _userSub?.close();
@@ -100,14 +135,23 @@ class SessionServices with WidgetsBindingObserver {
     try {
       final medicine = _ref.read(medicineScheduleRepositoryProvider);
       final health = _ref.read(healthReminderRepositoryProvider);
+      final personal = _ref.read(personalReminderRepositoryProvider);
+
+      // 0. Reminder timings from the server's .env: a change reschedules everything.
+      await _pullTimings();
 
       // 1. Offline-safe: make sure the OS has what the cache says it should.
       await medicine.reconcileLocalNotifications();
       await health.reconcileLocalNotifications();
+      await personal.reconcileLocalNotifications();
 
       // 2. Then pull fresh data (each of these reconciles again on success).
       await medicine.refreshFromServer();
       await health.refreshFromServer();
+      await personal.refreshFromServer();
+      try {
+        await _ref.read(medicineBoxRepositoryProvider).refreshFromServer();
+      } catch (_) {/* kept for the next refresh */}
       // The rest of the offline copy: my prescriptions (restored after a
       // reinstall or sign-in on a new phone) and health records.
       await _ref.read(prescriptionLocalRepositoryProvider).refreshStatuses();

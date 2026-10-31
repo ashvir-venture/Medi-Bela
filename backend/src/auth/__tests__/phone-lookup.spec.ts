@@ -6,6 +6,7 @@ function setup(users: any[]) {
   const prisma: any = {
     user: {
       findUnique: jest.fn(async ({ where }: any) => users.find((u) => u.phone === where.phone) ?? null),
+      findFirst: jest.fn(async ({ where }: any) => users.find((u) => where.phone.in.includes(u.phone)) ?? null),
     },
     passwordResetCode: { upsert: jest.fn(async () => ({})) },
   };

@@ -5,22 +5,29 @@ import 'package:drift/drift.dart';
 import '../core/database/app_database.dart';
 import '../core/localization/app_strings.dart';
 import '../features/health/domain/health_models.dart';
+import '../features/health/domain/personal_reminder_models.dart';
 import '../features/medicine_schedule/domain/medicine_schedule_models.dart';
 import 'local_notifications_gateway.dart';
 import 'notification_ids.dart';
+import 'reminder_timing.dart';
 
 /// Turns synchronized dose data into on-device notifications, and keeps
 /// them reconciled as that data changes — without ever depending on the
 /// backend being reachable at the moment a reminder is due (everything
 /// here reads from the local cache and schedules with the OS directly).
 ///
-/// Medicine doses due at the same time form one *group* with one reminder:
-///  - stage 0 at the scheduled time T: rings (alarm tone) for [ringDuration],
-///    then a silent copy stays in the shade;
-///  - stage 1 at T+30 if still untaken (or 30 min after the first "Later");
-///  - stage 2 only after a second "Later", 30 min later, with no "Later".
-/// The server alerts the family at T+62 (DOSE_MISSED_GRACE_MINUTES), after
-/// the last possible reminder has finished ringing.
+/// Medicine doses due at the same time form one *group* with one reminder
+/// (owner, 2026-10-31: 4 rings, 15 minutes apart, then the family):
+///  - stage 0 at the scheduled time T, stages 1-3 at T+15, T+30, T+45 while
+///    still untaken; each rings (alarm tone) for [ringDuration], then a
+///    silent copy stays in the shade;
+///  - "Later" moves the next ring to 15 minutes after the tap, and the
+///    following ones every 15 minutes after that; never more than 4 rings
+///    and never after T+45 ([ReminderGroup.lastRingAt]), so the last one has
+///    no "Later".
+/// The server alerts the family at T+50 (DOSE_MISSED_GRACE_MINUTES), after
+/// the last possible ring has finished. Test reminders ring once a day for
+/// 3 days ([testReminderDays]) until Done.
 ///
 /// The core operation is [reconcile]: given "what's currently scheduled"
 /// (tracked in [ScheduledMedicineNotifications]) and "what *should* be
@@ -32,28 +39,52 @@ import 'notification_ids.dart';
 ///    with the right count scheduled);
 ///  - `snz:<group key>`: a pending "Later" (notificationId = stage,
 ///    scheduledAt = when it rings);
-///  - `health:<reminderId>`: health reminders (plain notifications).
+///  - `health:<reminderId>`: health reminders (plain notifications) and test
+///    reminders (one ringing reminder per day, ids from `health:<id>#<day>`).
 /// Each reconcile kind only ever touches its own rows.
 const _healthKeyPrefix = 'health:';
+const _personalKeyPrefix = 'pr:';
 const _groupKeyPrefix = 'grp:';
 const _snoozeKeyPrefix = 'snz:';
 
 /// iOS keeps at most 64 pending local notifications and silently drops the
 /// rest, so only the soonest ones are scheduled; the next refresh/app-open
-/// tops the window up again. Each medicine group uses up to 4.
+/// tops the window up again. Each medicine group uses up to 4 there
+/// (Android also keeps a silent copy of each), each test reminder up to 3.
 const _maxScheduledGroups = 12;
-const _maxScheduledHealthReminders = 10;
+const _maxScheduledHealthReminders = 5;
 
 const _doseKind = 'dose';
 const _healthKind = 'health';
+const _personalKind = 'personal';
 
-const repeatAfter = Duration(minutes: 30);
-const snoozeFor = Duration(minutes: 30);
-const maxReminderStage = 2;
+// From the server's .env (ReminderTiming): REMINDER_REPEAT_MINUTES,
+// REMINDER_RINGS. Defaults 15 minutes x 4 rings.
+Duration get repeatAfter => Duration(minutes: ReminderTiming.current.repeatMinutes);
+Duration get snoozeFor => repeatAfter;
+int get maxReminderStage => ReminderTiming.current.rings - 1;
+
+/// No medicine ring after this long past the dose time (the last automatic one).
+Duration get lastRingAfter => repeatAfter * maxReminderStage;
+
+/// Cancelling covers every stage / day a past setting may have scheduled.
+const _maxStagesEver = 10;
+const _maxTestDaysEver = 14;
 
 /// Payload `type` of local medicine reminders; same as the backend's
-/// backstop push, so taps route to Today's medicine either way.
+/// backstop push, so taps open the reminder page either way.
 const medicineReminderType = 'MEDICINE_REMINDER';
+
+/// Payload `type` of a test reminder (one of its three days).
+const testReminderType = 'TEST_REMINDER';
+
+/// Payload `type` of a personal reminder (Round 13).
+const personalReminderType = 'PERSONAL_REMINDER';
+
+/// How far ahead personal reminders are put on the OS (topped up on every
+/// refresh / app start; iOS keeps 64 in all).
+const _personalWindow = Duration(days: 2);
+const _maxScheduledPersonal = 8;
 
 /// Doses due at one time that still need a reminder.
 class ReminderGroup {
@@ -68,15 +99,46 @@ class ReminderGroup {
   int ringId(int stage) => notificationIdForKey('$key#$stage');
   int quietId(int stage) => notificationIdForKey('$key#$stage/quiet');
 
-  /// Last moment anything of this group can still ring on its own.
-  DateTime get lastAutoReminder => at.add(repeatAfter).add(ringDuration);
+  /// No ring of this group starts after this (the 4th automatic one).
+  DateTime get lastRingAt => at.add(lastRingAfter);
+
+  /// Last moment anything of this group can still ring.
+  DateTime get lastAutoReminder => lastRingAt.add(ringDuration);
+
+  /// The last ring offers Done only: stage 3, or one at the T+45 limit.
+  bool isLastRing(int stage, DateTime ringAt) =>
+      stage >= maxReminderStage || !ringAt.isBefore(lastRingAt);
 }
+
+/// The ring times of a group from [stage] on: [first], then every
+/// [repeatAfter], up to stage 3 and never after [ReminderGroup.lastRingAt].
+List<(int, DateTime)> ringPlan(ReminderGroup group, int stage, DateTime first) => [
+      for (var s = stage; s <= maxReminderStage; s++)
+        if (!first.add(repeatAfter * (s - stage)).isAfter(group.lastRingAt))
+          (s, first.add(repeatAfter * (s - stage))),
+    ];
 
 /// The JSON a reminder carries, read back by the Done / Later actions.
 String reminderPayload(DateTime at, int stage) => jsonEncode({
       'type': medicineReminderType,
       'at': at.millisecondsSinceEpoch,
       'stage': stage,
+    });
+
+/// A personal reminder's payload: which one, which ring, and whether Later
+/// should tell the caregiver who set it up.
+String personalReminderPayload(String reminderId, DateTime at, bool byCaregiver) => jsonEncode({
+      'type': personalReminderType,
+      'reminderId': reminderId,
+      'at': at.millisecondsSinceEpoch,
+      'byCaregiver': byCaregiver,
+    });
+
+/// A test reminder's payload: which reminder, which of its days (0-2).
+String testReminderPayload(String reminderId, int day) => jsonEncode({
+      'type': testReminderType,
+      'reminderId': reminderId,
+      'day': day,
     });
 
 class NotificationScheduler {
@@ -98,6 +160,10 @@ class NotificationScheduler {
   final bool Function() _remindersEnabled;
   final DateTime Function() _now;
 
+  /// The server changed a timing (ReminderTiming): the next reconcile of
+  /// each kind registers everything again with the new times.
+  void timingChanged() => _appliedExact.clear();
+
   /// Alarm mode (exact or not) each kind was last fully scheduled with in
   /// this process. Empty at startup, so the first pass re-registers every
   /// reminder: a force-stop (or a vendor battery saver) wipes all of the
@@ -115,7 +181,7 @@ class NotificationScheduler {
     final rescheduleAll = _appliedExact[_doseKind] != exact;
 
     final rows = (await _db.select(_db.scheduledMedicineNotifications).get())
-        .where((r) => !r.doseId.startsWith(_healthKeyPrefix))
+        .where((r) => !r.doseId.startsWith(_healthKeyPrefix) && !r.doseId.startsWith(_personalKeyPrefix))
         .toList();
     final snoozes = {
       for (final r in rows.where((r) => r.doseId.startsWith(_snoozeKeyPrefix)))
@@ -169,19 +235,25 @@ class NotificationScheduler {
       (await _groupAt(at))?.doseIds ?? const [];
 
   /// "Later" on a reminder at [stage]: the group rings again in
-  /// [snoozeFor] at the next stage, replacing its automatic repeat. Ignored
-  /// at the last stage (that reminder offers no "Later").
+  /// [snoozeFor] at the next stage (then every 15 minutes), replacing its
+  /// automatic repeats, but never after T+45. Ignored on the last ring
+  /// (that reminder offers no "Later").
   Future<void> snooze(DateTime at, int stage) async {
     if (stage >= maxReminderStage) return;
     final group = await _groupAt(at);
     if (group == null) return;
-    final ringAt = _now().add(snoozeFor);
+    final now = _now();
+    if (!now.isBefore(group.lastRingAt)) return;
+    final wanted = now.add(snoozeFor);
+    final ringAt = wanted.isAfter(group.lastRingAt) ? group.lastRingAt : wanted;
     final nextStage = stage + 1;
     final exact = await _gateway.canScheduleExact();
 
     await _cancelGroup(group.key, keepSnooze: false);
     await _upsertRow('$_snoozeKeyPrefix${group.key}', nextStage, ringAt);
-    await _ringAndQuiet(group, nextStage, ringAt, exact: exact);
+    for (final (s, ring) in ringPlan(group, nextStage, ringAt)) {
+      await _ringAndQuiet(group, s, ring, exact: exact);
+    }
     await _upsertRow(group.key, group.ringId(0), group.at);
   }
 
@@ -216,11 +288,7 @@ class NotificationScheduler {
     }
     final groups = [
       for (final entry in byTime.entries) ReminderGroup(entry.key, entry.value),
-    ].where((g) {
-      final snoozedUntil = snoozes[g.key]?.scheduledAt;
-      final last = snoozedUntil != null ? snoozedUntil.add(ringDuration) : g.lastAutoReminder;
-      return last.isAfter(now);
-    }).toList()
+    ].where((g) => g.lastAutoReminder.isAfter(now)).toList()
       ..sort((a, b) => a.at.compareTo(b.at));
     return groups.take(_maxScheduledGroups).toList();
   }
@@ -230,11 +298,11 @@ class NotificationScheduler {
     ScheduledMedicineNotification? snooze, {
     required bool exact,
   }) async {
-    if (snooze != null) {
-      await _ringAndQuiet(group, snooze.notificationId, snooze.scheduledAt, exact: exact);
-    } else {
-      await _ringAndQuiet(group, 0, group.at, exact: exact);
-      await _ringAndQuiet(group, 1, group.at.add(repeatAfter), exact: exact);
+    final plan = snooze != null
+        ? ringPlan(group, snooze.notificationId, snooze.scheduledAt)
+        : ringPlan(group, 0, group.at);
+    for (final (stage, ringAt) in plan) {
+      await _ringAndQuiet(group, stage, ringAt, exact: exact);
     }
     await _upsertRow(group.key, group.ringId(0), group.at);
   }
@@ -250,14 +318,26 @@ class NotificationScheduler {
     final now = _now();
     final quietAt = ringAt.add(ringDuration);
     if (ringAt.isAfter(now)) {
-      await _gateway.schedule(_reminder(group, stage, ringAt, ReminderStyle.ringing), exact: exact);
+      await _gateway.schedule(
+        _reminder(group, stage, ringAt, ReminderStyle.ringing, ringAt: ringAt),
+        exact: exact,
+      );
     }
     if (quietAt.isAfter(now)) {
-      await _gateway.schedule(_reminder(group, stage, quietAt, ReminderStyle.quiet), exact: exact);
+      await _gateway.schedule(
+        _reminder(group, stage, quietAt, ReminderStyle.quiet, ringAt: ringAt),
+        exact: exact,
+      );
     }
   }
 
-  ScheduledReminder _reminder(ReminderGroup group, int stage, DateTime at, ReminderStyle style) {
+  ScheduledReminder _reminder(
+    ReminderGroup group,
+    int stage,
+    DateTime at,
+    ReminderStyle style, {
+    DateTime? ringAt,
+  }) {
     final s = _strings();
     final time = _formatTime(group.at);
     final count = group.doseIds.length;
@@ -271,8 +351,9 @@ class NotificationScheduler {
       style: style,
       payload: reminderPayload(group.at, stage),
       actions: [
-        ReminderAction(reminderActionDone, s.reminderDoneAction),
-        if (stage < maxReminderStage) ReminderAction(reminderActionLater, s.reminderLaterAction),
+        ReminderAction(reminderActionDone, s.takenAction),
+        if (!group.isLastRing(stage, ringAt ?? at))
+          ReminderAction(reminderActionLater, s.reminderLaterAction),
       ],
     );
   }
@@ -280,7 +361,7 @@ class NotificationScheduler {
   /// Cancels every notification a group key may have scheduled (all
   /// stages, ringing and quiet) and forgets it.
   Future<void> _cancelGroup(String key, {required bool keepSnooze}) async {
-    for (var stage = 0; stage <= maxReminderStage; stage++) {
+    for (var stage = 0; stage < _maxStagesEver; stage++) {
       await _gateway.cancel(notificationIdForKey('$key#$stage'));
       await _gateway.cancel(notificationIdForKey('$key#$stage/quiet'));
     }
@@ -289,7 +370,8 @@ class NotificationScheduler {
   }
 
   // ---------------------------------------------------------------------
-  // Health reminders (plain notifications, unchanged behavior)
+  // Health reminders (plain notifications) and test reminders (ringing,
+  // once a day for [testReminderDays] days, Done / Later)
   // ---------------------------------------------------------------------
 
   /// Health-reminder counterpart of [reconcile]: schedules an on-device
@@ -300,7 +382,7 @@ class NotificationScheduler {
     final rescheduleAll = _appliedExact[_healthKind] != exact;
     final now = _now();
     final upcoming = reminders
-        .where((r) => r.status == 'PENDING' && r.scheduledAt.isAfter(now))
+        .where((r) => r.status == 'PENDING' && _lastHealthRing(r).isAfter(now))
         .toList()
       ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
     final desired = {
@@ -316,7 +398,7 @@ class NotificationScheduler {
     for (final row in existing) {
       final still = desired[row.doseId];
       if (rescheduleAll || still == null || still.scheduledAt != row.scheduledAt) {
-        await _cancelKey(row.doseId, row.notificationId);
+        await _cancelHealthKey(row.doseId, row.notificationId);
       }
     }
 
@@ -326,18 +408,123 @@ class NotificationScheduler {
         continue;
       }
       final id = notificationIdForKey(entry.key);
-      await _gateway.schedule(
-        ScheduledReminder(
-          id: id,
-          title: entry.value.title,
-          body: entry.value.description ?? '',
-          at: entry.value.scheduledAt,
-        ),
-        exact: exact,
-      );
+      if (entry.value.isTest) {
+        await _scheduleTestReminder(entry.key, entry.value, exact: exact);
+      } else {
+        await _gateway.schedule(
+          ScheduledReminder(
+            id: id,
+            title: entry.value.title,
+            body: entry.value.description ?? '',
+            at: entry.value.scheduledAt,
+          ),
+          exact: exact,
+        );
+      }
       await _upsertRow(entry.key, id, entry.value.scheduledAt);
     }
     _appliedExact[_healthKind] = exact;
+  }
+
+  DateTime _lastHealthRing(HealthReminderModel r) => r.isTest
+      ? r.scheduledAt.add(Duration(days: testReminderDays - 1)).add(ringDuration)
+      : r.scheduledAt;
+
+  /// A test rings at its time on each of its days still ahead. Neutral text
+  /// (no test name): the lock screen is often shared.
+  Future<void> _scheduleTestReminder(
+    String key,
+    HealthReminderModel reminder, {
+    required bool exact,
+  }) async {
+    final s = _strings();
+    final now = _now();
+    for (var day = 0; day < testReminderDays; day++) {
+      final ringAt = reminder.scheduledAt.add(Duration(days: day));
+      final last = day == testReminderDays - 1;
+      for (final style in [ReminderStyle.ringing, ReminderStyle.quiet]) {
+        final at = style == ReminderStyle.ringing ? ringAt : ringAt.add(ringDuration);
+        if (!at.isAfter(now)) continue;
+        await _gateway.schedule(
+          ScheduledReminder(
+            id: notificationIdForKey('$key#$day${style == ReminderStyle.quiet ? '/quiet' : ''}'),
+            title: s.testReminderTitle,
+            body: s.testReminderBody,
+            at: at,
+            style: style,
+            payload: testReminderPayload(reminder.id, day),
+            actions: [
+              ReminderAction(reminderActionDone, s.testDoneAction),
+              if (!last) ReminderAction(reminderActionLater, s.testLaterAction),
+            ],
+          ),
+          exact: exact,
+        );
+      }
+    }
+  }
+
+  /// Personal reminders (Round 13): a banner with Done / Later at each ring in
+  /// the next two days ("Time for your {name}", then the description). Works
+  /// from the local copy, offline; each refresh tops it up.
+  Future<void> reconcilePersonalReminders(List<PersonalReminderModel> reminders) async {
+    final exact = await _gateway.canScheduleExact();
+    final rescheduleAll = _appliedExact[_personalKind] != exact;
+    final now = _now();
+    final s = _strings();
+    final rings = <(String, PersonalReminderModel, DateTime)>[
+      if (_remindersEnabled())
+        for (final r in reminders)
+          for (final at in r.occurrences(now, now.add(_personalWindow))) ('$_personalKeyPrefix${r.id}:${at.millisecondsSinceEpoch}', r, at),
+    ]..sort((a, b) => a.$3.compareTo(b.$3));
+    final desired = {for (final ring in rings.take(_maxScheduledPersonal)) ring.$1: ring};
+
+    final existing = (await _db.select(_db.scheduledMedicineNotifications).get())
+        .where((r) => r.doseId.startsWith(_personalKeyPrefix))
+        .toList();
+    for (final row in existing) {
+      if (rescheduleAll || !desired.containsKey(row.doseId)) await _cancelKey(row.doseId, row.notificationId);
+    }
+    final kept = {for (final row in existing) row.doseId};
+    for (final entry in desired.entries) {
+      if (!rescheduleAll && kept.contains(entry.key)) continue;
+      final (key, reminder, at) = entry.value;
+      final id = notificationIdForKey(key);
+      await _gateway.schedule(
+        ScheduledReminder(
+          id: id,
+          title: s.personalReminderTitle.replaceAll('{name}', reminder.name),
+          body: reminder.description ?? '',
+          at: at,
+          style: ReminderStyle.banner,
+          payload: personalReminderPayload(reminder.id, at, reminder.byCaregiver),
+          actions: [
+            ReminderAction(reminderActionDone, s.testDoneAction),
+            ReminderAction(reminderActionLater, s.personalLaterAction),
+          ],
+        ),
+        exact: exact,
+      );
+      await _upsertRow(key, id, at);
+    }
+    _appliedExact[_personalKind] = exact;
+  }
+
+  /// Cancels a key's own notification and, for a test reminder, its daily ones.
+  Future<void> _cancelHealthKey(String key, int notificationId) async {
+    for (var day = 0; day < _maxTestDaysEver; day++) {
+      await _gateway.cancel(notificationIdForKey('$key#$day'));
+      await _gateway.cancel(notificationIdForKey('$key#$day/quiet'));
+    }
+    await _cancelKey(key, notificationId);
+  }
+
+  /// "Later" on a test reminder: only today's notification goes (the action
+  /// already removed it); the next day's ring stays as scheduled.
+  Future<void> dismissTestReminderDay(String reminderId, int day) async {
+    final key = '$_healthKeyPrefix$reminderId';
+    await _gateway.cancel(notificationIdForKey('$key#$day'));
+    await _gateway.cancel(notificationIdForKey('$key#$day/quiet'));
   }
 
   /// Cancels a health reminder's notification immediately (e.g. completed offline).
@@ -346,7 +533,7 @@ class NotificationScheduler {
     final row = await (_db.select(_db.scheduledMedicineNotifications)
           ..where((t) => t.doseId.equals(key)))
         .getSingleOrNull();
-    if (row != null) await _cancelKey(key, row.notificationId);
+    if (row != null) await _cancelHealthKey(key, row.notificationId);
   }
 
   Future<void> cancelAll() async {
@@ -354,6 +541,8 @@ class NotificationScheduler {
     for (final row in all) {
       if (row.doseId.startsWith(_groupKeyPrefix)) {
         await _cancelGroup(row.doseId, keepSnooze: false);
+      } else if (row.doseId.startsWith(_healthKeyPrefix)) {
+        await _cancelHealthKey(row.doseId, row.notificationId);
       } else if (!row.doseId.startsWith(_snoozeKeyPrefix)) {
         await _gateway.cancel(row.notificationId);
       }

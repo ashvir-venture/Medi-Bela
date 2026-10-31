@@ -33,6 +33,7 @@ describe('sign-up consent (Privacy & terms)', () => {
       gender: { findUnique: jest.fn(async () => ({ id: 1 })) },
       upazila: { findUnique: jest.fn(async () => ({ id: 1, districtId: 1, district: { divisionId: 1 } })) },
       user: {
+        findFirst: jest.fn(async () => null),
         create: jest.fn(async ({ data }: any) => (created = { id: 'u1', role: 'USER', ...data })),
       },
     };

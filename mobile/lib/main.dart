@@ -8,8 +8,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app.dart';
 import 'firebase_options.dart';
 import 'notifications/push_service.dart' show localNotificationTaps;
+import 'features/medicine_box/data/medicine_box_alerts.dart' show boxActionRefill, boxRefillPayload;
 import 'notifications/reminder_actions.dart';
 import 'notifications/reminder_preference.dart';
+import 'notifications/reminder_timing.dart';
 import 'providers/core_providers.dart';
 
 /// Shared plugin instance for scheduling on-device reminders (medicine
@@ -25,6 +27,11 @@ Future<void> _initLocalNotifications(ProviderContainer container) async {
       // background isolate, with the app's own services.
       if (isReminderAction(response)) {
         handleReminderAction(container, response);
+        return;
+      }
+      // Refill on "a medicine ran out": straight to its refill form.
+      if (response.actionId == boxActionRefill) {
+        localNotificationTaps.add(boxRefillPayload(response.payload));
         return;
       }
       // Taps on notifications the app displayed itself (reminders, or a push
@@ -63,6 +70,8 @@ Future<void> main() async {
   }
 
   initTimeZones();
+  // Reminder timings the server last sent (its .env), before anything is scheduled.
+  await ReminderTiming.load();
   final reminders = ReminderPreference();
   await reminders.load();
   final container = ProviderContainer(

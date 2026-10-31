@@ -79,6 +79,7 @@ export function PrescriptionQueue({ basePath, intro }: { basePath: string; intro
                   <strong>
                     {p.user.name}
                     {p.previousPrescriptionId && <span className="badge badge-draft tag">Re-upload</span>}
+                    {p.editRequestNote && <span className="badge badge-draft tag">Edit requested</span>}
                   </strong>
                 ),
               },

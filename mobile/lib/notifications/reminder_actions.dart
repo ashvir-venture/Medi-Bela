@@ -20,7 +20,9 @@ import '../main.dart' show flutterLocalNotificationsPlugin;
 import '../providers/core_providers.dart';
 import 'local_notifications_gateway.dart';
 import 'notification_scheduler.dart';
+import '../features/medicine_box/data/medicine_box_alerts.dart' show boxActionIgnore, medicineBoxType;
 import 'reminder_preference.dart';
+import 'reminder_timing.dart';
 
 /// Done / Later on a medicine reminder, and the server's backstop push.
 ///
@@ -65,11 +67,94 @@ class ReminderPayload {
   }
 }
 
+/// Decoded test-reminder payload (see [testReminderPayload]).
+class TestReminderPayload {
+  const TestReminderPayload(this.reminderId, this.day);
+  final String reminderId;
+  final int day;
+
+  static TestReminderPayload? tryParse(String? payload) {
+    if (payload == null || payload.isEmpty) return null;
+    try {
+      final map = jsonDecode(payload) as Map<String, dynamic>;
+      if (map['type'] != testReminderType) return null;
+      return TestReminderPayload(map['reminderId'] as String, map['day'] as int);
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
 bool isReminderAction(NotificationResponse response) =>
-    response.actionId == reminderActionDone || response.actionId == reminderActionLater;
+    response.actionId == reminderActionDone ||
+    response.actionId == reminderActionLater ||
+    response.actionId == boxActionIgnore;
+
+/// Personal reminder (Round 13): Done just clears it; Later on one the
+/// caregiver set up tells them (best effort: offline it is skipped).
+Future<void> _handlePersonalAction(ProviderContainer container, Map<String, dynamic> data, String? actionId) async {
+  if (actionId != reminderActionLater || data['byCaregiver'] != true) return;
+  final id = data['reminderId'];
+  final at = data['at'];
+  if (id is! String || at is! int) return;
+  try {
+    await container.read(personalReminderApiProvider).later(id, DateTime.fromMillisecondsSinceEpoch(at));
+  } catch (_) {}
+}
+
+/// Medicine box "ran out": Ignore tells the caregiver (Refill opens the app).
+Future<void> _handleBoxAction(ProviderContainer container, Map<String, dynamic> data, String? actionId) async {
+  final routineId = data['routineId'];
+  if (actionId != boxActionIgnore || routineId is! String) return;
+  try {
+    await container.read(medicineBoxRepositoryProvider).ignore(routineId);
+  } catch (_) {}
+}
+
+Map<String, dynamic>? _payloadOf(String? payload, String type) {
+  if (payload == null || payload.isEmpty) return null;
+  try {
+    final map = Map<String, dynamic>.from(jsonDecode(payload) as Map);
+    return map['type'] == type ? map : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Done on a test reminder marks it done; Later only clears today's
+/// notification (tomorrow's ring is already scheduled).
+Future<void> handleTestReminderAction(
+  ProviderContainer container,
+  TestReminderPayload payload,
+  String? actionId,
+) async {
+  if (actionId == reminderActionLater) {
+    await container.read(notificationSchedulerProvider).dismissTestReminderDay(payload.reminderId, payload.day);
+    return;
+  }
+  if (actionId != reminderActionDone) return;
+  if (await container.read(healthReminderRepositoryProvider).markComplete(payload.reminderId)) {
+    await container.read(syncServiceProvider).drainQueue();
+  }
+}
 
 /// Applies Done / Later using [container]'s services.
 Future<void> handleReminderAction(ProviderContainer container, NotificationResponse response) async {
+  final personal = _payloadOf(response.payload, personalReminderType);
+  if (personal != null) {
+    await _handlePersonalAction(container, personal, response.actionId);
+    return;
+  }
+  final box = _payloadOf(response.payload, medicineBoxType);
+  if (box != null) {
+    await _handleBoxAction(container, box, response.actionId);
+    return;
+  }
+  final test = TestReminderPayload.tryParse(response.payload);
+  if (test != null) {
+    await handleTestReminderAction(container, test, response.actionId);
+    return;
+  }
   final payload = ReminderPayload.tryParse(response.payload);
   if (payload == null) return;
   final scheduler = container.read(notificationSchedulerProvider);
@@ -80,7 +165,8 @@ Future<void> handleReminderAction(ProviderContainer container, NotificationRespo
   }
   if (response.actionId != reminderActionDone) return;
 
-  // Done marks every untaken dose of this time taken (decision: grouped).
+  // Done marks every untaken dose of this time taken (decision: grouped),
+  // each only inside its taken window (a stale silent copy may be late).
   final repository = container.read(medicineScheduleRepositoryProvider);
   for (final doseId in await scheduler.pendingDoseIdsAt(payload.at)) {
     await repository.markDoseTaken(doseId);
@@ -155,6 +241,7 @@ Future<ProviderContainer> openBackgroundContainer() async {
       prefs.getString(PrefsKeys.languageCode) == 'bn' ? bnStrings : enStrings;
   final reminders = ReminderPreference();
   await reminders.load();
+  await ReminderTiming.load();
 
   return ProviderContainer(
     overrides: [

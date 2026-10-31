@@ -18,7 +18,7 @@ d('Phase 4B over HTTP (real AppModule + Postgres)', () => {
 
   async function account(role: 'USER' | 'ADMIN' | 'PHARMACIST', name = role) {
     seq += 1;
-    const phone = `+88017100${String(seq).padStart(5, '0')}`;
+    const phone = `017100${String(seq).padStart(5, '0')}`;
     const res = await http().post('/api/auth/register').send({ phone, name: `${name} ${seq}`, password: 'pass1234', ...(await signupDetails(prisma)) }).expect(201);
     if (role !== 'USER') await prisma.user.update({ where: { id: res.body.user.id }, data: { role } });
     return { token: res.body.tokens.accessToken as string, id: res.body.user.id as string };

@@ -1,5 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { AccountStatus, FamilyRole, NotificationType, Role } from '@prisma/client';
+import { AccountStatus, FamilyRole, Language, NotificationType, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CaregiverAction, messages } from '../notifications/notification-messages';
@@ -51,6 +51,34 @@ export class CaregiverAccessService {
       }
     }
     throw new NotFoundException('Family member not found');
+  }
+
+  /**
+   * The caregiver of [memberId]'s family who may hear about them: the member
+   * shares with family and is active, the caregiver is active and isn't the
+   * member. Null otherwise.
+   */
+  async caregiverOf(memberId: string): Promise<{ id: string; languagePreference: Language; memberName: string } | null> {
+    const member = await this.prisma.familyMember.findUnique({
+      where: { userId: memberId },
+      select: {
+        familyId: true,
+        user: { select: { name: true, profileVisibleToFamily: true, accountStatus: true } },
+      },
+    });
+    if (!member || !member.user.profileVisibleToFamily || member.user.accountStatus !== AccountStatus.ACTIVE) {
+      return null;
+    }
+    const caregiver = await this.prisma.familyMember.findFirst({
+      where: {
+        familyId: member.familyId,
+        role: FamilyRole.CAREGIVER,
+        userId: { not: memberId },
+        user: { accountStatus: AccountStatus.ACTIVE },
+      },
+      select: { user: { select: { id: true, languagePreference: true } } },
+    });
+    return caregiver ? { ...caregiver.user, memberName: member.user.name } : null;
   }
 
   /**

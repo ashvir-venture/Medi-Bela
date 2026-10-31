@@ -17,6 +17,8 @@ class PrescriptionMedicineModel {
     this.durationDays,
     this.continuous = false,
     this.startDate,
+    this.intervalDays = 1,
+    this.formName,
   });
 
   final String id;
@@ -34,8 +36,13 @@ class PrescriptionMedicineModel {
   final int? durationDays;
   final bool continuous;
   final DateTime? startDate;
+  /// Every N days (1 = every day).
+  final int intervalDays;
+  /// Tablet, Syrup... as the pharmacist set it.
+  final String? formName;
 
   factory PrescriptionMedicineModel.fromJson(Map<String, dynamic> json) {
+    final form = json['form'] ?? (json['medicine'] as Map<String, dynamic>?)?['form'];
     return PrescriptionMedicineModel(
       id: json['id'] as String,
       medicineName: json['medicineName'] as String,
@@ -51,6 +58,40 @@ class PrescriptionMedicineModel {
       durationDays: json['durationDays'] as int?,
       continuous: json['continuous'] as bool? ?? false,
       startDate: json['startDate'] == null ? null : DateTime.parse(json['startDate'] as String),
+      intervalDays: json['intervalDays'] as int? ?? 1,
+      formName: form is Map ? form['name'] as String? : null,
+    );
+  }
+}
+
+/// A test on a prescription with its reminder details (from the detail).
+class PrescriptionTestModel {
+  const PrescriptionTestModel({
+    required this.name,
+    this.date,
+    this.time,
+    this.mealTiming,
+    this.note,
+  });
+
+  final String name;
+  /// Null: the reminder comes 3 days after confirming.
+  final DateTime? date;
+  /// "HH:mm"; null = 08:00.
+  final String? time;
+  final String? mealTiming;
+  final String? note;
+
+  factory PrescriptionTestModel.fromJson(Map<String, dynamic> json) {
+    final test = json['test'] as Map<String, dynamic>?;
+    final meal = json['mealTiming'];
+    final date = json['scheduledDate'] as String?;
+    return PrescriptionTestModel(
+      name: test?['name'] as String? ?? '',
+      date: date == null ? null : DateTime.parse(date.substring(0, 10)),
+      time: json['time'] as String?,
+      mealTiming: meal is Map ? meal['name'] as String? : null,
+      note: json['note'] as String?,
     );
   }
 }
@@ -120,9 +161,11 @@ class PrescriptionDetailModel extends PrescriptionSummaryModel {
     super.uploadedByCaregiver,
     super.confirmedByCaregiver,
     this.reviewedByName,
+    this.tests = const [],
   });
 
   final String? reviewedByName;
+  final List<PrescriptionTestModel> tests;
 
   factory PrescriptionDetailModel.fromJson(Map<String, dynamic> json) {
     final medicinesJson = json['medicines'] as List<dynamic>? ?? [];
@@ -139,6 +182,9 @@ class PrescriptionDetailModel extends PrescriptionSummaryModel {
       reviewedByName: reviewedBy?['name'] as String?,
       uploadedByCaregiver: json['uploadedByCaregiver'] as bool? ?? false,
       confirmedByCaregiver: json['confirmedByCaregiver'] as bool? ?? false,
+      tests: (json['tests'] as List<dynamic>? ?? const [])
+          .map((t) => PrescriptionTestModel.fromJson(t as Map<String, dynamic>))
+          .toList(),
     );
   }
 }

@@ -53,6 +53,24 @@ class ReminderCheckScreen extends ConsumerWidget {
                 onAction: service.requestExactAlarms,
               ),
               _CheckTile(
+                icon: Icons.open_in_full,
+                title: strings.overlayLabel,
+                ok: status.overlayAllowed,
+                okText: strings.overlayAllowed,
+                problemText: strings.overlayDenied,
+                actionLabel: strings.allowAction,
+                onAction: service.requestOverlay,
+              ),
+              _CheckTile(
+                icon: Icons.screen_lock_portrait_outlined,
+                title: strings.fullScreenIntentLabel,
+                ok: status.fullScreenAllowed,
+                okText: strings.fullScreenIntentAllowed,
+                problemText: strings.fullScreenIntentDenied,
+                actionLabel: strings.allowAction,
+                onAction: service.requestFullScreen,
+              ),
+              _CheckTile(
                 icon: Icons.battery_alert_outlined,
                 title: strings.batteryLabel,
                 ok: status.batteryUnrestricted,
@@ -62,6 +80,8 @@ class ReminderCheckScreen extends ConsumerWidget {
                 onAction: service.openBatterySettings,
               ),
               const SizedBox(height: 16),
+              Text(strings.fullScreenFallback, style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(height: 8),
               Text(
                 strings.reminderVendorTip,
                 style: Theme.of(context).textTheme.bodySmall,

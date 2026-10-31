@@ -108,4 +108,17 @@ export class MedicineEntryDto {
   @IsOptional()
   @IsBoolean()
   continuous?: boolean;
+
+  /** A medicine_forms row (Tablet, Syrup...). */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  formId?: number;
+
+  /** Every N days (1 = every day, the default). */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(90)
+  intervalDays?: number;
 }

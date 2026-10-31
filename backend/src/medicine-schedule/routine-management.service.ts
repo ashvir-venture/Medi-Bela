@@ -37,14 +37,16 @@ export function presentRoutine<
 }
 
 /** Readable text kept on the routine for older app screens. */
-function describe(input: {
+export function describe(input: {
   strength?: string | null;
   doseAmount?: string | null;
   timesPerDay: number;
+  intervalDays?: number;
   mealName?: string | null;
 }) {
   const dosage = [input.strength, input.doseAmount].filter(Boolean).join(', ') || '-';
-  const times = `${input.timesPerDay} ${input.timesPerDay === 1 ? 'time' : 'times'} a day`;
+  const every = input.intervalDays && input.intervalDays > 1 ? `every ${input.intervalDays} days` : 'a day';
+  const times = `${input.timesPerDay} ${input.timesPerDay === 1 ? 'time' : 'times'} ${every}`;
   return { dosage, frequency: [times, input.mealName].filter(Boolean).join(', ') };
 }
 
@@ -70,7 +72,7 @@ export class RoutineManagementService {
     const routines = await this.prisma.medicineRoutine.findMany({
       where: { userId, active: true },
       orderBy: { startDate: 'asc' },
-      include: { mealTiming: true },
+      include: { mealTiming: true, form: true },
     });
     return routines.map(presentRoutine);
   }
@@ -87,6 +89,7 @@ export class RoutineManagementService {
       throw new BadRequestException("The start date can't be in the past");
     }
     const mealName = await this.mealName(dto.mealTimingId);
+    await this.assertForm(dto.formId);
     if (dto.medicineId) {
       const exists = await this.prisma.medicine.findUnique({ where: { id: dto.medicineId }, select: { id: true } });
       if (!exists) throw new BadRequestException('Medicine not found');
@@ -98,6 +101,7 @@ export class RoutineManagementService {
         startDate: dto.startDate ? dateOnly(dto.startDate) : null,
         durationDays: dto.continuous ? null : dto.durationDays ?? null,
         continuous: dto.continuous ?? false,
+        intervalDays: dto.intervalDays ?? 1,
       },
       now,
     );
@@ -119,11 +123,13 @@ export class RoutineManagementService {
           strength: dto.strength || null,
           doseAmount: dto.doseAmount || null,
           mealTimingId: dto.mealTimingId ?? null,
+          formId: dto.formId ?? null,
+          intervalDays: dto.intervalDays ?? 1,
           scheduleTimes: JSON.stringify(dto.scheduleTimes),
           generatedUntil: plan.generatedUntil,
           createdById: acting.actorId,
         },
-        include: { mealTiming: true },
+        include: { mealTiming: true, form: true },
       });
       await tx.medicineDose.createMany({
         data: plan.doses.map((d) => ({ routineId: created.id, userId: acting.subjectId, scheduledAt: d.scheduledAt })),
@@ -152,10 +158,18 @@ export class RoutineManagementService {
     const currentTimes = parseScheduleTimes(routine.scheduleTimes);
 
     if (fromPrescription) {
-      const pharmacistFields = ['medicineName', 'strength', 'doseAmount', 'timesPerDay', 'durationDays', 'continuous'] as const;
+      const pharmacistFields = [
+        'medicineName',
+        'strength',
+        'doseAmount',
+        'timesPerDay',
+        'durationDays',
+        'continuous',
+        'formId',
+      ] as const;
       if (pharmacistFields.some((f) => dto[f] !== undefined)) {
         throw new BadRequestException(
-          "Only dose times and meal timing can be changed on a pharmacist's medicine",
+          "Only dose times, meal timing and every N days can be changed on a pharmacist's medicine",
         );
       }
     }
@@ -180,19 +194,24 @@ export class RoutineManagementService {
 
     const mealTimingId = dto.mealTimingId === undefined ? routine.mealTimingId : dto.mealTimingId;
     const mealName = await this.mealName(mealTimingId);
+    const formId = dto.formId === undefined ? routine.formId : dto.formId;
+    await this.assertForm(dto.formId);
+    const intervalDays = dto.intervalDays ?? routine.intervalDays;
     const strength = dto.strength === undefined ? routine.strength : dto.strength || null;
     const doseAmount = dto.doseAmount === undefined ? routine.doseAmount : dto.doseAmount || null;
     const text = fromPrescription
-      ? { dosage: routine.dosage, frequency: describe({ timesPerDay, mealName }).frequency }
-      : describe({ strength, doseAmount, timesPerDay, mealName });
+      ? { dosage: routine.dosage, frequency: describe({ timesPerDay, intervalDays, mealName }).frequency }
+      : describe({ strength, doseAmount, timesPerDay, intervalDays, mealName });
     const scheduleChanged =
-      JSON.stringify(times) !== JSON.stringify(currentTimes) || endDate?.getTime() !== routine.endDate?.getTime();
+      JSON.stringify(times) !== JSON.stringify(currentTimes) ||
+      endDate?.getTime() !== routine.endDate?.getTime() ||
+      intervalDays !== routine.intervalDays;
 
     const now = new Date();
     const updated = await this.prisma.$transaction(async (tx) => {
       let generatedUntil = routine.generatedUntil;
       if (scheduleChanged) {
-        generatedUntil = await this.regenerateFutureDoses(tx, routine, times, endDate, now);
+        generatedUntil = await this.regenerateFutureDoses(tx, routine, times, endDate, intervalDays, now);
       }
       const saved = await tx.medicineRoutine.update({
         where: { id: routine.id },
@@ -203,13 +222,15 @@ export class RoutineManagementService {
           dosage: text.dosage,
           frequency: text.frequency,
           mealTimingId,
+          formId,
+          intervalDays,
           scheduleTimes: JSON.stringify(times),
           endDate,
           generatedUntil,
           lastEditedById: acting.actorId,
           lastEditedAt: now,
         },
-        include: { mealTiming: true },
+        include: { mealTiming: true, form: true },
       });
       await this.audit.record(
         {
@@ -218,8 +239,19 @@ export class RoutineManagementService {
           action: 'routine.update',
           entityType: 'routine',
           entityId: routine.id,
-          before: { scheduleTimes: currentTimes, mealTimingId: routine.mealTimingId, endDate: routine.endDate?.toISOString() ?? null },
-          after: { scheduleTimes: times, mealTimingId, endDate: endDate?.toISOString() ?? null, byCaregiver: acting.byCaregiver },
+          before: {
+            scheduleTimes: currentTimes,
+            mealTimingId: routine.mealTimingId,
+            intervalDays: routine.intervalDays,
+            endDate: routine.endDate?.toISOString() ?? null,
+          },
+          after: {
+            scheduleTimes: times,
+            mealTimingId,
+            intervalDays,
+            endDate: endDate?.toISOString() ?? null,
+            byCaregiver: acting.byCaregiver,
+          },
         },
         tx,
       );
@@ -270,6 +302,12 @@ export class RoutineManagementService {
     return routine;
   }
 
+  private async assertForm(formId: number | null | undefined) {
+    if (!formId) return;
+    const form = await this.prisma.medicineForm.findUnique({ where: { id: formId }, select: { id: true } });
+    if (!form) throw new BadRequestException('Unknown medicine form');
+  }
+
   private async mealName(mealTimingId: number | null | undefined) {
     if (!mealTimingId) return null;
     const meal = await this.prisma.mealTiming.findUnique({ where: { id: mealTimingId } });
@@ -287,6 +325,7 @@ export class RoutineManagementService {
     routine: MedicineRoutine,
     times: string[],
     endDate: Date | null,
+    intervalDays: number,
     now: Date,
   ) {
     await tx.medicineDose.deleteMany({
@@ -303,7 +342,7 @@ export class RoutineManagementService {
     const from = start > today ? start : today;
     const limit = generationLimit(endDate, now);
     const until = limit > from ? limit : from;
-    const doses = dosesForDays(times, from, until).filter(
+    const doses = dosesForDays(times, from, until, { days: intervalDays, anchor: start }).filter(
       (d) => d.scheduledAt >= now && !keptTimes.has(d.scheduledAt.getTime()),
     );
     if (doses.length) {

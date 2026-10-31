@@ -90,6 +90,8 @@ class HealthReminderRepository {
                   completedAt: Value(r.completedAt),
                   syncState: const Value('synced'),
                   cachedAt: now,
+                  kind: Value(r.kind),
+                  mealTiming: Value(r.mealTiming),
                 ),
               );
         }
@@ -101,14 +103,27 @@ class HealthReminderRepository {
     }
   }
 
+  Future<HealthReminderModel?> getById(String id) async {
+    final row = await (_db.select(_db.cachedHealthReminders)..where((t) => t.id.equals(id)))
+        .getSingleOrNull();
+    return row == null ? null : _rowToModel(row);
+  }
+
+  Stream<HealthReminderModel?> watchById(String id) =>
+      (_db.select(_db.cachedHealthReminders)..where((t) => t.id.equals(id)))
+          .watchSingleOrNull()
+          .map((row) => row == null ? null : _rowToModel(row));
+
   /// Marks [id] COMPLETED immediately, locally — works offline. Queued
-  /// for upload via the outbox; see `HealthReminderSyncHandler`.
-  Future<void> markComplete(String id) async {
+  /// for upload via the outbox; see `HealthReminderSyncHandler`. Not before
+  /// its time (an upcoming reminder can't be done): returns false then.
+  Future<bool> markComplete(String id) async {
     final existing = await (_db.select(_db.cachedHealthReminders)..where((t) => t.id.equals(id)))
         .getSingleOrNull();
-    if (existing == null || existing.status == 'COMPLETED') return;
+    if (existing == null || existing.status == 'COMPLETED') return false;
 
     final now = DateTime.now();
+    if (!_rowToModel(existing).canCompleteAt(now)) return false;
     await _db.transaction(() async {
       await (_db.update(_db.cachedHealthReminders)..where((t) => t.id.equals(id))).write(
         CachedHealthRemindersCompanion(
@@ -130,6 +145,7 @@ class HealthReminderRepository {
           );
     });
     await _notifications.cancelForHealthReminder(id);
+    return true;
   }
 
   HealthReminderModel _rowToModel(CachedHealthReminder row) {
@@ -141,6 +157,8 @@ class HealthReminderRepository {
       status: row.status,
       completedAt: row.completedAt,
       syncState: row.syncState,
+      kind: row.kind,
+      mealTiming: row.mealTiming,
     );
   }
 }

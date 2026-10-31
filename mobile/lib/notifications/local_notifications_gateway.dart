@@ -2,6 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+import 'full_screen_alarms.dart';
+import 'reminder_timing.dart';
+import 'push_service.dart' show alarmRouteForPayload;
+
 /// Quiet/plain reminders (health reminders, the silent re-post of a medicine
 /// reminder once it has stopped ringing).
 const androidChannelId = 'medicine_reminders';
@@ -17,7 +21,8 @@ const alarmChannelId = 'medicine_alarm';
 const alarmChannelName = 'Medicine alarm';
 const alarmChannelDescription = 'Rings when it is time to take your medicine';
 
-const ringDuration = Duration(minutes: 2);
+/// REMINDER_RING_MINUTES on the server (ReminderTiming), default 2.
+Duration get ringDuration => Duration(minutes: ReminderTiming.current.ringMinutes);
 
 /// Action ids on medicine reminders (see reminder_actions.dart).
 const reminderActionDone = 'done';
@@ -33,12 +38,17 @@ enum ReminderStyle {
 
   /// The silent copy shown after the ringing one is removed.
   quiet,
+
+  /// A normal banner with sound and buttons (personal reminders, medicine box).
+  banner,
 }
 
 class ReminderAction {
-  const ReminderAction(this.id, this.label);
+  const ReminderAction(this.id, this.label, {this.opensApp = false});
   final String id;
   final String label;
+  /// Opens the app (e.g. Refill: a form); otherwise handled in the background.
+  final bool opensApp;
 }
 
 /// One notification to schedule. Text must stay neutral (no medicine names):
@@ -108,6 +118,9 @@ class FlutterLocalNotificationsGateway implements LocalNotificationsGateway {
           ? AndroidScheduleMode.exactAllowWhileIdle
           : AndroidScheduleMode.inexactAllowWhileIdle,
     );
+    // The same ring as a full screen over other apps (when allowed).
+    final route = reminder.style == ReminderStyle.ringing ? alarmRouteForPayload(reminder.payload) : null;
+    if (route != null && _isAndroid) await FullScreenAlarms.add(reminder.id, reminder.at, route);
   }
 
   @override
@@ -122,9 +135,18 @@ class FlutterLocalNotificationsGateway implements LocalNotificationsGateway {
   NotificationDetails _details(ScheduledReminder reminder) {
     final actions = [
       for (final a in reminder.actions)
-        AndroidNotificationAction(a.id, a.label, cancelNotification: true),
+        AndroidNotificationAction(a.id, a.label, cancelNotification: true, showsUserInterface: a.opensApp),
     ];
+    // Big text: the banner opens expanded where the phone allows it, text on
+    // top and the Done / Later buttons under it, without a swipe down.
+    final big = BigTextStyleInformation(
+      reminder.body,
+      contentTitle: '<b>${reminder.title}</b>',
+      htmlFormatContentTitle: true,
+    );
     final android = switch (reminder.style) {
+      // Ongoing while it rings: a swipe can't clear it; only a button or a
+      // tap on it (which opens the reminder page) does.
       ReminderStyle.ringing => AndroidNotificationDetails(
           alarmChannelId,
           alarmChannelName,
@@ -136,6 +158,12 @@ class FlutterLocalNotificationsGateway implements LocalNotificationsGateway {
           visibility: NotificationVisibility.public,
           additionalFlags: _insistent,
           timeoutAfter: ringDuration.inMilliseconds,
+          // Locked phone: opens the reminder page over the lock screen
+          // (Android 14+ only when the user allowed full-screen notifications).
+          fullScreenIntent: true,
+          styleInformation: big,
+          ongoing: true,
+          autoCancel: true,
           actions: actions,
         ),
       ReminderStyle.quiet => AndroidNotificationDetails(
@@ -147,6 +175,18 @@ class FlutterLocalNotificationsGateway implements LocalNotificationsGateway {
           silent: true,
           category: AndroidNotificationCategory.reminder,
           visibility: NotificationVisibility.public,
+          styleInformation: big,
+          actions: actions,
+        ),
+      ReminderStyle.banner => AndroidNotificationDetails(
+          androidChannelId,
+          androidChannelName,
+          channelDescription: androidChannelDescription,
+          importance: Importance.high,
+          priority: Priority.high,
+          category: AndroidNotificationCategory.reminder,
+          styleInformation: big,
+          autoCancel: true,
           actions: actions,
         ),
       ReminderStyle.plain => const AndroidNotificationDetails(
@@ -161,7 +201,10 @@ class FlutterLocalNotificationsGateway implements LocalNotificationsGateway {
   }
 
   @override
-  Future<void> cancel(int id) => _plugin.cancel(id);
+  Future<void> cancel(int id) async {
+    await _plugin.cancel(id);
+    if (_isAndroid) await FullScreenAlarms.remove(id);
+  }
 
   @override
   Future<bool> canScheduleExact() async {

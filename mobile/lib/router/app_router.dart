@@ -19,6 +19,8 @@ import '../features/help/presentation/help_screens.dart';
 import '../features/health/presentation/health_reminders_screen.dart';
 import '../features/health/presentation/health_screen.dart';
 import '../features/health/presentation/health_suggestions_screen.dart';
+import '../features/health/presentation/personal_reminders_screen.dart';
+import '../features/medicine_box/presentation/medicine_box_screens.dart';
 import '../features/home/presentation/home_screen.dart';
 import '../features/medicine_schedule/presentation/medicines_tab_screen.dart';
 import '../features/medicine_schedule/presentation/my_medicines_screen.dart';
@@ -30,7 +32,9 @@ import '../features/profile/presentation/edit_details_screen.dart';
 import '../features/profile/presentation/delete_account_screens.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/profile/presentation/settings_screen.dart';
+import '../features/reminders/presentation/full_screen_permission_screen.dart';
 import '../features/reminders/presentation/reminder_check_screen.dart';
+import '../features/reminders/presentation/reminder_pages.dart';
 import '../widgets/main_scaffold.dart';
 import '../widgets/not_found_screen.dart';
 import '../widgets/state_views.dart';
@@ -61,6 +65,26 @@ class AppRoutes {
   static const diabetes = '/diabetes';
   static const profile = '/profile';
   static const reminderCheck = '/profile/reminders';
+  static const fullScreenSetup = '/profile/reminders/full-screen';
+  // Round 13: personal reminders and the medicine box (?for=&name= = a
+  // caregiver looking after a member).
+  static const personalReminders = '/health/personal-reminders';
+  static const personalReminderForm = '/health/personal-reminders/form';
+  static String personalRemindersPath({String? forUserId, String? name}) => Uri(
+        path: personalReminders,
+        queryParameters: {if (forUserId != null) 'for': forUserId, if (name != null) 'name': name},
+      ).toString();
+  static const medicineBox = '/medicine-box';
+  static String medicineBoxPath({String? forUserId, String? name}) => Uri(
+        path: medicineBox,
+        queryParameters: {if (forUserId != null) 'for': forUserId, if (name != null) 'name': name},
+      ).toString();
+  static const medicineBoxForm = '/medicine-box/refill';
+  static String medicineBoxFormPath({String? routineId, String? forUserId}) => Uri(
+        path: medicineBoxForm,
+        queryParameters: {if (routineId != null) 'routine': routineId, if (forUserId != null) 'for': forUserId},
+      ).toString();
+  static const medicineBoxEmpty = '/medicine-box/empty';
   static const editDetails = '/profile/details';
   static const settings = '/profile/settings';
   static const deleteAccount = '/profile/settings/delete';
@@ -70,6 +94,9 @@ class AppRoutes {
   static const privacyTerms = '/help/privacy';
   static const support = '/help/support';
   static const aboutUs = '/help/about';
+  // Round 12: the page a reminder notification opens (?at=<ms>&stage=<n>).
+  static const doseReminder = '/reminder';
+  static const testReminder = '/test-reminder/:id';
 
   // Round 6. `for` = the family member a caregiver acts for.
   // Round 10: without `for`, /medicines is the Medicines tab (?tab=today |
@@ -162,6 +189,36 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) =>
             ResetPasswordScreen(initialPhone: state.extra as String?),
       ),
+      // Tapping a reminder (not its buttons): full-screen, no bottom tabs.
+      GoRoute(
+        path: AppRoutes.doseReminder,
+        builder: (context, state) {
+          final ms = int.tryParse(state.uri.queryParameters['at'] ?? '');
+          if (ms == null) return const NotFoundScreen();
+          return DoseReminderScreen(
+            at: DateTime.fromMillisecondsSinceEpoch(ms),
+            stage: int.tryParse(state.uri.queryParameters['stage'] ?? '') ?? 0,
+            alarm: state.uri.queryParameters['alarm'] == '1',
+          );
+        },
+      ),
+      // "A medicine ran out": full screen, like a reminder.
+      GoRoute(
+        path: AppRoutes.medicineBoxEmpty,
+        builder: (context, state) {
+          final routine = state.uri.queryParameters['routine'];
+          if (routine == null) return const NotFoundScreen();
+          return MedicineBoxEmptyScreen(routineId: routine, alarm: state.uri.queryParameters['alarm'] == '1');
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.testReminder,
+        builder: (context, state) => TestReminderScreen(
+          reminderId: state.pathParameters['id']!,
+          day: int.tryParse(state.uri.queryParameters['day'] ?? '') ?? 0,
+          alarm: state.uri.queryParameters['alarm'] == '1',
+        ),
+      ),
       ShellRoute(
         builder: (context, state, child) => MainScaffold(child: child),
         routes: [
@@ -232,6 +289,43 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.profile,
             builder: (context, state) => const ProfileScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.medicineBox,
+            builder: (context, state) {
+              final forUserId = state.uri.queryParameters['for'];
+              final screen = MedicineBoxScreen(forUserId: forUserId, memberName: state.uri.queryParameters['name']);
+              return forUserId == null ? screen : OnlineOnly(child: screen);
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.medicineBoxForm,
+            builder: (context, state) => OnlineOnly(
+              child: MedicineBoxFormScreen(
+                routineId: state.uri.queryParameters['routine'],
+                forUserId: state.uri.queryParameters['for'],
+              ),
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.personalReminders,
+            builder: (context, state) {
+              final forUserId = state.uri.queryParameters['for'];
+              final screen = PersonalRemindersScreen(forUserId: forUserId, memberName: state.uri.queryParameters['name']);
+              return forUserId == null ? screen : OnlineOnly(child: screen);
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.personalReminderForm,
+            builder: (context, state) => OnlineOnly(
+              child: PersonalReminderFormScreen(
+                args: state.extra as PersonalRemindersArgs? ?? const PersonalRemindersArgs(),
+              ),
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.fullScreenSetup,
+            builder: (context, state) => const FullScreenPermissionScreen(),
           ),
           GoRoute(
             path: AppRoutes.reminderCheck,

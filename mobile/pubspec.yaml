@@ -63,7 +63,10 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/logoEn.png
-    - assets/images/logoBn.png
+    # Logos and (Round 13) the full-screen pictures: medicine_image.png
+    # (medicine reminder), medical_test.png (test reminder), buying_medicine.png
+    # (medicine box ran out).
+    # A folder entry, so the build works before the picture is added.
+    - assets/images/
     # About us team photos, 320x320 (Round 11).
     - assets/images/team/

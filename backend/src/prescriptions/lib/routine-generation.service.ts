@@ -24,6 +24,9 @@ export interface GeneratedRoutine {
   strength: string | null;
   doseAmount: string | null;
   mealTimingId: number | null;
+  formId: number | null;
+  /** Every N days (1 = every day), counted from startDate. */
+  intervalDays: number;
   /** Stored on the routine so the rolling job can continue it. */
   scheduleTimes: string;
   /** Doses exist up to (excluding) this instant. */
@@ -31,10 +34,32 @@ export interface GeneratedRoutine {
   doses: GeneratedDose[];
 }
 
-/** One dose per schedule time on every app-timezone day in [fromDay, toDayExclusive). */
-export function dosesForDays(scheduleTimes: string[], fromDay: Date, toDayExclusive: Date): GeneratedDose[] {
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Every N days: a dosing day is a whole multiple of N days after the first one. */
+export interface DoseInterval {
+  days: number;
+  /** Start of the routine's first dosing day (app timezone). */
+  anchor: Date;
+}
+
+/**
+ * One dose per schedule time on every app-timezone day in
+ * [fromDay, toDayExclusive), or only on every Nth day from `interval.anchor`.
+ */
+export function dosesForDays(
+  scheduleTimes: string[],
+  fromDay: Date,
+  toDayExclusive: Date,
+  interval?: DoseInterval,
+): GeneratedDose[] {
   const doses: GeneratedDose[] = [];
+  const every = interval && interval.days > 1 ? interval : null;
   for (let day = fromDay; day < toDayExclusive; day = addAppDays(day, 1)) {
+    if (every) {
+      const offset = Math.round((day.getTime() - every.anchor.getTime()) / DAY_MS);
+      if (offset < 0 || offset % every.days !== 0) continue;
+    }
     for (const time of scheduleTimes) {
       doses.push({ scheduledAt: atAppTime(day, time) });
     }
@@ -61,15 +86,25 @@ export interface PlannedSchedule {
 }
 
 /**
- * Start, end and first doses of a schedule. The start defaults to today;
- * endDate is inclusive of the last dosing day (none when continuous).
+ * Start, end and first doses of a schedule. The start defaults to today, or
+ * to tomorrow for an every-N-days medicine (owner, 2026-10-31); endDate is
+ * inclusive of the last day of the course (none when continuous).
  * Shared by prescription routines and self-added ones.
  */
 export function planSchedule(
-  input: { scheduleTimes: string[]; startDate: Date | null; durationDays: number | null; continuous: boolean },
+  input: {
+    scheduleTimes: string[];
+    startDate: Date | null;
+    durationDays: number | null;
+    continuous: boolean;
+    intervalDays?: number;
+  },
   now: Date,
 ): PlannedSchedule {
-  const startDate = startOfAppDay(input.startDate ?? now);
+  const intervalDays = input.intervalDays ?? 1;
+  const startDate = input.startDate
+    ? startOfAppDay(input.startDate)
+    : addAppDays(startOfAppDay(now), intervalDays > 1 ? 1 : 0);
   const endDate =
     input.continuous || !input.durationDays ? null : addAppDays(startDate, input.durationDays - 1);
   const limit = generationLimit(endDate, now);
@@ -78,7 +113,10 @@ export function planSchedule(
   // Only times still ahead, by date and time (owner, 2026-10-31): confirming
   // at 15:00 doesn't create that morning's dose, which would show as missed.
   // The course keeps its dates; the rolling job and pause / resume follow the same rule.
-  const doses = dosesForDays(input.scheduleTimes, startDate, generatedUntil).filter((d) => d.scheduledAt > now);
+  const doses = dosesForDays(input.scheduleTimes, startDate, generatedUntil, {
+    days: intervalDays,
+    anchor: startDate,
+  }).filter((d) => d.scheduledAt > now);
   return { startDate, endDate, generatedUntil, doses };
 }
 
@@ -133,7 +171,13 @@ export class RoutineGenerationService {
     }
 
     const { startDate, endDate, generatedUntil, doses } = planSchedule(
-      { scheduleTimes, startDate: medicine.startDate, durationDays, continuous: medicine.continuous },
+      {
+        scheduleTimes,
+        startDate: medicine.startDate,
+        durationDays,
+        continuous: medicine.continuous,
+        intervalDays: medicine.intervalDays,
+      },
       completedAt,
     );
 
@@ -147,6 +191,8 @@ export class RoutineGenerationService {
       strength: medicine.strength,
       doseAmount: medicine.doseAmount,
       mealTimingId: medicine.mealTimingId,
+      formId: medicine.formId,
+      intervalDays: medicine.intervalDays,
       scheduleTimes: JSON.stringify(scheduleTimes),
       generatedUntil,
       doses,

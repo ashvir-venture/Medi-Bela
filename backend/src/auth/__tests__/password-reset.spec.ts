@@ -11,6 +11,7 @@ function setup(opts: { user?: any | null } = {}) {
   const prisma: any = {
     user: {
       findUnique: jest.fn(async () => user),
+      findFirst: jest.fn(async () => user),
       update: jest.fn(async ({ data }: any) => Object.assign(user, data)),
     },
     passwordResetCode: {

@@ -24,7 +24,7 @@ d('Round 6: confirm, routines and caregiver actions', () => {
 
   async function account(role: 'USER' | 'PHARMACIST', name: string, extra: Record<string, unknown> = {}) {
     seq += 1;
-    const phone = `+88017400${String(seq).padStart(5, '0')}`;
+    const phone = `017400${String(seq).padStart(5, '0')}`;
     const res = await http()
       .post('/api/auth/register')
       .send({ phone, name, password: 'pass1234', ...(await signupDetails(prisma)) })
@@ -87,7 +87,7 @@ d('Round 6: confirm, routines and caregiver actions', () => {
   it('registration requires the new details and checks the address chain; dropdown data is public', async () => {
     const details = await signupDetails(prisma);
     await http().get('/api/lookups').expect(200);
-    const base = { phone: '+8801741000001', name: 'New User', password: 'pass1234' };
+    const base = { phone: '01741000001', name: 'New User', password: 'pass1234' };
     await http().post('/api/auth/register').send(base).expect(400);
     const otherDistrict = await prisma.district.findFirst({ where: { id: { not: details.districtId as number } } });
     if (otherDistrict) {
@@ -137,6 +137,8 @@ d('Round 6: confirm, routines and caregiver actions', () => {
     await http().post(`/api/medicine-schedule/doses/${dose.id}/taken?forUserId=${mother.id}`).set(auth(carer.token)).send({}).expect(404);
     await http().post(`/api/medicine-schedule/doses/${dose.id}/taken`).set(auth(carer.token)).send({}).expect(404);
     expect((await prisma.medicineDose.findUnique({ where: { id: dose.id } })).status).toBe('PENDING');
+    // Due now (a dose can only be marked from its time on, Round 12).
+    await prisma.medicineDose.update({ where: { id: dose.id }, data: { scheduledAt: new Date(Date.now() - 5 * 60_000) } });
     await http().post(`/api/medicine-schedule/doses/${dose.id}/taken`).set(auth(mother.token)).send({}).expect(201);
 
     const notes = await prisma.notification.findMany({ where: { userId: mother.id, type: 'SYSTEM' } });

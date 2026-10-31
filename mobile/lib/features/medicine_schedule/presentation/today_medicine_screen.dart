@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/localization/app_strings.dart';
 import '../../../core/localization/locale_controller.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../router/app_router.dart';
 import '../../../widgets/state_views.dart';
 import '../../reminders/presentation/reminder_status_banner.dart';
@@ -154,10 +155,19 @@ class _DoseTile extends ConsumerWidget {
             ),
           ],
         ),
-        trailing: dose.canMarkTaken
-            ? FilledButton(
+        // Only from the dose's time until 1 hour before the medicine's next
+        // dose: an upcoming dose has no button (owner, 2026-10-31).
+        trailing: dose.canMarkTakenAt(DateTime.now())
+            ? FilledButton.icon(
+                // A clear, large green button (owner: marking is a button, never a tap on the row).
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(0, 52),
+                  backgroundColor: context.palette.success,
+                  foregroundColor: Theme.of(context).colorScheme.onError,
+                ),
                 onPressed: () => ref.read(markDoseTakenProvider)(dose.id),
-                child: Text(strings.markAsTaken),
+                icon: const Icon(Icons.check),
+                label: Text(strings.takenAction),
               )
             : null,
       ),

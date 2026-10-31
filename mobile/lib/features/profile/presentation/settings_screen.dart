@@ -127,6 +127,15 @@ class _SettingsContentState extends ConsumerState<_SettingsContent> {
           value: user.medicineRemindersEnabled,
           onChanged: _setMedicineReminders,
         ),
+        // Android only: the medicine alarm channel's own page (any ringtone).
+        if (Theme.of(context).platform == TargetPlatform.android)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.music_note_outlined),
+            title: Text(strings.reminderSoundLabel),
+            subtitle: Text(strings.reminderSoundHelp),
+            onTap: () => ref.read(reminderStatusServiceProvider).openReminderSoundSettings(),
+          ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(strings.noticesLabel),

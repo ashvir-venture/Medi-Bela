@@ -22,9 +22,14 @@ const clip = (value: string, max: number) =>
 export type CaregiverAction =
   | 'prescription_uploaded'
   | 'prescription_confirmed'
+  | 'prescription_edit_requested'
   | 'routine_added'
   | 'routine_updated'
-  | 'routine_removed';
+  | 'routine_removed'
+  | 'reminder_added'
+  | 'reminder_updated'
+  | 'reminder_removed'
+  | 'medicine_box_updated';
 
 const CAREGIVER_BODY: Record<CaregiverAction, { en: string; bn: string }> = {
   prescription_uploaded: {
@@ -34,6 +39,26 @@ const CAREGIVER_BODY: Record<CaregiverAction, { en: string; bn: string }> = {
   prescription_confirmed: {
     en: 'Your caregiver confirmed your prescription. Your reminders have started.',
     bn: 'আপনার পরিচর্যাকারী আপনার প্রেসক্রিপশন নিশ্চিত করেছেন। আপনার রিমাইন্ডার শুরু হয়েছে।',
+  },
+  prescription_edit_requested: {
+    en: 'Your caregiver asked the pharmacist to change your prescription.',
+    bn: 'আপনার পরিচর্যাকারী ফার্মাসিস্টকে আপনার প্রেসক্রিপশন পরিবর্তন করতে বলেছেন।',
+  },
+  reminder_added: {
+    en: 'Your caregiver set up a reminder for you.',
+    bn: 'আপনার পরিচর্যাকারী আপনার জন্য একটি রিমাইন্ডার যোগ করেছেন।',
+  },
+  reminder_updated: {
+    en: 'Your caregiver changed one of your reminders.',
+    bn: 'আপনার পরিচর্যাকারী আপনার একটি রিমাইন্ডার বদলেছেন।',
+  },
+  reminder_removed: {
+    en: 'Your caregiver removed one of your reminders.',
+    bn: 'আপনার পরিচর্যাকারী আপনার একটি রিমাইন্ডার সরিয়েছেন।',
+  },
+  medicine_box_updated: {
+    en: 'Your caregiver updated your medicine box.',
+    bn: 'আপনার পরিচর্যাকারী আপনার ওষুধের বাক্স হালনাগাদ করেছেন।',
   },
   routine_added: {
     en: 'Your caregiver added a medicine to your routine.',
@@ -69,6 +94,44 @@ export const messages = {
           title: 'Missed medicine',
           body: `${name} missed a scheduled medicine. Please check in with them.`,
         };
+  },
+
+  /** To the caregiver on a test reminder's third day. Names the member, not the test. */
+  testPendingCaregiver(lang: Language, memberName: string): MessageCopy {
+    const name = clip(memberName, 40);
+    return lang === Language.BN
+      ? {
+          title: 'পরীক্ষা বাকি',
+          body: `${name} দুই দিন ধরে একটি পরীক্ষা করাননি। অনুগ্রহ করে খোঁজ নিন।`,
+        }
+      : {
+          title: 'Test not done',
+          body: `${name} has not done a test for two days. Please check in with them.`,
+        };
+  },
+
+  /** To the caregiver who set up a reminder, when the member pressed Later on it. */
+  personalReminderLater(lang: Language, memberName: string): MessageCopy {
+    const name = clip(memberName, 40);
+    return lang === Language.BN
+      ? { title: 'রিমাইন্ডার পিছিয়েছে', body: `${name} আপনার দেওয়া একটি রিমাইন্ডার "পরে" করেছেন।` }
+      : { title: 'Reminder put off', body: `${name} pressed Later on a reminder you set up.` };
+  },
+
+  /** To the caregiver: a member ran out of a medicine and pressed Ignore. No medicine name. */
+  medicineBoxEmptyCaregiver(lang: Language, memberName: string): MessageCopy {
+    const name = clip(memberName, 40);
+    return lang === Language.BN
+      ? { title: 'ওষুধ শেষ', body: `${name}-এর একটি ওষুধ শেষ হয়ে গেছে। অনুগ্রহ করে খোঁজ নিন।` }
+      : { title: 'Medicine ran out', body: `${name} has run out of a medicine. Please check in with them.` };
+  },
+
+  /** To the caregiver: a member's prescription is ready to confirm. */
+  memberPrescriptionReady(lang: Language, memberName: string): MessageCopy {
+    const name = clip(memberName, 40);
+    return lang === Language.BN
+      ? { title: 'প্রেসক্রিপশন প্রস্তুত', body: `${name}-এর একটি প্রেসক্রিপশন নিশ্চিত করার জন্য প্রস্তুত।` }
+      : { title: 'Prescription ready', body: `A prescription for ${name} is ready to confirm.` };
   },
 
   /** Backstop for the app's own second reminder. Neutral: shared phones and lock screens. */

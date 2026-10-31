@@ -77,6 +77,8 @@ enum HealthReminderStatus {
   PENDING
   COMPLETED
   DISMISSED
+  // A test reminder not done by the end of its third day.
+  MISSED
 }
 
 enum HealthRecordType {
@@ -150,6 +152,8 @@ model User {
   notificationsEnabled     Boolean       @default(true)
   // Off: no medicine reminders, backstop pushes or missed-dose family alerts.
   medicineRemindersEnabled Boolean       @default(true)
+  // Round 13: when "Start your medicine box" was done (null = not started).
+  medicineBoxStartedAt     DateTime?
   // Off: notices are not pushed (still listed in the app).
   noticesEnabled           Boolean       @default(true)
   // The privacy flag, stored inverted: false = "Hide from family" switched
@@ -175,38 +179,42 @@ model User {
   // When the user ticked "I agree to the Privacy & terms" at sign-up (Round 11).
   termsAcceptedAt          DateTime?
 
-  familyMemberships      FamilyMember[]
-  sentInvitations        FamilyInvitation[]      @relation("InvitationSender")
-  prescriptions          Prescription[]          @relation("PrescriptionOwner")
-  reviewedPrescriptions  Prescription[]          @relation("PrescriptionReviewer")
-  verifiedMedicines      PrescriptionMedicine[]  @relation("MedicineVerifier")
-  medicineRoutines       MedicineRoutine[]
-  medicineDoses          MedicineDose[]
-  healthReminders        HealthReminder[]
-  healthRecords          HealthRecord[]
-  createdSuggestionRules HealthSuggestionRule[]  @relation("RuleCreator")
-  healthSuggestions      HealthSuggestion[]      @relation("SuggestionSubject")
-  publishedSuggestions   HealthSuggestion[]      @relation("SuggestionPublisher")
-  createdNotices         Notice[]                @relation("NoticeCreator")
-  notifications          Notification[]
-  deviceTokens           DeviceToken[]
-  assistantConversations AssistantConversation[]
-  passwordResetCode      PasswordResetCode?
-  gender                 Gender?                 @relation(fields: [genderId], references: [id], onDelete: Restrict)
-  division               Division?               @relation(fields: [divisionId], references: [id], onDelete: Restrict)
-  district               District?               @relation(fields: [districtId, divisionId], references: [id, divisionId], onDelete: Restrict)
-  upazila                Upazila?                @relation(fields: [upazilaId, districtId], references: [id, districtId], onDelete: Restrict)
-  createdDoctors         Doctor[]                @relation("DoctorCreator")
-  createdMedicines       Medicine[]              @relation("MedicineCreator")
-  editedRoutines         MedicineRoutine[]       @relation("RoutineEditor")
-  approvedNotices        Notice[]                @relation("NoticeApprover")
-  auditActions           AuditLog[]              @relation("AuditActor")
-  auditSubjectOf         AuditLog[]              @relation("AuditSubject")
-  uploadedPrescriptions  Prescription[]          @relation("PrescriptionUploader")
-  confirmedPrescriptions Prescription[]          @relation("PrescriptionConfirmer")
-  createdRoutines        MedicineRoutine[]       @relation("RoutineCreator")
-  familyEventsAbout      FamilyEvent[]           @relation("FamilyEventSubject")
-  familyEventsBy         FamilyEvent[]           @relation("FamilyEventActor")
+  familyMemberships        FamilyMember[]
+  sentInvitations          FamilyInvitation[]      @relation("InvitationSender")
+  prescriptions            Prescription[]          @relation("PrescriptionOwner")
+  reviewedPrescriptions    Prescription[]          @relation("PrescriptionReviewer")
+  verifiedMedicines        PrescriptionMedicine[]  @relation("MedicineVerifier")
+  medicineRoutines         MedicineRoutine[]
+  medicineDoses            MedicineDose[]
+  healthReminders          HealthReminder[]
+  healthRecords            HealthRecord[]
+  createdSuggestionRules   HealthSuggestionRule[]  @relation("RuleCreator")
+  healthSuggestions        HealthSuggestion[]      @relation("SuggestionSubject")
+  publishedSuggestions     HealthSuggestion[]      @relation("SuggestionPublisher")
+  createdNotices           Notice[]                @relation("NoticeCreator")
+  notifications            Notification[]
+  deviceTokens             DeviceToken[]
+  assistantConversations   AssistantConversation[]
+  passwordResetCode        PasswordResetCode?
+  gender                   Gender?                 @relation(fields: [genderId], references: [id], onDelete: Restrict)
+  division                 Division?               @relation(fields: [divisionId], references: [id], onDelete: Restrict)
+  district                 District?               @relation(fields: [districtId, divisionId], references: [id, divisionId], onDelete: Restrict)
+  upazila                  Upazila?                @relation(fields: [upazilaId, districtId], references: [id, districtId], onDelete: Restrict)
+  createdDoctors           Doctor[]                @relation("DoctorCreator")
+  createdMedicines         Medicine[]              @relation("MedicineCreator")
+  editedRoutines           MedicineRoutine[]       @relation("RoutineEditor")
+  approvedNotices          Notice[]                @relation("NoticeApprover")
+  auditActions             AuditLog[]              @relation("AuditActor")
+  auditSubjectOf           AuditLog[]              @relation("AuditSubject")
+  uploadedPrescriptions    Prescription[]          @relation("PrescriptionUploader")
+  confirmedPrescriptions   Prescription[]          @relation("PrescriptionConfirmer")
+  createdRoutines          MedicineRoutine[]       @relation("RoutineCreator")
+  personalReminders        PersonalReminder[]      @relation("PersonalReminderOwner")
+  createdPersonalReminders PersonalReminder[]      @relation("PersonalReminderCreator")
+  medicineStocks           MedicineStock[]         @relation("MedicineStockOwner")
+  updatedMedicineStocks    MedicineStock[]         @relation("MedicineStockUpdater")
+  familyEventsAbout        FamilyEvent[]           @relation("FamilyEventSubject")
+  familyEventsBy           FamilyEvent[]           @relation("FamilyEventActor")
 
   @@index([role])
   @@map("users")
@@ -310,18 +318,24 @@ model Prescription {
   uploadedById           String?            @db.Uuid
   confirmedById          String?            @db.Uuid
   confirmedAt            DateTime?
+  // The patient (or caregiver) asked for changes instead of confirming: the
+  // prescription went back to PENDING with this note for the pharmacist.
+  // Cleared when the pharmacist sends it again; editRequestedAt stays.
+  editRequestNote        String?
+  editRequestedAt        DateTime?
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
 
-  user        User                   @relation("PrescriptionOwner", fields: [userId], references: [id], onDelete: Cascade)
-  reviewedBy  User?                  @relation("PrescriptionReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
-  uploadedBy  User?                  @relation("PrescriptionUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
-  confirmedBy User?                  @relation("PrescriptionConfirmer", fields: [confirmedById], references: [id], onDelete: SetNull)
-  doctor      Doctor?                @relation(fields: [doctorId], references: [id], onDelete: SetNull)
-  previous    Prescription?          @relation("Reupload", fields: [previousPrescriptionId], references: [id], onDelete: SetNull)
-  reuploads   Prescription[]         @relation("Reupload")
-  medicines   PrescriptionMedicine[]
-  tests       PrescriptionTest[]
+  user          User                   @relation("PrescriptionOwner", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy    User?                  @relation("PrescriptionReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  uploadedBy    User?                  @relation("PrescriptionUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  confirmedBy   User?                  @relation("PrescriptionConfirmer", fields: [confirmedById], references: [id], onDelete: SetNull)
+  doctor        Doctor?                @relation(fields: [doctorId], references: [id], onDelete: SetNull)
+  previous      Prescription?          @relation("Reupload", fields: [previousPrescriptionId], references: [id], onDelete: SetNull)
+  reuploads     Prescription[]         @relation("Reupload")
+  medicines     PrescriptionMedicine[]
+  tests         PrescriptionTest[]
+  testReminders HealthReminder[]
 
   @@index([userId, status])
   // Admin queues: filter by status, newest first, cursor-paginated.
@@ -364,6 +378,11 @@ model PrescriptionMedicine {
   // Amount per dose, e.g. "1 tablet", "2 tsp".
   doseAmount     String?
   mealTimingId   Int?
+  // Tablet, Syrup... (medicine_forms). Prefilled from the catalog medicine.
+  formId         Int?
+  // Every N days (1 = every day). N > 1 starts the day after confirmation
+  // unless a start date is given.
+  intervalDays   Int       @default(1)
   // No end date: doses keep being generated (rolling) until stopped.
   continuous     Boolean   @default(false)
   verified       Boolean   @default(false)
@@ -376,6 +395,7 @@ model PrescriptionMedicine {
   verifiedBy   User?             @relation("MedicineVerifier", fields: [verifiedById], references: [id], onDelete: SetNull)
   medicine     Medicine?         @relation(fields: [medicineId], references: [id], onDelete: SetNull)
   mealTiming   MealTiming?       @relation(fields: [mealTimingId], references: [id], onDelete: Restrict)
+  form         MedicineForm?     @relation(fields: [formId], references: [id], onDelete: Restrict)
   routines     MedicineRoutine[]
 
   @@index([prescriptionId, revision])
@@ -397,6 +417,9 @@ model MedicineRoutine {
   strength               String?
   doseAmount             String?
   mealTimingId           Int?
+  formId                 Int?
+  // Doses on every Nth day counted from startDate (1 = every day).
+  intervalDays           Int           @default(1)
   // "HH:mm" JSON array, e.g. ["08:00","20:00"]. Set => the rolling job keeps
   // doses generated ahead (up to endDate, or with no end when endDate is
   // null). Null on routines created before Round 4: all their doses exist.
@@ -414,10 +437,12 @@ model MedicineRoutine {
   user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   prescriptionMedicine PrescriptionMedicine? @relation(fields: [prescriptionMedicineId], references: [id], onDelete: SetNull)
   mealTiming           MealTiming?           @relation(fields: [mealTimingId], references: [id], onDelete: Restrict)
+  form                 MedicineForm?         @relation(fields: [formId], references: [id], onDelete: Restrict)
   lastEditedBy         User?                 @relation("RoutineEditor", fields: [lastEditedById], references: [id], onDelete: SetNull)
   createdBy            User?                 @relation("RoutineCreator", fields: [createdById], references: [id], onDelete: SetNull)
   doses                MedicineDose[]
   healthSuggestions    HealthSuggestion[]
+  stock                MedicineStock?
 
   @@index([userId, active])
   // Pharmacist routine panel: newest first, keyset pages.
@@ -448,23 +473,85 @@ model MedicineDose {
   @@map("medicine_doses")
 }
 
-model HealthReminder {
-  id           String               @id @default(uuid()) @db.Uuid
-  userId       String               @db.Uuid
-  sourceRuleId String?              @db.Uuid
-  title        String
-  description  String?
-  scheduledAt  DateTime
-  status       HealthReminderStatus @default(PENDING)
-  completedAt  DateTime?
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
+/// Health-rule reminders, and test reminders (testId set): a prescription's
+/// test rings on its date (or 3 days after confirmation) and the next two
+/// days until Done; the caregiver is told on the third day, and it is MISSED
+/// after that.
+/// A reminder the user (or their caregiver) sets up themself (Round 13):
+/// "Time for your {name}" with the description, at its times every day or
+/// every N days. The app schedules it on the phone (banner, Done / Later);
+/// Later on one a caregiver set up tells the caregiver.
+model PersonalReminder {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @db.Uuid
+  name          String
+  description   String?
+  // "HH:mm" JSON array, like medicine_routines.scheduleTimes.
+  scheduleTimes String
+  intervalDays  Int       @default(1)
+  startDate     DateTime
+  endDate       DateTime?
+  active        Boolean   @default(true)
+  // Who set it up: the user or their caregiver.
+  createdById   String?   @db.Uuid
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  user       User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sourceRule HealthSuggestionRule? @relation(fields: [sourceRuleId], references: [id], onDelete: SetNull)
+  user      User  @relation("PersonalReminderOwner", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy User? @relation("PersonalReminderCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([userId, active])
+  @@map("personal_reminders")
+}
+
+/// Medicine box (Round 13): how many units of a routine's medicine were in
+/// the box at [countedAt]. What is left = quantity - units of the doses taken
+/// since then (units per dose = the number in the dose amount, else 1).
+model MedicineStock {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  routineId   String   @unique @db.Uuid
+  quantity    Float
+  countedAt   DateTime
+  updatedById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user      User            @relation("MedicineStockOwner", fields: [userId], references: [id], onDelete: Cascade)
+  routine   MedicineRoutine @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  updatedBy User?           @relation("MedicineStockUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("medicine_stocks")
+}
+
+model HealthReminder {
+  id                 String               @id @default(uuid()) @db.Uuid
+  userId             String               @db.Uuid
+  sourceRuleId       String?              @db.Uuid
+  // Test reminders: title = test name, description = the pharmacist's note.
+  prescriptionId     String?              @db.Uuid
+  testId             String?              @db.Uuid
+  mealTimingId       Int?
+  caregiverAlertedAt DateTime?
+  title              String
+  description        String?
+  scheduledAt        DateTime
+  status             HealthReminderStatus @default(PENDING)
+  completedAt        DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceRule   HealthSuggestionRule? @relation(fields: [sourceRuleId], references: [id], onDelete: SetNull)
+  prescription Prescription?         @relation(fields: [prescriptionId], references: [id], onDelete: SetNull)
+  test         DiagnosticTest?       @relation(fields: [testId], references: [id], onDelete: SetNull)
+  mealTiming   MealTiming?           @relation(fields: [mealTimingId], references: [id], onDelete: Restrict)
 
   @@index([userId, scheduledAt])
   @@index([userId, status])
+  // Test-reminder job: pending test reminders by time.
+  @@index([status, scheduledAt])
   @@map("health_reminders")
 }
 
@@ -745,9 +832,11 @@ model DoctorSpecialty {
 
 /// Tablet, Capsule, Syrup...
 model MedicineForm {
-  id        Int        @id @default(autoincrement())
-  name      String     @unique
-  medicines Medicine[]
+  id                Int                    @id @default(autoincrement())
+  name              String                 @unique
+  medicines         Medicine[]
+  prescriptionLines PrescriptionMedicine[]
+  routines          MedicineRoutine[]
 
   @@map("medicine_forms")
 }
@@ -766,6 +855,8 @@ model MealTiming {
   name              String                 @unique
   prescriptionLines PrescriptionMedicine[]
   routines          MedicineRoutine[]
+  prescriptionTests PrescriptionTest[]
+  healthReminders   HealthReminder[]
 
   @@map("meal_timings")
 }
@@ -848,16 +939,24 @@ model DiagnosticTest {
 
   category      TestCategory?      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   prescriptions PrescriptionTest[]
+  reminders     HealthReminder[]
 
   @@map("diagnostic_tests")
 }
 
 model PrescriptionTest {
-  prescriptionId String @db.Uuid
-  testId         String @db.Uuid
+  prescriptionId String    @db.Uuid
+  testId         String    @db.Uuid
+  // Optional test date; without one the reminder is 3 days after confirmation.
+  scheduledDate  DateTime? @db.Date
+  // "HH:mm" reminder time; null = 08:00.
+  time           String?
+  mealTimingId   Int?
+  note           String?
 
   prescription Prescription   @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
   test         DiagnosticTest @relation(fields: [testId], references: [id], onDelete: Restrict)
+  mealTiming   MealTiming?    @relation(fields: [mealTimingId], references: [id], onDelete: Restrict)
 
   @@id([prescriptionId, testId])
   @@map("prescription_tests")

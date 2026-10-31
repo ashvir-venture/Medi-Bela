@@ -16,10 +16,12 @@ export interface MedicineFormRow {
   medicineId: string | null; // catalog row; null = typed name, linked/created on save
   medicineName: string;
   formName: string | null;
+  formId: string; // medicine_forms id, '' = not set; prefilled from the catalog medicine
   strength: string;
   doseAmount: string;
   timesPerDay: string;
   scheduleTimes: string[]; // "HH:mm", one per dose
+  intervalDays: string; // '1' = every day; more = every N days
   mealTimingId: string;
   durationDays: string;
   continuous: boolean;
@@ -42,10 +44,12 @@ export function medicineToRow(m: PrescriptionMedicine): MedicineFormRow {
     medicineId: m.medicineId,
     medicineName: m.medicineName,
     formName: m.medicine?.form?.name ?? null,
+    formId: (m.formId ?? m.medicine?.form?.id)?.toString() ?? '',
     strength: m.strength ?? '',
     doseAmount: m.doseAmount ?? '',
     timesPerDay: m.timesPerDay?.toString() ?? '',
     scheduleTimes,
+    intervalDays: String(m.intervalDays ?? 1),
     mealTimingId: m.mealTimingId?.toString() ?? '',
     durationDays: m.durationDays?.toString() ?? '',
     continuous: m.continuous,
@@ -61,10 +65,12 @@ export function emptyRow(key: string): MedicineFormRow {
     medicineId: null,
     medicineName: '',
     formName: null,
+    formId: '',
     strength: '',
     doseAmount: '',
     timesPerDay: '',
     scheduleTimes: [],
+    intervalDays: '1',
     mealTimingId: '',
     durationDays: '',
     continuous: false,
@@ -78,6 +84,13 @@ function plural(n: number, one: string, many: string) {
   return `${n} ${n === 1 ? one : many}`;
 }
 
+/** Every N days ("Repeat" in the timing zone); a time defaults to the morning dose. */
+export const MORNING_TIME = '08:00';
+
+function everyText(intervalDays: number) {
+  return intervalDays > 1 ? `every ${intervalDays} days` : 'a day';
+}
+
 /** What is still missing before the prescription can be sent (mirrors the backend check). */
 export function rowProblems(row: MedicineFormRow): string[] {
   const problems: string[] = [];
@@ -86,6 +99,8 @@ export function rowProblems(row: MedicineFormRow): string[] {
   if (!times) problems.push('times per day');
   else if (row.scheduleTimes.filter(Boolean).length !== times) problems.push('dose times');
   if (!row.continuous && !Number(row.durationDays)) problems.push('duration');
+  const every = Number(row.intervalDays);
+  if (!Number.isInteger(every) || every < 1 || every > 90) problems.push('every N days (1-90)');
   return problems;
 }
 
@@ -102,6 +117,7 @@ export function rowToEntry(row: MedicineFormRow, mealTimings: LookupRow[]): Medi
   const mealTimingId = Number(row.mealTimingId) || undefined;
   const meal = mealTimings.find((m) => m.id === mealTimingId)?.name;
   const scheduleTimes = row.scheduleTimes.filter(Boolean);
+  const intervalDays = Math.max(1, Number(row.intervalDays) || 1);
 
   return {
     id: row.id,
@@ -111,7 +127,7 @@ export function rowToEntry(row: MedicineFormRow, mealTimings: LookupRow[]): Medi
     doseAmount: row.doseAmount.trim() || undefined,
     dosage: [row.strength.trim(), row.doseAmount.trim()].filter(Boolean).join(', ') || '-',
     frequency: timesPerDay
-      ? [`${plural(timesPerDay, 'time', 'times')} a day`, meal].filter(Boolean).join(', ')
+      ? [`${plural(timesPerDay, 'time', 'times')} ${everyText(intervalDays)}`, meal].filter(Boolean).join(', ')
       : '-',
     duration: row.continuous ? 'Continuous' : durationDays ? plural(durationDays, 'day', 'days') : '-',
     instructions: row.instructions.trim() || undefined,
@@ -121,6 +137,8 @@ export function rowToEntry(row: MedicineFormRow, mealTimings: LookupRow[]): Medi
     continuous: row.continuous,
     mealTimingId,
     startDate: row.startDate || undefined,
+    formId: Number(row.formId) || undefined,
+    intervalDays,
   };
 }
 
@@ -128,6 +146,7 @@ export function rowToEntry(row: MedicineFormRow, mealTimings: LookupRow[]): Medi
 export function MedicineSummary({
   row,
   mealTimings,
+  medicineForms,
   onEdit,
   onRemove,
   disabled,
@@ -135,6 +154,7 @@ export function MedicineSummary({
 }: {
   row: MedicineFormRow;
   mealTimings: LookupRow[];
+  medicineForms: LookupRow[];
   onEdit: () => void;
   onRemove: () => void;
   disabled: boolean;
@@ -142,9 +162,13 @@ export function MedicineSummary({
 }) {
   const times = Number(row.timesPerDay);
   const meal = mealTimings.find((m) => String(m.id) === row.mealTimingId)?.name;
+  const formName = medicineForms.find((f) => String(f.id) === row.formId)?.name ?? row.formName;
+  const every = Number(row.intervalDays) || 1;
   const parts = [
     [row.strength, row.doseAmount].filter(Boolean).join(', '),
-    times ? `${times}×/day${row.scheduleTimes.length ? ` (${row.scheduleTimes.join(', ')})` : ''}` : '',
+    times
+      ? `${times}×${every > 1 ? ` every ${every} days` : '/day'}${row.scheduleTimes.length ? ` (${row.scheduleTimes.join(', ')})` : ''}`
+      : '',
     meal ?? '',
     row.continuous ? 'continuous' : row.durationDays ? `${row.durationDays} days` : '',
   ].filter(Boolean);
@@ -154,7 +178,7 @@ export function MedicineSummary({
     <div className="line-summary">
       <div className="line-summary-text">
         <strong>{row.medicineName || 'Unnamed medicine'}</strong>
-        {row.formName && <span className="muted"> · {row.formName}</span>}
+        {formName && <span className="muted"> · {formName}</span>}
         <div className="muted">{parts.join(' · ') || 'No schedule yet'}</div>
         {!readOnly && problems.length > 0 && (
           <div className="line-warning">Missing: {problems.join(', ')}</div>
@@ -177,6 +201,7 @@ export function MedicineSummary({
 export function MedicineRowEditor({
   row,
   mealTimings,
+  medicineForms,
   onChange,
   onRemove,
   onDone,
@@ -184,6 +209,7 @@ export function MedicineRowEditor({
 }: {
   row: MedicineFormRow;
   mealTimings: LookupRow[];
+  medicineForms: LookupRow[];
   onChange: (row: MedicineFormRow) => void;
   onRemove: () => void;
   onDone: () => void;
@@ -198,6 +224,20 @@ export function MedicineRowEditor({
     // Keep entered times; add or drop empty slots to match the count.
     const scheduleTimes = Array.from({ length: n }, (_, i) => row.scheduleTimes[i] ?? '');
     onChange({ ...row, timesPerDay: value, scheduleTimes });
+  }
+
+  // Every N days: one dose a day on those days, at the morning time unless changed.
+  function setRepeat(everyN: boolean) {
+    if (!everyN) {
+      onChange({ ...row, intervalDays: '1' });
+      return;
+    }
+    onChange({
+      ...row,
+      intervalDays: Number(row.intervalDays) > 1 ? row.intervalDays : '2',
+      timesPerDay: row.timesPerDay || '1',
+      scheduleTimes: row.scheduleTimes.length ? row.scheduleTimes : [MORNING_TIME],
+    });
   }
 
   function setTime(index: number, value: string) {
@@ -226,7 +266,13 @@ export function MedicineRowEditor({
               </>
             )}
             onPick={(m) =>
-              onChange({ ...row, medicineId: m.id, medicineName: m.brandName, formName: m.form?.name ?? null })
+              onChange({
+                ...row,
+                medicineId: m.id,
+                medicineName: m.brandName,
+                formName: m.form?.name ?? null,
+                formId: m.form ? String(m.form.id) : row.formId,
+              })
             }
             placeholder="Start typing, e.g. Napa"
             disabled={disabled}
@@ -235,6 +281,22 @@ export function MedicineRowEditor({
           {row.medicineName.trim() && !row.medicineId && (
             <p className="hint">New medicine: it will be added to the catalog for you to complete later.</p>
           )}
+        </div>
+        <div className="field">
+          <label htmlFor={`${row.key}-form`}>Form</label>
+          <select
+            id={`${row.key}-form`}
+            value={row.formId}
+            onChange={(e) => set('formId', e.target.value)}
+            disabled={disabled}
+          >
+            <option value="">Not specified</option>
+            {medicineForms.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="field">
           <label htmlFor={`${row.key}-strength`}>Strength</label>
@@ -270,6 +332,35 @@ export function MedicineRowEditor({
             onChange={(e) => setTimesPerDay(e.target.value)}
             disabled={disabled}
           />
+        </div>
+        <div className="field">
+          <label htmlFor={`${row.key}-repeat`}>Repeat</label>
+          <select
+            id={`${row.key}-repeat`}
+            value={Number(row.intervalDays) > 1 ? 'every' : 'daily'}
+            onChange={(e) => setRepeat(e.target.value === 'every')}
+            disabled={disabled}
+          >
+            <option value="daily">Every day</option>
+            <option value="every">Every N days</option>
+          </select>
+          {Number(row.intervalDays) > 1 && (
+            <>
+              <input
+                id={`${row.key}-every`}
+                aria-label="Every how many days"
+                type="number"
+                min={2}
+                max={90}
+                className="input"
+                value={row.intervalDays}
+                onChange={(e) => set('intervalDays', e.target.value)}
+                disabled={disabled}
+                placeholder="Days"
+              />
+              <p className="hint">Starts the day after the patient confirms; 08:00 unless you change the time.</p>
+            </>
+          )}
         </div>
         <div className="field">
           <label htmlFor={`${row.key}-meal`}>Meal timing</label>

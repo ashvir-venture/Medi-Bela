@@ -24,7 +24,7 @@ describe('extendRoutine after a pause', () => {
   it('a long pause (generatedUntil weeks ago) starts from today and skips times already past: no back-filled doses', async () => {
     const f = fakePrisma();
     const stored = new Date(now.getTime() - 30 * DAY);
-    await extendRoutine(f.prisma, { id: 'r1', userId: 'u1', scheduleTimes: '["08:00","20:00"]', endDate: null, generatedUntil: stored }, now);
+    await extendRoutine(f.prisma, { id: 'r1', userId: 'u1', scheduleTimes: '["08:00","20:00"]', endDate: null, generatedUntil: stored, startDate: stored, intervalDays: 1 }, now);
     expect(f.created.length).toBeGreaterThan(0);
     expect(f.created.every((d) => d > now)).toBe(true);
     expect(Math.min(...f.created.map((d) => d.getTime()))).toBeLessThan(now.getTime() + DAY);
@@ -34,7 +34,7 @@ describe('extendRoutine after a pause', () => {
 
   it('paused today (generatedUntil = start of today): regenerates the rest of today, nothing before now', async () => {
     const f = fakePrisma();
-    await extendRoutine(f.prisma, { id: 'r1', userId: 'u1', scheduleTimes: '["08:00","20:00"]', endDate: null, generatedUntil: startOfAppDay(now) }, now);
+    await extendRoutine(f.prisma, { id: 'r1', userId: 'u1', scheduleTimes: '["08:00","20:00"]', endDate: null, generatedUntil: startOfAppDay(now), startDate: startOfAppDay(now), intervalDays: 1 }, now);
     expect(f.created.every((d) => d > now)).toBe(true);
     expect(Math.min(...f.created.map((d) => d.getTime()))).toBeLessThan(now.getTime() + DAY / 2);
   });

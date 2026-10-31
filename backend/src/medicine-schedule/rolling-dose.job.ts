@@ -13,6 +13,16 @@ const BATCH_SIZE = 200;
 /** One hourly run stops taking new batches after this long (20,000 patients took ~80 s). */
 const RUN_BUDGET_MS = 10 * 60_000;
 
+const ROUTINE_SELECT = {
+  id: true,
+  userId: true,
+  scheduleTimes: true,
+  endDate: true,
+  generatedUntil: true,
+  startDate: true,
+  intervalDays: true,
+} as const;
+
 /**
  * Keeps every active routine's doses generated ROLLING_HORIZON_DAYS ahead,
  * continuing from `generatedUntil` up to the routine's end (or with no end
@@ -73,6 +83,8 @@ export class RollingDoseJob {
         scheduleTimes: string | null;
         endDate: Date | null;
         generatedUntil: Date | null;
+        startDate: Date;
+        intervalDays: number;
       }[] = await this.prisma.medicineRoutine.findMany({
         where: {
           active: true,
@@ -97,7 +109,7 @@ export class RollingDoseJob {
         },
         orderBy: [{ generatedUntil: 'asc' }, { id: 'asc' }],
         take: BATCH_SIZE,
-        select: { id: true, userId: true, scheduleTimes: true, endDate: true, generatedUntil: true },
+        select: ROUTINE_SELECT,
       });
 
       for (const routine of routines) {
@@ -121,7 +133,15 @@ export class RollingDoseJob {
  */
 export async function extendRoutine(
   prisma: PrismaService,
-  routine: { id: string; userId: string; scheduleTimes: string | null; endDate: Date | null; generatedUntil: Date | null },
+  routine: {
+    id: string;
+    userId: string;
+    scheduleTimes: string | null;
+    endDate: Date | null;
+    generatedUntil: Date | null;
+    startDate: Date;
+    intervalDays: number;
+  },
   now: Date,
 ): Promise<number> {
   const stored = routine.generatedUntil!;
@@ -129,7 +149,10 @@ export async function extendRoutine(
   const from = stored < today ? today : stored;
   const until = generationLimit(routine.endDate, now);
   if (from >= until) return 0;
-  const doses = dosesForDays(parseScheduleTimes(routine.scheduleTimes), from, until).filter(
+  const doses = dosesForDays(parseScheduleTimes(routine.scheduleTimes), from, until, {
+    days: routine.intervalDays,
+    anchor: startOfAppDay(routine.startDate),
+  }).filter(
     (d) => d.scheduledAt > now,
   );
 
@@ -179,7 +202,7 @@ export async function resumeSchedules(prisma: PrismaService, userId: string, now
       generatedUntil: { not: null },
       OR: [{ endDate: null }, { endDate: { gte: startOfAppDay(now) } }],
     },
-    select: { id: true, userId: true, scheduleTimes: true, endDate: true, generatedUntil: true },
+    select: ROUTINE_SELECT,
   });
   let created = 0;
   for (const routine of routines) created += await extendRoutine(prisma, routine, now);

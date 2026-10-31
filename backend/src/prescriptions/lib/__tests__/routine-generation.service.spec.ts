@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { PrescriptionMedicine } from '@prisma/client';
 import { ROLLING_HORIZON_DAYS, RoutineGenerationService, dosesForDays } from '../routine-generation.service';
+import { testReminderTime } from '../../prescriptions.service';
 
 function makeMedicine(overrides: Partial<PrescriptionMedicine> = {}): PrescriptionMedicine {
   return {
@@ -183,5 +184,78 @@ describe('RoutineGenerationService - only future doses', () => {
   it('a course whose last dose has already passed creates no doses', () => {
     const routine = service.generate(makeMedicine({ startDate: new Date('2026-01-01T00:00:00.000Z'), durationDays: 3 }), afternoon);
     expect(routine.doses).toHaveLength(0);
+  });
+});
+
+// Owner, 2026-10-31: "every N days" starts the day after confirmation (unless
+// a start date is given) and rings at its one time (08:00 by default).
+describe('RoutineGenerationService - every N days', () => {
+  const service = new RoutineGenerationService();
+  const afternoon = new Date('2026-01-10T09:00:00.000Z'); // 15:00, 10 Jan Dhaka
+
+  it('starts tomorrow and doses every Nth day of the course', () => {
+    const routine = service.generate(
+      makeMedicine({ timesPerDay: 1, scheduleTimes: '["08:00"]', durationDays: 7, intervalDays: 3 }),
+      afternoon,
+    );
+    expect(routine.startDate.toISOString()).toBe('2026-01-10T18:00:00.000Z'); // 11 Jan
+    expect(routine.intervalDays).toBe(3);
+    expect(routine.doses.map((d) => d.scheduledAt.toISOString())).toEqual([
+      '2026-01-11T02:00:00.000Z', // 11 Jan 08:00
+      '2026-01-14T02:00:00.000Z', // 14 Jan
+      '2026-01-17T02:00:00.000Z', // 17 Jan (day 7, the last day)
+    ]);
+  });
+
+  it('counts from an explicit start date', () => {
+    const routine = service.generate(
+      makeMedicine({
+        timesPerDay: 1,
+        scheduleTimes: '["08:00"]',
+        durationDays: 6,
+        intervalDays: 2,
+        startDate: new Date('2026-01-12T00:00:00.000Z'),
+      }),
+      afternoon,
+    );
+    expect(routine.doses.map((d) => d.scheduledAt.toISOString())).toEqual([
+      '2026-01-12T02:00:00.000Z',
+      '2026-01-14T02:00:00.000Z',
+      '2026-01-16T02:00:00.000Z',
+    ]);
+  });
+
+  it('dosesForDays keeps the rhythm from the anchor whatever day it starts on', () => {
+    const anchor = new Date('2026-01-10T18:00:00.000Z'); // 11 Jan
+    const from = new Date('2026-01-13T18:00:00.000Z'); // 14 Jan (a rolling extension)
+    const to = new Date('2026-01-20T18:00:00.000Z');
+    const doses = dosesForDays(['08:00'], from, to, { days: 3, anchor });
+    expect(doses.map((d) => d.scheduledAt.toISOString())).toEqual([
+      '2026-01-14T02:00:00.000Z', // 11 + 3
+      '2026-01-17T02:00:00.000Z',
+      '2026-01-20T02:00:00.000Z',
+    ]);
+  });
+});
+
+describe('testReminderTime', () => {
+  const confirmedAt = new Date('2026-01-10T09:00:00.000Z'); // 15:00, 10 Jan Dhaka
+
+  it('no date: 3 days after confirmation at 08:00', () => {
+    expect(testReminderTime({ scheduledDate: null, time: null }, confirmedAt).toISOString()).toBe(
+      '2026-01-13T02:00:00.000Z',
+    );
+  });
+
+  it('a date and time: that day at that time', () => {
+    expect(
+      testReminderTime({ scheduledDate: new Date('2026-01-20T00:00:00.000Z'), time: '07:30' }, confirmedAt).toISOString(),
+    ).toBe('2026-01-20T01:30:00.000Z');
+  });
+
+  it('a time already past on the date: the next day', () => {
+    expect(
+      testReminderTime({ scheduledDate: new Date('2026-01-10T00:00:00.000Z'), time: '08:00' }, confirmedAt).toISOString(),
+    ).toBe('2026-01-11T02:00:00.000Z');
   });
 });

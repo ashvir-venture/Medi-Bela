@@ -1918,3 +1918,134 @@ ALTER TABLE "family_events" ADD CONSTRAINT "family_events_actorUserId_fkey" FORE
 -- AlterTable
 ALTER TABLE "users" ADD COLUMN     "termsAcceptedAt" TIMESTAMP(3);
 
+
+-- ===== prisma/pending-sql/011_round12_interval_tests_edit_request.sql =====
+-- Round 12: medicine form and "every N days" on medicine lines and routines;
+-- the patient's "Request edit" note; test date / time / meal timing / note on
+-- a prescription's tests; test reminders as health reminders (testId set,
+-- new status MISSED, caregiver alert time). Additive only: existing lines and
+-- routines get intervalDays = 1 (every day), as before.
+
+-- AlterEnum
+ALTER TYPE "HealthReminderStatus" ADD VALUE 'MISSED';
+
+-- AlterTable
+ALTER TABLE "prescriptions" ADD COLUMN     "editRequestNote" TEXT,
+ADD COLUMN     "editRequestedAt" TIMESTAMP(3);
+
+-- AlterTable
+ALTER TABLE "prescription_medicines" ADD COLUMN     "formId" INTEGER,
+ADD COLUMN     "intervalDays" INTEGER NOT NULL DEFAULT 1;
+
+-- AlterTable
+ALTER TABLE "medicine_routines" ADD COLUMN     "formId" INTEGER,
+ADD COLUMN     "intervalDays" INTEGER NOT NULL DEFAULT 1;
+
+-- AlterTable
+ALTER TABLE "health_reminders" ADD COLUMN     "caregiverAlertedAt" TIMESTAMP(3),
+ADD COLUMN     "mealTimingId" INTEGER,
+ADD COLUMN     "prescriptionId" UUID,
+ADD COLUMN     "testId" UUID;
+
+-- AlterTable
+ALTER TABLE "prescription_tests" ADD COLUMN     "mealTimingId" INTEGER,
+ADD COLUMN     "note" TEXT,
+ADD COLUMN     "scheduledDate" DATE,
+ADD COLUMN     "time" TEXT;
+
+-- CreateIndex
+CREATE INDEX "health_reminders_status_scheduledAt_idx" ON "health_reminders"("status", "scheduledAt");
+
+-- AddForeignKey
+ALTER TABLE "prescription_medicines" ADD CONSTRAINT "prescription_medicines_formId_fkey" FOREIGN KEY ("formId") REFERENCES "medicine_forms"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "medicine_routines" ADD CONSTRAINT "medicine_routines_formId_fkey" FOREIGN KEY ("formId") REFERENCES "medicine_forms"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "health_reminders" ADD CONSTRAINT "health_reminders_prescriptionId_fkey" FOREIGN KEY ("prescriptionId") REFERENCES "prescriptions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "health_reminders" ADD CONSTRAINT "health_reminders_testId_fkey" FOREIGN KEY ("testId") REFERENCES "diagnostic_tests"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "health_reminders" ADD CONSTRAINT "health_reminders_mealTimingId_fkey" FOREIGN KEY ("mealTimingId") REFERENCES "meal_timings"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "prescription_tests" ADD CONSTRAINT "prescription_tests_mealTimingId_fkey" FOREIGN KEY ("mealTimingId") REFERENCES "meal_timings"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+
+-- Not expressible in schema.prisma.
+ALTER TABLE "prescription_medicines" ADD CONSTRAINT "prescription_medicines_intervalDays_check" CHECK ("intervalDays" BETWEEN 1 AND 90);
+ALTER TABLE "medicine_routines" ADD CONSTRAINT "medicine_routines_intervalDays_check" CHECK ("intervalDays" BETWEEN 1 AND 90);
+
+
+-- ===== prisma/pending-sql/012_round13_personal_reminders_medicine_box.sql =====
+-- Round 13: personal health reminders (personal_reminders), the medicine box
+-- (medicine_stocks: units in the box per routine at countedAt) and
+-- users.medicineBoxStartedAt. Additive only.
+
+-- AlterTable
+ALTER TABLE "users" ADD COLUMN     "medicineBoxStartedAt" TIMESTAMP(3);
+
+-- CreateTable
+CREATE TABLE "personal_reminders" (
+    "id" UUID NOT NULL,
+    "userId" UUID NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT,
+    "scheduleTimes" TEXT NOT NULL,
+    "intervalDays" INTEGER NOT NULL DEFAULT 1,
+    "startDate" TIMESTAMP(3) NOT NULL,
+    "endDate" TIMESTAMP(3),
+    "active" BOOLEAN NOT NULL DEFAULT true,
+    "createdById" UUID,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "personal_reminders_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "medicine_stocks" (
+    "id" UUID NOT NULL,
+    "userId" UUID NOT NULL,
+    "routineId" UUID NOT NULL,
+    "quantity" DOUBLE PRECISION NOT NULL,
+    "countedAt" TIMESTAMP(3) NOT NULL,
+    "updatedById" UUID,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "medicine_stocks_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX "personal_reminders_userId_active_idx" ON "personal_reminders"("userId", "active");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "medicine_stocks_routineId_key" ON "medicine_stocks"("routineId");
+
+-- CreateIndex
+CREATE INDEX "medicine_stocks_userId_idx" ON "medicine_stocks"("userId");
+
+-- AddForeignKey
+ALTER TABLE "personal_reminders" ADD CONSTRAINT "personal_reminders_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "personal_reminders" ADD CONSTRAINT "personal_reminders_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "medicine_stocks" ADD CONSTRAINT "medicine_stocks_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "medicine_stocks" ADD CONSTRAINT "medicine_stocks_routineId_fkey" FOREIGN KEY ("routineId") REFERENCES "medicine_routines"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "medicine_stocks" ADD CONSTRAINT "medicine_stocks_updatedById_fkey" FOREIGN KEY ("updatedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+
+-- Not expressible in schema.prisma.
+ALTER TABLE "personal_reminders" ADD CONSTRAINT "personal_reminders_intervalDays_check" CHECK ("intervalDays" BETWEEN 1 AND 90);
+ALTER TABLE "medicine_stocks" ADD CONSTRAINT "medicine_stocks_quantity_check" CHECK ("quantity" >= 0);
+

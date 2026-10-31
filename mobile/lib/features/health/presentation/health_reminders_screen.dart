@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/localization/locale_controller.dart';
+import '../../../widgets/details_fields.dart' show formatYmd;
 import '../../../widgets/state_views.dart';
 import '../domain/health_models.dart';
 import 'health_controller.dart';
@@ -89,15 +91,30 @@ class _ReminderTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final strings = ref.watch(stringsProvider);
+    final now = DateTime.now();
+    final t = reminder.scheduledAt;
+    final when = '${formatYmd(t)} • ${TimeOfDay.fromDateTime(t).format(context)}';
+    final day = reminder.isTest ? reminder.testDayAt(now) : null;
+    final lines = [
+      if (reminder.isTest) when,
+      if (day != null) strings.testDayOf(day, testReminderDays),
+      reminder.mealTiming,
+      reminder.description,
+    ].whereType<String>().where((s) => s.isNotEmpty).toList();
     return Card(
       child: ListTile(
-        leading: const Icon(Icons.favorite_border),
+        leading: Icon(reminder.isTest ? Icons.biotech_outlined : Icons.favorite_border),
         title: Text(reminder.title),
-        subtitle: reminder.description != null ? Text(reminder.description!) : null,
-        trailing: FilledButton(
-          onPressed: () => ref.read(completeHealthReminderProvider)(reminder.id),
-          child: Text(strings.markComplete),
-        ),
+        subtitle: lines.isEmpty ? null : Text(lines.join('\n')),
+        isThreeLine: lines.length > 1,
+        onTap: reminder.isTest ? () => context.push('/test-reminder/${reminder.id}?day=${(day ?? 1) - 1}') : null,
+        // Upcoming reminders can't be done yet (owner, 2026-10-31).
+        trailing: reminder.canCompleteAt(now)
+            ? FilledButton(
+                onPressed: () => ref.read(completeHealthReminderProvider)(reminder.id),
+                child: Text(reminder.isTest ? strings.testDoneAction : strings.markComplete),
+              )
+            : null,
       ),
     );
   }

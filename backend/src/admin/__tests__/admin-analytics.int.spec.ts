@@ -17,7 +17,7 @@ d('Admin analytics over HTTP (real AppModule + Postgres)', () => {
 
   async function account(role: 'USER' | 'ADMIN' | 'PHARMACIST', name = role) {
     seq += 1;
-    const phone = `+88017200${String(seq).padStart(5, '0')}`;
+    const phone = `017200${String(seq).padStart(5, '0')}`;
     const res = await http()
       .post('/api/auth/register')
       .send({

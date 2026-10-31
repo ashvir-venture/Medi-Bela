@@ -20,7 +20,7 @@ d('Generic names over HTTP (real AppModule + Postgres)', () => {
     const res = await http()
       .post('/api/auth/register')
       .send({
-        phone: `+88017300${String(seq).padStart(5, '0')}`,
+        phone: `017300${String(seq).padStart(5, '0')}`,
         name: `${role} ${seq}`,
         password: 'pass1234',
         ...(await signupDetails(prisma)),

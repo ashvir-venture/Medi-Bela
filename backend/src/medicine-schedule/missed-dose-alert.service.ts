@@ -5,13 +5,16 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService, NewNotification } from '../notifications/notifications.service';
 import { messages } from '../notifications/notification-messages';
 import { missedCutoff } from './lib/dose-status.util';
+import { reminderTiming } from '../common/config/reminder-timing';
 
 const BATCH_SIZE = 200;
 /** A run (every minute) stops taking new batches after this long; the next run continues. */
 const RUN_BUDGET_MS = 45_000;
 
-/** The app's own second reminder fires this long after the scheduled time; the backstop push goes out then too. */
-export const BACKSTOP_AFTER_MINUTES = 30;
+/** The backstop push goes out with the app's own second ring (BACKSTOP_AFTER_MINUTES, default = REMINDER_REPEAT_MINUTES). */
+export function backstopAfterMinutes(): number {
+  return reminderTiming().backstopAfterMinutes;
+}
 
 /** Doses that went missed longer ago than this are closed WITHOUT alerting (stale / backlog after downtime). */
 function alertMaxAgeMs(): number {
@@ -146,7 +149,7 @@ export class MissedDoseAlertService {
    * Exactly once via the (user, type, relatedEntityId) unique key.
    */
   async sendBackstops(now: Date = new Date()): Promise<number> {
-    const dueBefore = new Date(now.getTime() - BACKSTOP_AFTER_MINUTES * 60_000);
+    const dueBefore = new Date(now.getTime() - backstopAfterMinutes() * 60_000);
     const started = Date.now();
     let sent = 0;
 

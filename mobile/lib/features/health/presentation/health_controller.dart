@@ -22,7 +22,7 @@ final refreshHealthRemindersProvider = Provider<Future<void> Function()>((ref) {
   };
 });
 
-final completeHealthReminderProvider = Provider<Future<void> Function(String id)>((ref) {
+final completeHealthReminderProvider = Provider<Future<bool> Function(String id)>((ref) {
   final repo = ref.watch(healthReminderRepositoryProvider);
   return (id) => repo.markComplete(id);
 });

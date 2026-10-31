@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/database/app_database.dart';
@@ -16,6 +17,9 @@ import '../features/health/data/health_record_repository.dart';
 import '../features/health/data/health_record_sync_handler.dart';
 import '../features/health/data/health_reminder_repository.dart';
 import '../features/health/data/health_reminder_sync_handler.dart';
+import '../features/health/data/personal_reminder_repository.dart';
+import '../features/medicine_box/data/medicine_box_alerts.dart';
+import '../features/medicine_box/data/medicine_box_repository.dart';
 import '../features/medicine_schedule/data/dose_sync_handler.dart';
 import '../features/medicine_schedule/data/medicine_schedule_api.dart';
 import '../features/medicine_schedule/data/medicine_schedule_repository.dart';
@@ -155,6 +159,7 @@ final medicineScheduleRepositoryProvider =
     api: ref.watch(medicineScheduleApiProvider),
     database: ref.watch(appDatabaseProvider),
     notificationScheduler: ref.watch(notificationSchedulerProvider),
+    onTaken: (routineId) => ref.read(medicineBoxAlertsProvider).afterTaken([routineId]),
   );
 });
 
@@ -176,6 +181,45 @@ final healthRecordRepositoryProvider = Provider<HealthRecordRepository>((ref) {
   return HealthRecordRepository(
     api: ref.watch(healthApiProvider),
     database: ref.watch(appDatabaseProvider),
+  );
+});
+
+// ---- Personal reminders and the medicine box (Round 13) ----
+
+final personalReminderApiProvider = Provider<PersonalReminderApi>((ref) {
+  return PersonalReminderApi(ref.watch(dioClientProvider).dio);
+});
+
+final personalReminderRepositoryProvider = Provider<PersonalReminderRepository>((ref) {
+  return PersonalReminderRepository(
+    api: ref.watch(personalReminderApiProvider),
+    database: ref.watch(appDatabaseProvider),
+    notificationScheduler: ref.watch(notificationSchedulerProvider),
+  );
+});
+
+final medicineBoxApiProvider = Provider<MedicineBoxApi>((ref) {
+  return MedicineBoxApi(ref.watch(dioClientProvider).dio);
+});
+
+final medicineBoxRepositoryProvider = Provider<MedicineBoxRepository>((ref) {
+  return MedicineBoxRepository(
+    api: ref.watch(medicineBoxApiProvider),
+    database: ref.watch(appDatabaseProvider),
+  );
+});
+
+final medicineBoxAlertsProvider = Provider<MedicineBoxAlerts>((ref) {
+  return MedicineBoxAlerts(
+    repository: ref.watch(medicineBoxRepositoryProvider),
+    gateway: ref.watch(localNotificationsGatewayProvider),
+    strings: () => ref.read(stringsProvider),
+    // In front: open "ran out" right away; otherwise the full-screen alarm.
+    openNow: (route) {
+      if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) return false;
+      ref.read(appRouterProvider).go(route);
+      return true;
+    },
   );
 });
 

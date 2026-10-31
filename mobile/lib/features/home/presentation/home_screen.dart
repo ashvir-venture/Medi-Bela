@@ -18,6 +18,8 @@ import '../../../router/app_router.dart';
 import '../../../widgets/app_logo.dart';
 import '../../../widgets/sponsored_ad_banner.dart';
 import '../../prescription/presentation/prescription_screen.dart';
+import '../../medicine_box/presentation/medicine_box_screens.dart';
+import '../../reminders/presentation/full_screen_permission_screen.dart';
 import '../../reminders/presentation/reminder_status_banner.dart';
 import '../../../widgets/state_views.dart';
 
@@ -74,6 +76,8 @@ class HomeScreen extends ConsumerWidget {
           padding: const EdgeInsets.all(16),
           children: [
             const ReminderStatusBanner(),
+            const FullScreenPromptOnce(),
+            const MedicineBoxButton(card: true),
             const _TodaysMedicineSection(),
             const SizedBox(height: 20),
             const _HealthRemindersSection(),

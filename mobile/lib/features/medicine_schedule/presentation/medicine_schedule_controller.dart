@@ -20,10 +20,10 @@ final refreshMedicineScheduleProvider = Provider<Future<void> Function()>((ref) 
   };
 });
 
-/// Marks a dose taken. Always succeeds instantly (local-first) — the
-/// repository queues the actual server call; see
-/// `MedicineScheduleRepository.markDoseTaken` / `DoseSyncHandler`.
-final markDoseTakenProvider = Provider<Future<void> Function(String doseId)>((ref) {
+/// Marks a dose taken, instantly (local-first) — the repository queues the
+/// actual server call; see `MedicineScheduleRepository.markDoseTaken` /
+/// `DoseSyncHandler`. False outside the dose's taken window.
+final markDoseTakenProvider = Provider<Future<bool> Function(String doseId)>((ref) {
   final repo = ref.watch(medicineScheduleRepositoryProvider);
   return (doseId) => repo.markDoseTaken(doseId);
 });

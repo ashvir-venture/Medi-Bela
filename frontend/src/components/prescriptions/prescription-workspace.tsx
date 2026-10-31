@@ -7,6 +7,7 @@ import {
   DiagnosticTest,
   Doctor,
   DoctorInput,
+  LookupRow,
   Lookups,
   PrescriptionDetail,
   PrescriptionDetailsInput,
@@ -77,6 +78,113 @@ function dateOnly(iso: string | null) {
   return iso ? iso.slice(0, 10) : '';
 }
 
+/** A test on the prescription with its reminder details (strings while editing). */
+interface TestEntry {
+  test: DiagnosticTest;
+  date: string; // yyyy-mm-dd or ''
+  time: string; // HH:mm or ''
+  mealTimingId: string;
+  note: string;
+}
+
+function TestRow({
+  entry,
+  mealTimings,
+  readOnly,
+  disabled,
+  onChange,
+  onRemove,
+}: {
+  entry: TestEntry;
+  mealTimings: LookupRow[];
+  readOnly: boolean;
+  disabled: boolean;
+  onChange: (patch: Partial<TestEntry>) => void;
+  onRemove: () => void;
+}) {
+  const key = entry.test.id;
+  if (readOnly) {
+    const meal = mealTimings.find((m) => String(m.id) === entry.mealTimingId)?.name;
+    const parts = [
+      entry.date ? new Date(`${entry.date}T00:00:00`).toLocaleDateString() : '3 days after confirming',
+      entry.time || '08:00',
+      meal,
+      entry.note,
+    ].filter(Boolean);
+    return (
+      <div className="line-summary">
+        <div className="line-summary-text">
+          <strong>{entry.test.name}</strong>
+          <div className="muted">{parts.join(' · ')}</div>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="medicine-card">
+      <div className="card-head">
+        <strong>{entry.test.name}</strong>
+        <button type="button" className="btn btn-sm btn-danger" onClick={onRemove} disabled={disabled}>
+          Remove
+        </button>
+      </div>
+      <div className="form-grid">
+        <div className="field">
+          <label htmlFor={`${key}-date`}>Date (optional)</label>
+          <input
+            id={`${key}-date`}
+            type="date"
+            className="input"
+            value={entry.date}
+            onChange={(e) => onChange({ date: e.target.value })}
+            disabled={disabled}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor={`${key}-time`}>Reminder time</label>
+          <input
+            id={`${key}-time`}
+            type="time"
+            className="input"
+            value={entry.time}
+            onChange={(e) => onChange({ time: e.target.value })}
+            disabled={disabled}
+          />
+          <p className="hint">Empty = 08:00.</p>
+        </div>
+        <div className="field">
+          <label htmlFor={`${key}-meal`}>Meal timing</label>
+          <select
+            id={`${key}-meal`}
+            value={entry.mealTimingId}
+            onChange={(e) => onChange({ mealTimingId: e.target.value })}
+            disabled={disabled}
+          >
+            <option value="">Not specified</option>
+            {mealTimings.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor={`${key}-note`}>Note (optional)</label>
+          <input
+            id={`${key}-note`}
+            className="input"
+            maxLength={300}
+            value={entry.note}
+            onChange={(e) => onChange({ note: e.target.value })}
+            disabled={disabled}
+            placeholder="e.g. fasting, bring old reports"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * The pharmacist's prescription form, next to the photo. Admins (and any
  * prescription that left PENDING) get the same screen read-only.
@@ -99,7 +207,7 @@ export function PrescriptionWorkspace({
   const [visitDate, setVisitDate] = useState('');
   const [nextVisitDate, setNextVisitDate] = useState('');
   const [diagnosis, setDiagnosis] = useState('');
-  const [tests, setTests] = useState<DiagnosticTest[]>([]);
+  const [tests, setTests] = useState<TestEntry[]>([]);
   const [testQuery, setTestQuery] = useState('');
   const [rows, setRows] = useState<MedicineFormRow[]>([]);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
@@ -122,7 +230,15 @@ export function PrescriptionWorkspace({
     setVisitDate(dateOnly(p.visitDate));
     setNextVisitDate(dateOnly(p.nextVisitDate));
     setDiagnosis(p.diagnosis ?? '');
-    setTests(p.tests.map((t) => t.test));
+    setTests(
+      p.tests.map((t) => ({
+        test: t.test,
+        date: t.scheduledDate ? t.scheduledDate.slice(0, 10) : '',
+        time: t.time ?? '',
+        mealTimingId: t.mealTimingId?.toString() ?? '',
+        note: t.note ?? '',
+      })),
+    );
     setRows(p.medicines.map(medicineToRow));
     setExpandedKey(null);
   }
@@ -143,6 +259,7 @@ export function PrescriptionWorkspace({
 
   const readOnly = forceReadOnly || prescription?.status !== 'PENDING';
   const mealTimings = lookups?.mealTimings ?? [];
+  const medicineForms = lookups?.medicineForms ?? [];
 
   // --- Medicines ---
 
@@ -179,8 +296,16 @@ export function PrescriptionWorkspace({
   // --- Tests ---
 
   function addTest(test: DiagnosticTest) {
-    setTests((prev) => (prev.some((t) => t.id === test.id) ? prev : [...prev, test]));
+    setTests((prev) =>
+      prev.some((t) => t.test.id === test.id)
+        ? prev
+        : [...prev, { test, date: '', time: '', mealTimingId: '', note: '' }],
+    );
     setTestQuery('');
+  }
+
+  function updateTest(testId: string, patch: Partial<TestEntry>) {
+    setTests((prev) => prev.map((t) => (t.test.id === testId ? { ...t, ...patch } : t)));
   }
 
   async function addNewTest() {
@@ -209,7 +334,13 @@ export function PrescriptionWorkspace({
       visitDate: visitDate || null,
       nextVisitDate: nextVisitDate || null,
       diagnosis: diagnosis.trim() || null,
-      testIds: tests.map((t) => t.id),
+      tests: tests.map((t) => ({
+        testId: t.test.id,
+        date: t.date || null,
+        time: t.time || null,
+        mealTimingId: Number(t.mealTimingId) || null,
+        note: t.note.trim() || null,
+      })),
     });
     const entries = rows.filter((r) => r.medicineName.trim()).map((r) => rowToEntry(r, mealTimings));
     return saveMedicines(id, entries);
@@ -338,6 +469,13 @@ export function PrescriptionWorkspace({
                   Feedback sent to patient: {p.rejectionReason}
                 </div>
               )}
+              {p.editRequestNote && (
+                <div className="info-banner">
+                  <strong>The patient asked for an edit:</strong> “{p.editRequestNote}”
+                  {p.editRequestedAt ? ` (${new Date(p.editRequestedAt).toLocaleString()})` : ''}. Change the
+                  prescription below and send it again.
+                </div>
+              )}
               {p.previous && (
                 <div className="info-banner">
                   Re-upload of a rejected prescription
@@ -406,24 +544,22 @@ export function PrescriptionWorkspace({
             <div className="card">
               <h2>Tests</h2>
               {tests.length === 0 && readOnly && <p className="muted">None.</p>}
-              {tests.length > 0 && (
-                <div className="chips">
-                  {tests.map((t) => (
-                    <span key={t.id} className="chip">
-                      {t.name}
-                      {!readOnly && (
-                        <button
-                          type="button"
-                          aria-label={`Remove ${t.name}`}
-                          onClick={() => setTests((prev) => prev.filter((x) => x.id !== t.id))}
-                          disabled={isSaving}
-                        >
-                          ×
-                        </button>
-                      )}
-                    </span>
-                  ))}
-                </div>
+              {tests.map((t) => (
+                <TestRow
+                  key={t.test.id}
+                  entry={t}
+                  mealTimings={mealTimings}
+                  readOnly={readOnly}
+                  disabled={isSaving}
+                  onChange={(patch) => updateTest(t.test.id, patch)}
+                  onRemove={() => setTests((prev) => prev.filter((x) => x.test.id !== t.test.id))}
+                />
+              ))}
+              {tests.length > 0 && !readOnly && (
+                <p className="hint">
+                  The patient is reminded on the date (or 3 days after confirming when empty) at the time (08:00 when
+                  empty), then the next two days until done; the caregiver is told on the third day.
+                </p>
               )}
               {!readOnly && (
                 <div className="inline-add">
@@ -458,6 +594,7 @@ export function PrescriptionWorkspace({
                     key={row.key}
                     row={row}
                     mealTimings={mealTimings}
+                    medicineForms={medicineForms}
                     disabled={isSaving}
                     onChange={(next) => updateRow(row.key, next)}
                     onRemove={() => removeRow(row)}
@@ -468,6 +605,7 @@ export function PrescriptionWorkspace({
                     key={row.key}
                     row={row}
                     mealTimings={mealTimings}
+                    medicineForms={medicineForms}
                     readOnly={readOnly}
                     disabled={isSaving}
                     onEdit={() => setExpandedKey(row.key)}

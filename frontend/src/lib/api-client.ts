@@ -384,6 +384,10 @@ export interface PrescriptionMedicine {
   doseAmount: string | null;
   mealTimingId: number | null;
   continuous: boolean;
+  /** medicine_forms row on the line (Tablet, Syrup...). */
+  formId: number | null;
+  /** Every N days; 1 = every day. */
+  intervalDays: number;
   medicine: CatalogMedicine | null;
   mealTiming: LookupRow | null;
 }
@@ -406,6 +410,8 @@ export interface PrescriptionListItem {
   createdAt: string;
   reviewedAt: string | null;
   previousPrescriptionId: string | null;
+  /** Set while the patient's "Request edit" waits for the pharmacist. */
+  editRequestNote: string | null;
   user: PrescriptionUser;
   reviewedBy: { id: string; name: string } | null;
 }
@@ -419,13 +425,32 @@ export interface PrescriptionDetail extends PrescriptionListItem {
   visitDate: string | null;
   diagnosis: string | null;
   nextVisitDate: string | null;
-  tests: { test: DiagnosticTest }[];
+  tests: PrescriptionTestRow[];
+  editRequestedAt: string | null;
   previous: {
     id: string;
     status: PrescriptionStatus;
     rejectionReason: string | null;
     createdAt: string;
   } | null;
+}
+
+/** A test on a prescription, with its reminder details. */
+export interface PrescriptionTestRow {
+  testId: string;
+  test: DiagnosticTest;
+  scheduledDate: string | null;
+  time: string | null;
+  mealTimingId: number | null;
+  note: string | null;
+}
+
+export interface PrescriptionTestInput {
+  testId: string;
+  date?: string | null;
+  time?: string | null;
+  mealTimingId?: number | null;
+  note?: string | null;
 }
 
 export type QueueStatus = PrescriptionStatus | 'ALL';
@@ -444,6 +469,7 @@ export interface PrescriptionDetailsInput {
   diagnosis?: string | null;
   nextVisitDate?: string | null;
   testIds?: string[];
+  tests?: PrescriptionTestInput[];
 }
 
 export function savePrescriptionDetails(prescriptionId: string, input: PrescriptionDetailsInput) {
@@ -473,6 +499,8 @@ export interface MedicineEntryInput {
   doseAmount?: string;
   mealTimingId?: number;
   continuous?: boolean;
+  formId?: number;
+  intervalDays?: number;
 }
 
 export function saveMedicines(prescriptionId: string, medicines: MedicineEntryInput[]) {

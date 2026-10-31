@@ -11,6 +11,7 @@ import '../../../core/lookups/lookups.dart';
 import '../../../core/utils/error_mapper.dart';
 import '../../../providers/core_providers.dart';
 import '../../../widgets/details_fields.dart' show formatYmd;
+import '../../../widgets/interval_field.dart';
 import '../../prescription/presentation/confirm_prescription_screen.dart' show formatHhmm, toHhmm;
 import '../domain/medicine_schedule_models.dart';
 import 'medicine_schedule_controller.dart';
@@ -26,7 +27,8 @@ class RoutineFormArgs {
 }
 
 /// Add a medicine, or change/remove one. A pharmacist's medicine only
-/// allows dose times and meal timing; a self-added one allows everything.
+/// allows dose times, meal timing and every N days; a self-added one allows
+/// everything (Form included).
 class RoutineFormScreen extends ConsumerStatefulWidget {
   const RoutineFormScreen({super.key, required this.args});
 
@@ -45,6 +47,8 @@ class _RoutineFormScreenState extends ConsumerState<RoutineFormScreen> {
   String? _medicineId;
   List<String> _times = ['08:00'];
   int? _mealTimingId;
+  int? _formId;
+  int _intervalDays = 1;
   bool _continuous = false;
   DateTime? _startDate;
   bool _saving = false;
@@ -54,7 +58,7 @@ class _RoutineFormScreenState extends ConsumerState<RoutineFormScreen> {
   ManagedRoutine? get _routine => widget.args.routine;
   bool get _isNew => _routine == null;
 
-  /// Pharmacist's medicine: only times and meal timing may change.
+  /// Pharmacist's medicine: only times, meal timing and every N days may change.
   bool get _limited => _routine != null && !_routine!.selfAdded;
 
   @override
@@ -67,6 +71,8 @@ class _RoutineFormScreenState extends ConsumerState<RoutineFormScreen> {
       _doseAmount.text = r.doseAmount ?? '';
       _times = r.scheduleTimes.isEmpty ? ['08:00'] : List.of(r.scheduleTimes);
       _mealTimingId = r.mealTimingId;
+      _formId = r.formId;
+      _intervalDays = r.intervalDays;
       _continuous = r.continuous;
       _days.text = r.durationDays?.toString() ?? '';
     }
@@ -115,9 +121,11 @@ class _RoutineFormScreenState extends ConsumerState<RoutineFormScreen> {
     final body = <String, dynamic>{
       'scheduleTimes': _times,
       'mealTimingId': _mealTimingId,
+      'intervalDays': _intervalDays,
     };
     if (!_limited) {
       body.addAll({
+        if (_formId != null || !_isNew) 'formId': _formId,
         'medicineName': _name.text.trim(),
         'strength': _strength.text.trim(),
         'doseAmount': _doseAmount.text.trim(),
@@ -184,7 +192,9 @@ class _RoutineFormScreenState extends ConsumerState<RoutineFormScreen> {
   @override
   Widget build(BuildContext context) {
     final strings = ref.watch(stringsProvider);
-    final meals = ref.watch(lookupsProvider).valueOrNull?.mealTimings ?? const <LookupOption>[];
+    final lookups = ref.watch(lookupsProvider).valueOrNull;
+    final meals = lookups?.mealTimings ?? const <LookupOption>[];
+    final forms = lookups?.medicineForms ?? const <LookupOption>[];
 
     return Scaffold(
       appBar: AppBar(title: Text(_isNew ? strings.addMedicine : strings.editMedicine)),
@@ -207,6 +217,9 @@ class _RoutineFormScreenState extends ConsumerState<RoutineFormScreen> {
                 onSelected: (o) {
                   _name.text = o.brandName;
                   _medicineId = o.id;
+                  // The catalog's form fills the Form box (still changeable).
+                  final form = forms.where((f) => f.name == o.formName).firstOrNull;
+                  if (form != null) setState(() => _formId = form.id);
                 },
                 fieldViewBuilder: (context, controller, focusNode, onSubmit) {
                   return TextFormField(
@@ -246,6 +259,18 @@ class _RoutineFormScreenState extends ConsumerState<RoutineFormScreen> {
                 ),
               ),
               const SizedBox(height: 16),
+              DropdownButtonFormField<int?>(
+                key: ValueKey('form-$_formId'),
+                initialValue: forms.any((f) => f.id == _formId) ? _formId : null,
+                isExpanded: true,
+                decoration: InputDecoration(labelText: strings.medicineFormLabel, prefixIcon: const Icon(Icons.category_outlined)),
+                items: [
+                  DropdownMenuItem<int?>(value: null, child: Text(strings.notSpecified)),
+                  ...forms.map((f) => DropdownMenuItem<int?>(value: f.id, child: Text(f.name))),
+                ],
+                onChanged: _saving ? null : (v) => setState(() => _formId = v),
+              ),
+              const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
@@ -272,6 +297,17 @@ class _RoutineFormScreenState extends ConsumerState<RoutineFormScreen> {
               ),
               const SizedBox(height: 16),
             ],
+            IntervalField(
+              value: _intervalDays,
+              strings: strings,
+              enabled: !_saving,
+              onChanged: (n) => setState(() {
+                _intervalDays = n;
+                // Every N days: one dose on those days, at the morning time.
+                if (n > 1 && !_limited) _times = [_times.first];
+              }),
+            ),
+            const SizedBox(height: 16),
             Text(strings.doseTimes, style: Theme.of(context).textTheme.labelLarge),
             const SizedBox(height: 8),
             Wrap(
@@ -331,7 +367,13 @@ class _RoutineFormScreenState extends ConsumerState<RoutineFormScreen> {
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.event_outlined),
                   title: Text(strings.startDate),
-                  subtitle: Text(_startDate == null ? strings.today : formatYmd(_startDate!)),
+                  subtitle: Text(
+                    _startDate != null
+                        ? formatYmd(_startDate!)
+                        : _intervalDays > 1
+                            ? strings.tomorrow
+                            : strings.today,
+                  ),
                   trailing: const Icon(Icons.edit_calendar_outlined),
                   onTap: () async {
                     final now = DateTime.now();
