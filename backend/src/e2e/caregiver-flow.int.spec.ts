@@ -132,18 +132,23 @@ d('Round 6: confirm, routines and caregiver actions', () => {
     const motherView = (await http().get('/api/medicine-schedule/routines').set(auth(mother.token)).expect(200)).body;
     expect(motherView[0].editedBy).toBe('CAREGIVER');
 
-    // Only she can mark her doses taken: the caregiver can't, with or without forUserId.
+    // Round 14 (owner, 2026-11-10): the caregiver may mark her dose ("I gave it"),
+    // but only with forUserId; without it the dose isn't theirs (404).
     const dose = await prisma.medicineDose.findFirst({ where: { userId: mother.id }, orderBy: { scheduledAt: 'asc' } });
-    await http().post(`/api/medicine-schedule/doses/${dose.id}/taken?forUserId=${mother.id}`).set(auth(carer.token)).send({}).expect(404);
     await http().post(`/api/medicine-schedule/doses/${dose.id}/taken`).set(auth(carer.token)).send({}).expect(404);
     expect((await prisma.medicineDose.findUnique({ where: { id: dose.id } })).status).toBe('PENDING');
     // Due now (a dose can only be marked from its time on, Round 12).
     await prisma.medicineDose.update({ where: { id: dose.id }, data: { scheduledAt: new Date(Date.now() - 5 * 60_000) } });
-    await http().post(`/api/medicine-schedule/doses/${dose.id}/taken`).set(auth(mother.token)).send({}).expect(201);
+    await http().post(`/api/medicine-schedule/doses/${dose.id}/taken?forUserId=${mother.id}`).set(auth(carer.token)).send({}).expect(201);
+    expect(await prisma.medicineDose.findUnique({ where: { id: dose.id } })).toMatchObject({ status: 'TAKEN', takenById: carer.id, takenLate: false });
+    const other = await prisma.medicineDose.findFirst({ where: { userId: mother.id, status: 'PENDING' }, orderBy: { scheduledAt: 'asc' } });
+    await prisma.medicineDose.update({ where: { id: other.id }, data: { scheduledAt: new Date(Date.now() - 5 * 60_000) } });
+    await http().post(`/api/medicine-schedule/doses/${other.id}/taken`).set(auth(mother.token)).send({}).expect(201);
+    expect((await prisma.medicineDose.findUnique({ where: { id: other.id } })).takenById).toBeNull();
 
     const notes = await prisma.notification.findMany({ where: { userId: mother.id, type: 'SYSTEM' } });
     const actions = notes.map((n: any) => n.data.action).sort();
-    expect(actions).toEqual(['prescription_confirmed', 'prescription_uploaded']);
+    expect(actions).toEqual(['dose_given', 'prescription_confirmed', 'prescription_uploaded']);
     expect(JSON.stringify(notes)).not.toMatch(/Metformin/);
   });
 

@@ -1,7 +1,7 @@
 import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DoseStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { computeDisplayStatus, missedCutoff } from './lib/dose-status.util';
+import { computeDisplayStatus, isTakenLate, missedCutoff, missedGraceMinutes } from './lib/dose-status.util';
 import { addAppDays, appDayBounds } from '../common/utils/time.util';
 import { ErrorCode, withCode } from '../common/filters/error-codes';
 import { TAKEN_CLOCK_TOLERANCE_MS, takenWindow } from './lib/taken-window';
@@ -95,8 +95,10 @@ export class MedicineScheduleService {
    * (DOSE_NOT_DUE), not later than 1 h before the medicine's next dose
    * (DOSE_WINDOW_CLOSED). The app's own `takenAt` (an offline tap synced
    * later) is what is checked.
+   * Round 14: taken after the patient's family-alert time = Late (takenLate);
+   * [givenById] = the caregiver who marked it ("I gave it"), else the patient.
    */
-  async markDoseTaken(userId: string, doseId: string, takenAt?: string) {
+  async markDoseTaken(userId: string, doseId: string, takenAt?: string, givenById?: string) {
     const dose = await this.prisma.medicineDose.findUnique({ where: { id: doseId } });
     if (!dose) throw new NotFoundException('Dose not found');
     if (dose.userId !== userId) throw new NotFoundException('Dose not found');
@@ -128,9 +130,15 @@ export class MedicineScheduleService {
       throw withCode(new ConflictException('It is too late to mark this dose taken'), ErrorCode.DOSE_WINDOW_CLOSED);
     }
 
+    const grace = await this.graceMinutes(userId);
     await this.prisma.medicineDose.update({
       where: { id: doseId },
-      data: { status: DoseStatus.TAKEN, takenAt: at },
+      data: {
+        status: DoseStatus.TAKEN,
+        takenAt: at,
+        takenLate: isTakenLate(dose.scheduledAt, at, grace),
+        takenById: givenById && givenById !== userId ? givenById : null,
+      },
     });
 
     return this.getDoseDetail(userId, doseId);
@@ -164,14 +172,21 @@ export class MedicineScheduleService {
    * or it isn't, regardless of when the sweep runs).
    */
   private async sweepMissedDoses(userId: string): Promise<void> {
+    const grace = await this.graceMinutes(userId);
     await this.prisma.medicineDose.updateMany({
       where: {
         userId,
         status: DoseStatus.PENDING,
-        scheduledAt: { lt: missedCutoff() },
+        scheduledAt: { lt: missedCutoff(new Date(), grace) },
       },
       data: { status: DoseStatus.MISSED },
     });
+  }
+
+  /** The patient's own family-alert time (Round 14), else the .env default. */
+  async graceMinutes(userId: string): Promise<number> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { familyAlertMinutes: true } });
+    return user?.familyAlertMinutes ?? missedGraceMinutes();
   }
 
   private withDisplayStatus<T extends { status: DoseStatus; scheduledAt: Date }>(dose: T) {

@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/constants/app_config.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/storage/secure_storage_service.dart';
 import '../../../core/utils/error_mapper.dart';
@@ -89,7 +91,11 @@ class AuthRepository {
   /// Local-first read: cached profile, immediately, no network wait.
   Future<UserModel?> getCachedUser() async {
     final row = await _db.select(_db.cachedUsers).getSingleOrNull();
-    return row == null ? null : _rowToModel(row);
+    if (row == null) return null;
+    // Easy mode is mirrored in SharedPreferences (no Drift column), so an
+    // offline start still opens the easy home.
+    final prefs = await SharedPreferences.getInstance();
+    return _rowToModel(row, easyMode: prefs.getBool(PrefsKeys.easyMode) ?? false);
   }
 
   /// Live-updating cached profile, for widgets that should reflect edits
@@ -199,6 +205,7 @@ class AuthRepository {
   /// ever ending up with a stale row from a previous account on the same
   /// device (e.g. after a force-close that skipped `logout()`).
   Future<void> _cacheUser(UserModel user) async {
+    await (await SharedPreferences.getInstance()).setBool(PrefsKeys.easyMode, user.easyMode);
     await _db.transaction(() async {
       await _db.delete(_db.cachedUsers).go();
       await _db.into(_db.cachedUsers).insert(
@@ -217,7 +224,7 @@ class AuthRepository {
     });
   }
 
-  UserModel _rowToModel(CachedUser row) {
+  UserModel _rowToModel(CachedUser row, {bool easyMode = false}) {
     return UserModel(
       id: row.id,
       phone: row.phone,
@@ -228,6 +235,7 @@ class AuthRepository {
       languageCode: row.languageCode,
       notificationsEnabled: row.notificationsEnabled,
       profileVisibleToFamily: row.profileVisibleToFamily,
+      easyMode: easyMode,
     );
   }
 }

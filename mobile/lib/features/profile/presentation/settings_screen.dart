@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/localization/locale_controller.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/localization/app_strings.dart';
+import '../../../core/theme/text_size_controller.dart';
 import '../../../core/theme/theme_mode_controller.dart';
 import '../../../features/auth/domain/user_model.dart';
 import '../../../providers/core_providers.dart';
@@ -113,6 +115,23 @@ class _SettingsContentState extends ConsumerState<_SettingsContent> {
         // ---- Reminders & notifications --------------------------------------
         _SectionHeader(strings.remindersAndNotifications),
         const ReminderStatusRefresher(child: _ReminderCheckTile()),
+        // Round 14: the user's own ring gap, Later delay, rings, family alert.
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.tune),
+          title: Text(strings.r14.routineTitle),
+          subtitle: Text(strings.r14.routineSubtitle),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push(AppRoutes.reminderRules),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.notifications_active_outlined),
+          title: Text(strings.r14.notifLookTitle),
+          subtitle: Text(strings.r14.notifLookSubtitle),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push(AppRoutes.notificationLook),
+        ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(strings.pushNotificationsLabel),
@@ -166,6 +185,16 @@ class _SettingsContentState extends ConsumerState<_SettingsContent> {
 
         // ---- Appearance & language ----------------------------------------------
         _SectionHeader(strings.appearanceAndLanguage),
+        // Round 14: easy mode for elders (also switched by the caregiver).
+        SwitchListTile(
+          key: const ValueKey('easy-mode-switch'),
+          contentPadding: EdgeInsets.zero,
+          title: Text(strings.r14.easyMode),
+          subtitle: Text(strings.r14.easyModeHelp),
+          value: user.easyMode,
+          onChanged: (value) => _updateSetting({'easyMode': value}),
+        ),
+        const SizedBox(height: 8),
         Text(strings.language, style: theme.textTheme.bodyMedium),
         const SizedBox(height: 8),
         SegmentedButton<String>(
@@ -192,6 +221,19 @@ class _SettingsContentState extends ConsumerState<_SettingsContent> {
           selected: {ref.watch(themeModeControllerProvider)},
           onSelectionChanged: (selection) =>
               ref.read(themeModeControllerProvider.notifier).setMode(selection.first),
+        ),
+        const SizedBox(height: 16),
+        Text(strings.r14.textSize, style: theme.textTheme.bodyMedium),
+        const SizedBox(height: 8),
+        SegmentedButton<AppTextSize>(
+          segments: [
+            ButtonSegment(value: AppTextSize.normal, label: Text(strings.r14.textNormal)),
+            ButtonSegment(value: AppTextSize.large, label: Text(strings.r14.textLarge)),
+            ButtonSegment(value: AppTextSize.larger, label: Text(strings.r14.textLarger)),
+          ],
+          selected: {ref.watch(textSizeControllerProvider)},
+          onSelectionChanged: (selection) =>
+              ref.read(textSizeControllerProvider.notifier).setSize(selection.first),
         ),
 
         // ---- Help & about (text ships with the app: works offline) -----------------

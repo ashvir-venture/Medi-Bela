@@ -154,6 +154,15 @@ model User {
   medicineRemindersEnabled Boolean       @default(true)
   // Round 13: when "Start your medicine box" was done (null = not started).
   medicineBoxStartedAt     DateTime?
+  // Round 14: the user's own reminder timings; NULL = the .env default
+  // (common/config/reminder-timing.ts). Ring gap, Later delay, number of
+  // rings and when the family is told (also the On time / Late line).
+  reminderRepeatMinutes    Int?
+  reminderLaterMinutes     Int?
+  reminderRings            Int?
+  familyAlertMinutes       Int?
+  // Round 14: easy mode for elders (the user or their caregiver switches it).
+  easyMode                 Boolean       @default(false)
   // Off: notices are not pushed (still listed in the app).
   noticesEnabled           Boolean       @default(true)
   // The privacy flag, stored inverted: false = "Hide from family" switched
@@ -186,6 +195,7 @@ model User {
   verifiedMedicines        PrescriptionMedicine[]  @relation("MedicineVerifier")
   medicineRoutines         MedicineRoutine[]
   medicineDoses            MedicineDose[]
+  givenDoses               MedicineDose[]          @relation("DoseGiver")
   healthReminders          HealthReminder[]
   healthRecords            HealthRecord[]
   createdSuggestionRules   HealthSuggestionRule[]  @relation("RuleCreator")
@@ -461,11 +471,18 @@ model MedicineDose {
   // this dose (alert created, or deliberately skipped). Guarantees one
   // family alert per missed dose even with overlapping job runs.
   familyAlertProcessedAt DateTime?
+  // Round 14: who marked it taken when it wasn't the patient (the caregiver,
+  // "I gave it"); NULL = the patient. Set null if that account is removed.
+  takenById              String?    @db.Uuid
+  // Round 14: taken after the family-alert time (the patient's own or the
+  // .env default at that moment) = Late. NULL while not taken.
+  takenLate              Boolean?
   createdAt              DateTime   @default(now())
   updatedAt              DateTime   @updatedAt
 
   routine MedicineRoutine @relation(fields: [routineId], references: [id], onDelete: Cascade)
   user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  takenBy User?           @relation("DoseGiver", fields: [takenById], references: [id], onDelete: SetNull)
 
   @@index([userId, scheduledAt])
   @@index([routineId, scheduledAt])

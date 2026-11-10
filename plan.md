@@ -27,6 +27,7 @@ Workflow: during development only backend/prisma/schema.prisma changes (no migra
 10. 010_round11_terms_consent.sql - Round 11: users.termsAcceptedAt (when the user ticked the Privacy & terms box at sign-up). Additive. APPLIED to the Neon DB in backend/.env on 2026-10-31 (drift check empty before and after); fresh-install.sql rebuilt.
 11. 011_round12_interval_tests_edit_request.sql - Round 12: formId / intervalDays on prescription_medicines and medicine_routines (CHECK 1-90), prescriptions.editRequestNote / editRequestedAt, prescription_tests date / time / meal timing / note, health_reminders prescriptionId / testId / mealTimingId / caregiverAlertedAt, status MISSED. Additive. APPLIED to the Neon DB in backend/.env and the Neon test branch on 2026-10-31 (drift check empty after); fresh-install.sql rebuilt.
 12. 012_round13_personal_reminders_medicine_box.sql - Round 13: personal_reminders, medicine_stocks (CHECK quantity >= 0, intervalDays 1-90), users.medicineBoxStartedAt. Additive. APPLIED to the Neon DB in backend/.env and the Neon test branch on 2026-10-31 (drift check empty after); fresh-install.sql rebuilt.
+13. 013_round14_reminder_settings_easy_mode.sql - Round 14: users.reminderRepeatMinutes / reminderLaterMinutes / reminderRings / familyAlertMinutes (CHECK 5-60, 5-60, 1-6, 5-360) and easyMode, medicine_doses.takenById (FK users, set null) / takenLate. Additive. APPLIED to the Neon DB in backend/.env on 2026-11-10 (drift check empty after); NOT on the Neon test branch (its URL refuses the login); fresh-install.sql rebuilt.
 Fresh database: backend/prisma/fresh-install.sql is all migrations + phase4a_extra + every pending file in one script (with Prisma's _prisma_migrations rows), rebuilt by `bash scripts/build-fresh-install.sh` after each new pending file.
 Until these run, the deployed API's queries on the new columns fail, so don't deploy Round 3+ backend code before the SQL is applied.
 
@@ -486,3 +487,66 @@ Owner decisions (2026-10-31):
 Built: pending SQL 012 (personal_reminders, medicine_stocks, users.medicineBoxStartedAt; APPLIED to Neon and the Neon test branch 2026-10-31, drift check empty after; fresh-install.sql rebuilt); backend PersonalRemindersService, MedicineBoxService (+ controllers), CaregiverAccessService.caregiverOf, reminder-timing config + /app-config; app: Android FullScreenAlarms.kt / ReminderAlarmReceiver (alarm list shared through SharedPreferences, re-registered at boot), MainActivity (over the lock screen only while a reminder opened it; finishAlarm returns to the previous app), Drift schema 5 (cached_personal_reminders, cached_documents), reminder pages, medicine box screens, personal reminder screens, ReminderTiming.
 Checked: backend lint (old warnings only), unit + DB-backed specs (new src/e2e/round13-flow.int.spec.ts: access for patient / caregiver / other member / stranger, every N days, taken window, test reminder caregiver alert, medicine box counts, .env timings), build; panel lint and build; app analyze (no errors or warnings), tests, release APK. Not run on a phone.
 Open: the three pictures are about 1.4 MB each (the team photos were resized to 320x320 before shipping); Play Console may ask why the app uses full-screen intents / display over other apps.
+
+Rounds 14-17: the demo design (planned 2026-11-10, not started)
+Source: the owner's two demo artifacts, "Rafi's Medi-Bela" (caregiver, https://claude.ai/artifact/4pMkLHTA4WzdVykuPTqLSk) and "Abba's Medi-Bela" (patient, https://claude.ai/artifact/LdqxbR7Ej8dbBPWYBwNzez); same code, two personas. The app's screens follow the demo's look; only the features below are built, everything else in the demo is out.
+Owner decisions (2026-11-10):
+- Look: every new or changed screen follows the demo (teal / navy tokens, Anek Bangla font, cards, the band header on Home, bottom sheets, big buttons). Later is red, Taken green, everywhere.
+- Bangla first: a new install opens in Bengali, whatever the phone's language; English only after the user switches (the saved choice and the account's choice still win). The panel stays English.
+- Kept as before: ads out of scope; neutral lock-screen text (no medicine names, no switch); sign-up fields and the terms box unchanged; delete account de-identifies (the demo's "deleted for good" wording is not used); medicine schedule options (every day / every N days) and the medicine box unchanged; Taken is a single tap (no press-and-hold); Later on every ring except the last, which has only Taken (as Round 12).
+- Caregiver: no permission switch. Access stays until the member turns it off (Hide from family, leave, removal). NEW: the caregiver may mark a member's dose taken ("I gave it"); reverses the Round 6 rule. Who marked it is stored and shown.
+- Dose status: On time / Late / Missed.
+- Reminder timings: the user may change them; the .env values stay the defaults (GET /app-config), the user's own values are stored per account (DB change).
+- Reminder voice: not now (owner, 2026-11-10, dropped). The reminder sound stays as through Round 13: Settings → Reminder sound opens the phone's alarm channel page, the phone's alarm tone is the default.
+- New packages approved: a PDF package for the doctor report, a speech-to-text package for asking the assistant by voice.
+- PDF report: free for everyone for now (limited when subscriptions come).
+- All 8 conditions now. Split into 4 rounds.
+- Database: schema.prisma + pending SQL files, applied to Neon after the drift check, as usual.
+- Not now: Ramadan mode, payments / plans / Premium, pharmacy refill orders, home lab collection, SMS alerts, B2B form, health videos, family-code / QR sign-in, sponsors.
+- Any confusion or contradiction is decided by the owner ([ASK] below, before that part is built).
+Every round: backend lint, unit + DB-backed specs (a new *.int.spec per round), build; panel lint and build when touched; app analyze, unit and widget tests for every new screen and rule (Bengali and English) (release APK only once, after Round 17, unless a check needs it: owner 2026-11-10); the screens compared with the demo at phone width in light and dark. Bug fixes get a test that failed before. CLAUDE.md and PLAN.md updated at the end of each round; commit on main.
+
+Round 14: look, language, reminders and caregiver - CODE DONE 2026-11-10
+Built: pending SQL 013 (users reminder timings + easyMode, medicine_doses takenById / takenLate; APPLIED to the Neon DB in backend/.env, drift check empty after; fresh-install.sql rebuilt). Backend: per-user timings (effectiveTiming, GET/PUT /users/me/reminder-timing, app-config per user, FAMILY_ALERT_TOO_EARLY), missed-dose sweep and backstop per patient (raw SQL with COALESCE on the user's values), On time / Late stored at mark time, caregiver "I gave it" (POST doses/:id/taken?forUserId=, audit dose.give, dose_given push with doseIds), PUT /family/members/:userId/easy-mode, member status with dose ids / easyMode for the caregiver and takenLate / givenByCaregiver for all. App: demo theme tokens, Bangla first, text size, new bottom bar + quick add + AI button, new Home (band, Today card with green Taken / red Later, three-times strip, services, family card), easy mode and the caregiver's preview, On time / Late / Missed chips and the 7-day strip on Today (server history, cache when offline), Routine and reminders page, I gave it + easy-mode switch on the member page, the member's phone pulls on a dose_given push (foreground and background), What notifications look like, phone-brand steps (deviceBrand / openAppSettings in MainActivity).
+Owner decisions during the round: no bundled font (the phone's own font; the demo's Anek Bangla not downloaded); Later on every ring except the last (unchanged).
+Checked: backend lint (old warnings only), tsc, build, unit specs (all pass; the Argon2 auth specs pass with --runInBand as before); app analyze (no errors or warnings), 121 tests incl. test/round14 (rules, slots, outcomes, Bangla default, text size, brands, quick add, Home card colours, easy home, rules page, notification page, member "I gave it" / easy mode), release APK.
+DB-backed specs (2026-11-10, new Neon test database ep-royal-paper in TEST_DATABASE_URL, already on SQL 013): src/e2e src/family src/users src/medicine-schedule src/common with --runInBand: 175 of 177 first; fixed two outdated test expectations (round14-flow counted the family-invitation notice; family.int.spec expected no dose ids for the caregiver, who now gets them by design; new case for the caregiver view), then family, round14-flow and caregiver-flow 25/25. Still failing on latency only: missed-dose-alert "every missed dose in one run, beyond one batch" (400 of 500 within the 45 s budget from this PC to Neon Singapore; the sweep itself passed, 250 of 250).
+Not done / open: Not looked at on a phone or next to the demo on a screen (device testing deferred). Wake / meal times that new medicines start from (my plan item E) were not built. Old accounts keep their saved English (the account's choice wins); the DB default languagePreference is still EN (the app sends BN at sign-up).
+A. Look: app theme rebuilt on the demo's tokens (light and dark), Anek Bangla bundled as a font asset (no package), shared widgets (cards, chips, segmented control, bottom sheet, number keypad). Text size in Appearance: Normal / Large / Larger.
+B. Bangla first (LocaleController default bn).
+C. Navigation: bottom bar Home · Medicines · (+) · Family · Health with the + quick-add sheet (prescription photo, add medicine, reading, test, doctor visit, medicine box; each part links once built) and a floating AI button on the tab roots (the Home assistant card goes). Profile moves to the avatar on Home (as the demo).
+D. Dose status On time / Late / Missed (server and app): stored on the dose, shown on Today, the member page and a 7-day dot strip.
+E. Reminder rules page (Health or Profile → "Routine and reminders"): the user's own ring-again gap, Later delay, family alert time and number of rings (answer 2 below); empty = server default. Wake / meal times that new medicines start from. Pending SQL 013.
+F. Caregiver marks a member's dose: POST doses/:id/taken gains the caregiver path (CaregiverAccessService), markedById stored, "Given by Rafi" shown; the member's phone drops the reminder on the next sync / push. Audited.
+G. Easy mode: Profile switch (the caregiver may switch it for a member): large text, Home shows only today's medicine, one big Taken, call family, emergency 999; the caregiver can preview it.
+H. Help: "What notifications look like" page; phone-brand steps on Reminder check (Xiaomi / Redmi / POCO, Oppo, Realme, Vivo, Samsung, Tecno / Infinix / itel, Huawei / Honor, OnePlus, others; brand read through the existing MainActivity channel, "Open settings" where the phone allows). (The Bangla voice sound: not now, owner 2026-11-10.)
+
+Round 15: my care, readings and conditions
+A. "My care" step after sign-up (and in Health → Edit conditions): pick conditions from a lookup table `conditions` (8 rows, English; owner edits), each gets a Home card. Pending SQL 014.
+B. Readings: BP (two measurements → average, arm, pulse), sugar (fasting / after food / random), weight with BMI, temperature, insulin units + site, sleep, water, plus the condition ones (peak flow, TSH, creatinine, pregnancy weight). HealthRecordType gains the new kinds (data conversion none).
+C. Targets and limits (doctor's numbers, who and when): readings marked in / below / above range; "Tell my family" switch sends an out-of-range alert to the caregiver.
+D. Crisis sheets on dangerous readings (very high BP, very low sugar) and the daily "How do you feel?" check-in: what to do now, Call 999, 16263, Alert family; no diagnosis (AI safety rules; fixed texts).
+E. Condition cards and pages for all 8: diabetes, high BP, heart, kidney, cancer treatment, asthma, thyroid, pregnancy (graphs, latest values, upcoming tests, "Questions for my doctor").
+F. Insulin log: body map, suggested next site, who gave it, pen opening and expiry date.
+
+Round 16: health records 2.0
+A. Doctor visits: date, time, doctor (catalog or typed, as prescriptions), condition; reminder the day before at 19:00.
+B. Own upcoming tests: date, reminder the day before at 09:00 (with "fasting?"); next to the prescription test reminders.
+C. Test results: values (name, value, unit), findings, lab, photos (private Cloudinary, signed links like prescriptions), earlier results side by side.
+D. Prescriptions for the record only: photo(s), date, doctor, condition, note; never in the pharmacist queue, no medicines created.
+E. One-page PDF for the doctor (new package): doses on time / late / missed, readings, insulin, test results with photos; free. Pending SQL 015.
+
+Round 17: voice, sharing, history, tips
+A. (Ramadan mode: not now, owner 2026-11-10.)
+B. Assistant voice question (speech-to-text package); the text still goes through the safety filter.
+C. Share a notice with family (to their Family inbox).
+D. Change history in manage mode (what the caregiver changed, both sides; from the audit rows).
+E. First-use tips on the main screens (Home, Medicines, Family, Health, reminder page, +): Next / Skip, once; "Show tips again" in Help & about. Built last, when the screens are final.
+
+Answers (owner, 2026-11-10):
+1. Dose status: On time = taken before the family alert (+50 by default, or the user's own value); Late = taken after it, inside the taken window; Missed = never taken before the window closes.
+2. The user may change: ring-again gap, Later delay, family alert time and number of rings (each empty = .env default). The last ring always has only Taken; the family alert must come after the last ring has finished (the form refuses otherwise, same rule as the API's start-up warning).
+3. Bangla voice: not now (owner, 2026-11-10: dropped; was a recorded "ওষুধের সময় হয়েছে" as the alarm sound). The default alarm sound setting stays as through Round 13.
+4. Ramadan mode: not now (removed from Round 17).
+5. Height: optional field in Edit your details (pending SQL); the weight form asks for it once when empty.
+6. Easy mode: the caregiver may turn it on or off for a member like other caregiver actions (not for a member who hides from family); the member gets a neutral notice and can turn it off.

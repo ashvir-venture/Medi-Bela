@@ -125,12 +125,14 @@ class PushService {
     required void Function(String route) navigate,
     Future<void> Function(DateTime scheduledAt)? onReminderBackstop,
     Future<void> Function()? onSessionEnded,
+    Future<void> Function(Map<String, dynamic> data)? onCaregiverAction,
   }) : _dio = dio,
        _storage = secureStorage,
        _local = localPlugin,
        _navigate = navigate,
        _onReminderBackstop = onReminderBackstop,
-       _onSessionEnded = onSessionEnded;
+       _onSessionEnded = onSessionEnded,
+       _onCaregiverAction = onCaregiverAction;
 
   final Dio _dio;
   final SecureStorageService _storage;
@@ -139,6 +141,9 @@ class PushService {
   final Future<void> Function(DateTime scheduledAt)? _onReminderBackstop;
   /// The account was paused or removed on the server (data-only push).
   final Future<void> Function()? _onSessionEnded;
+  /// Round 14: the caregiver gave a dose ("I gave it") or switched easy mode:
+  /// pull the change so the phone stops ringing / shows the right Home.
+  final Future<void> Function(Map<String, dynamic> data)? _onCaregiverAction;
 
   final List<StreamSubscription<dynamic>> _subs = [];
   bool _firebaseReady = false;
@@ -307,6 +312,11 @@ class PushService {
       await _onReminderBackstop?.call(backstopAt);
       return;
     }
+    if (isCaregiverActionMessage(message.data)) {
+      try {
+        await _onCaregiverAction?.call(message.data);
+      } catch (_) {/* shown anyway; the next refresh catches up */}
+    }
     final n = message.notification;
     if (n == null) return;
     try {
@@ -379,3 +389,6 @@ class PushService {
     }
   }
 }
+
+/// A "your caregiver did something" push (data.kind caregiver_action).
+bool isCaregiverActionMessage(Map<String, dynamic> data) => data['kind'] == 'caregiver_action';

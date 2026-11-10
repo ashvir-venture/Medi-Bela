@@ -22,6 +22,8 @@ export const ErrorCode = {
   DOSE_NOT_DUE: 'DOSE_NOT_DUE',
   /** Marking a dose taken later than 1 h before the medicine's next dose. */
   DOSE_WINDOW_CLOSED: 'DOSE_WINDOW_CLOSED',
+  /** Own reminder timings where the family would be told before the last ring has finished (Round 14). */
+  FAMILY_ALERT_TOO_EARLY: 'FAMILY_ALERT_TOO_EARLY',
   NOT_FOUND: 'NOT_FOUND',
   CONFLICT: 'CONFLICT',
   PAYLOAD_TOO_LARGE: 'PAYLOAD_TOO_LARGE',

@@ -168,15 +168,27 @@ class MemberDoseStatus {
     required this.scheduledAt,
     required this.status,
     this.takenAt,
+    this.id,
+    this.takenLate,
+    this.givenByCaregiver = false,
   });
 
   final String medicineName;
   final DateTime scheduledAt;
   final String status; // TAKEN | MISSED | PENDING | SKIPPED
   final DateTime? takenAt;
+  /// Round 14: only the caregiver gets the dose id (to mark it, "I gave it").
+  final String? id;
+  /// Round 14: taken after the member's family-alert time (null while not taken).
+  final bool? takenLate;
+  /// Round 14: the caregiver marked it.
+  final bool givenByCaregiver;
 
   factory MemberDoseStatus.fromJson(Map<String, dynamic> json) {
     return MemberDoseStatus(
+      id: json['id'] as String?,
+      takenLate: json['takenLate'] as bool?,
+      givenByCaregiver: json['givenByCaregiver'] as bool? ?? false,
       medicineName: json['medicineName'] as String,
       scheduledAt: DateTime.parse(json['scheduledAt'] as String).toLocal(),
       status: json['status'] as String,
@@ -194,6 +206,7 @@ class MemberStatusDetail {
     required this.shared,
     required this.doses,
     this.paused = false,
+    this.easyMode,
   });
 
   final String userId;
@@ -201,6 +214,11 @@ class MemberStatusDetail {
   final bool shared;
   final List<MemberDoseStatus> doses;
   final bool paused;
+  /// Round 14: the member's easy mode; only sent to their caregiver (null otherwise).
+  final bool? easyMode;
+
+  /// The caregiver's view (dose ids and the easy-mode switch come only to them).
+  bool get asCaregiver => easyMode != null;
 
   factory MemberStatusDetail.fromJson(Map<String, dynamic> json) {
     final member = json['member'] as Map<String, dynamic>;
@@ -209,6 +227,7 @@ class MemberStatusDetail {
       name: member['name'] as String,
       shared: json['shared'] as bool? ?? false,
       paused: member['paused'] as bool? ?? false,
+      easyMode: member['easyMode'] as bool?,
       doses: (json['doses'] as List<dynamic>? ?? [])
           .map((d) => MemberDoseStatus.fromJson(d as Map<String, dynamic>))
           .toList(),

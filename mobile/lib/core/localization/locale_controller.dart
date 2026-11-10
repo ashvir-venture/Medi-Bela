@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,10 +8,15 @@ import 'app_strings.dart';
 
 const _supportedLanguageCodes = ['en', 'bn'];
 
-/// Persisted app language ('en' | 'bn'). Defaults to the device locale when
-/// it's one we support, otherwise English.
+/// The language a new install starts in, whatever the phone's language
+/// (Round 14, owner 2026-11-10: "Bangla first app, English only if the user
+/// switches").
+const defaultLanguageCode = 'bn';
+
+/// Persisted app language ('en' | 'bn'). Bengali until the user switches; a
+/// saved choice (this phone, or the account's after sign-in) wins.
 class LocaleController extends StateNotifier<Locale> {
-  LocaleController() : super(const Locale('en')) {
+  LocaleController() : super(const Locale(defaultLanguageCode)) {
     _restore();
   }
 
@@ -21,12 +25,6 @@ class LocaleController extends StateNotifier<Locale> {
     final saved = prefs.getString(PrefsKeys.languageCode);
     if (saved != null && _supportedLanguageCodes.contains(saved)) {
       state = Locale(saved);
-      return;
-    }
-
-    final deviceCode = PlatformDispatcher.instance.locale.languageCode;
-    if (_supportedLanguageCodes.contains(deviceCode)) {
-      state = Locale(deviceCode);
     }
   }
 

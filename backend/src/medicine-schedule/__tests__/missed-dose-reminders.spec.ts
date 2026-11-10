@@ -15,6 +15,7 @@ function setup(opts: { backstopGroups?: any[]; missed?: any[] } = {}) {
       findMany: jest.fn(async ({ where }: any) => (where.status === DoseStatus.MISSED ? opts.missed ?? [] : [])),
     },
     $queryRaw: jest.fn(async () => opts.backstopGroups ?? []),
+    $executeRaw: jest.fn(async () => 1),
     familyMember: {
       findUnique: familyLookups,
       findMany: jest.fn(async () => [{ user: { id: 'relative', languagePreference: 'EN' } }]),
@@ -62,8 +63,12 @@ describe('reminder backstop push', () => {
     expect(query.sql).toMatch(/"medicineRemindersEnabled"/);
     // Groups that already have their backstop are skipped, so later groups get theirs.
     expect(query.sql).toMatch(/NOT EXISTS/);
-    expect(query.values).toContain(minutesAgo(backstopAfterMinutes()).toISOString());
-    expect(query.values).toContain(minutesAgo(DEFAULT_MISSED_GRACE_MINUTES).toISOString());
+    // Round 14: each patient's own ring gap / family-alert time, else the .env values.
+    expect(query.sql).toMatch(/COALESCE\(u\."reminderRepeatMinutes"/);
+    expect(query.sql).toMatch(/COALESCE\(u\."familyAlertMinutes"/);
+    expect(query.values).toContain(NOW.toISOString());
+    expect(query.values).toContain(backstopAfterMinutes());
+    expect(query.values).toContain(DEFAULT_MISSED_GRACE_MINUTES);
   });
 
   it('sends one neutral, data-only-ready notification per user and scheduled time, to the patient', async () => {

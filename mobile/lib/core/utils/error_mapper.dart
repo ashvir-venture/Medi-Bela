@@ -54,6 +54,8 @@ String textForErrorCode(String? code, AppStrings s, {String? serverMessage, Stri
       return s.errorDoseNotDue;
     case 'DOSE_WINDOW_CLOSED':
       return s.errorDoseWindowClosed;
+    case 'FAMILY_ALERT_TOO_EARLY':
+      return s.r14.familyAlertTooEarly;
     case 'NOT_FOUND':
       return s.errorNotFound;
     case 'FORBIDDEN':

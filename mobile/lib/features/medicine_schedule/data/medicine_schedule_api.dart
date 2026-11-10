@@ -15,6 +15,15 @@ class MedicineScheduleApi {
         .toList();
   }
 
+  /// Round 14: past doses between [from] and [to] (the week strip).
+  Future<List<MedicineDoseModel>> getHistory(DateTime from, DateTime to) async {
+    final response = await _dio.get<List<dynamic>>(
+      '/medicine-schedule/doses/history',
+      queryParameters: {'from': from.toUtc().toIso8601String(), 'to': to.toUtc().toIso8601String()},
+    );
+    return response.data!.map((d) => MedicineDoseModel.fromJson(d as Map<String, dynamic>)).toList();
+  }
+
   Future<List<MedicineDoseModel>> getToday() async {
     final response = await _dio.get<List<dynamic>>(ApiEndpoints.medicineToday);
     return response.data!

@@ -144,6 +144,15 @@ final pushServiceProvider = Provider<PushService>((ref) {
     onReminderBackstop: (at) => ref.read(notificationSchedulerProvider).showBackstop(at),
     // Same as a logout: reminders cancelled, local data and tokens cleared.
     onSessionEnded: () => ref.read(authControllerProvider.notifier).logout(),
+    // Round 14: a dose the caregiver gave stops ringing here; easy mode follows.
+    onCaregiverAction: (data) async {
+      final action = data['action'];
+      if (action == 'dose_given') {
+        await ref.read(medicineScheduleRepositoryProvider).refreshFromServer();
+      } else if (action == 'easy_mode_on' || action == 'easy_mode_off') {
+        await ref.read(authControllerProvider.notifier).refreshProfile();
+      }
+    },
   );
 });
 

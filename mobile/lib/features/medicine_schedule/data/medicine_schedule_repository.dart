@@ -50,6 +50,18 @@ class MedicineScheduleRepository {
 
   /// Today's doses, each with its taken window (worked out from the next
   /// cached dose of the same medicine, so the whole cache is read).
+  /// Round 14: the cached doses of the 7 days up to today (the week strip).
+  /// Only what this phone has cached; older days may be missing.
+  Stream<List<MedicineDoseModel>> watchLastWeek() {
+    final today = DateTime.now();
+    final end = DateTime(today.year, today.month, today.day).add(const Duration(days: 1));
+    final start = end.subtract(const Duration(days: 7));
+    final query = _db.select(_db.cachedMedicineDoses)
+      ..where((t) => t.scheduledAt.isBiggerOrEqualValue(start) & t.scheduledAt.isSmallerThanValue(end))
+      ..orderBy([(t) => OrderingTerm.asc(t.scheduledAt)]);
+    return query.watch().map((rows) => rows.map(_doseRowToModel).toList());
+  }
+
   Stream<List<MedicineDoseModel>> watchToday() {
     final today = DateTime.now();
     final start = DateTime(today.year, today.month, today.day);

@@ -181,12 +181,26 @@ d('FamilyService (real Postgres)', () => {
     it('a family member sees another member\'s status (name+time+status; no dosage/ids)', async () => {
       const { owner } = await familyOf();
       const m = await makeUser(prisma, 'Mem'); await join(owner, m);
+      const sibling = await makeUser(prisma, 'Sib'); await join(owner, sibling);
       await withDoses(m, [{ h: 0.1, status: 'TAKEN' }]);
-      const res: any = await svc.getMemberStatus(owner.id, m.id);
+      // A plain member (not the caregiver): name, time, status only.
+      const res: any = await svc.getMemberStatus(sibling.id, m.id);
       expect(res.shared).toBe(true);
       const json = JSON.stringify(res);
       expect(json).toContain('Metformin');
-      expect(json).not.toMatch(/500mg|routineId|"id"/);
+      expect(json).not.toMatch(/500mg|routineId|"id"|easyMode/);
+    });
+
+    // Round 14 (owner, 2026-11-10): the caregiver may give a dose ("I gave it")
+    // and switch easy mode, so only they also get the dose id and easyMode.
+    it('the caregiver also gets the dose id and the easy-mode switch, still no dosage', async () => {
+      const { owner } = await familyOf();
+      const m = await makeUser(prisma, 'Mem'); await join(owner, m);
+      await withDoses(m, [{ h: 0.1 }]);
+      const res: any = await svc.getMemberStatus(owner.id, m.id);
+      expect(res.doses[0].id).toEqual(expect.any(String));
+      expect(res.member.easyMode).toBe(false);
+      expect(JSON.stringify(res)).not.toMatch(/500mg|routineId/);
     });
 
     it('an OUTSIDER cannot read anyone\'s status; same 404 as a nonexistent user', async () => {

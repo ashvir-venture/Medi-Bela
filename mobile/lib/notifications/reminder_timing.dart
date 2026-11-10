@@ -3,13 +3,16 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Reminder timings, set on the server in .env (backend
-/// common/config/reminder-timing.ts) and read from GET /app-config on every
+/// common/config/reminder-timing.ts), with the user's own values on top
+/// (Round 14: Routine and reminders), read from GET /app-config on every
 /// refresh (SessionServices). Kept in SharedPreferences so background
 /// isolates (Done / Later with the app closed) use the same values; the
 /// defaults below are the server's defaults, used until the first answer.
 class ReminderTiming {
   const ReminderTiming({
     this.repeatMinutes = 15,
+    this.laterMinutes = 15,
+    this.missedGraceMinutes = 50,
     this.rings = 4,
     this.ringMinutes = 2,
     this.takenClosesBeforeNextMinutes = 60,
@@ -18,8 +21,12 @@ class ReminderTiming {
     this.appSyncMinutes = 10,
   });
 
-  /// Minutes between medicine rings; Later waits this long too.
+  /// Minutes between medicine rings.
   final int repeatMinutes;
+  /// What Later waits before the next ring (Round 14).
+  final int laterMinutes;
+  /// When the family is told; taken after this = Late (Round 14).
+  final int missedGraceMinutes;
   /// Rings per dose time.
   final int rings;
   /// How long one ring sounds.
@@ -45,6 +52,8 @@ class ReminderTiming {
     const d = ReminderTiming();
     return ReminderTiming(
       repeatMinutes: _int(json['repeatMinutes'], d.repeatMinutes, 1, 180),
+      laterMinutes: _int(json['laterMinutes'], _int(json['repeatMinutes'], d.laterMinutes, 1, 180), 1, 180),
+      missedGraceMinutes: _int(json['missedGraceMinutes'], d.missedGraceMinutes, 1, 1440),
       rings: _int(json['rings'], d.rings, 1, 10),
       ringMinutes: _int(json['ringMinutes'], d.ringMinutes, 1, 10),
       takenClosesBeforeNextMinutes: _int(json['takenClosesBeforeNextMinutes'], d.takenClosesBeforeNextMinutes, 0, 720),
@@ -56,6 +65,8 @@ class ReminderTiming {
 
   Map<String, dynamic> toJson() => {
         'repeatMinutes': repeatMinutes,
+        'laterMinutes': laterMinutes,
+        'missedGraceMinutes': missedGraceMinutes,
         'rings': rings,
         'ringMinutes': ringMinutes,
         'takenClosesBeforeNextMinutes': takenClosesBeforeNextMinutes,

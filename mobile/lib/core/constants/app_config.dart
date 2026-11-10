@@ -45,6 +45,12 @@ class PrefsKeys {
   /// 'system' | 'light' | 'dark' (this device only).
   static const String themeMode = 'pref_theme_mode';
 
+  /// 'normal' | 'large' | 'larger' (Round 14, this device only).
+  static const String textSize = 'pref_text_size';
+
+  /// Mirror of the account's `easyMode` (Round 14) for an offline start.
+  static const String easyMode = 'pref_easy_mode';
+
   /// Mirror of the account's `medicineRemindersEnabled`, so reminders
   /// follow the switch offline and in background isolates.
   static const String medicineRemindersEnabled = 'pref_medicine_reminders_enabled';

@@ -43,6 +43,11 @@ export class UpdateProfileDto {
   @IsBoolean()
   medicineRemindersEnabled?: boolean;
 
+  /** Round 14: easy mode for elders (big text, today's medicine, one Taken, call family). */
+  @IsOptional()
+  @IsBoolean()
+  easyMode?: boolean;
+
   /** Off: notices still appear in the app, but are not pushed. */
   @IsOptional()
   @IsBoolean()

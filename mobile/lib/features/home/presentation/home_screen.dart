@@ -7,108 +7,67 @@ import '../../../core/theme/app_theme.dart';
 import '../../../features/auth/presentation/auth_controller.dart';
 import '../../../features/health/domain/health_models.dart';
 import '../../../features/health/presentation/health_controller.dart';
-import '../../../features/inbox/presentation/inbox_controller.dart';
-import '../../../features/medicine_schedule/domain/dose_display_status.dart';
-import '../../../features/medicine_schedule/domain/medicine_schedule_models.dart';
-import '../../../features/medicine_schedule/presentation/medicine_schedule_controller.dart';
-import '../../../core/localization/app_strings.dart';
 import '../../../features/notices/domain/notice_models.dart';
 import '../../../features/notices/presentation/notices_controller.dart';
 import '../../../router/app_router.dart';
-import '../../../widgets/app_logo.dart';
 import '../../../widgets/sponsored_ad_banner.dart';
-import '../../prescription/presentation/prescription_screen.dart';
-import '../../medicine_box/presentation/medicine_box_screens.dart';
+import '../../family/presentation/family_controller.dart';
 import '../../reminders/presentation/full_screen_permission_screen.dart';
-import '../../reminders/presentation/reminder_status_banner.dart';
-import '../../../widgets/state_views.dart';
+import 'easy_home_screen.dart';
+import 'home_top.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final strings = ref.watch(stringsProvider);
-    final userState = ref.watch(authControllerProvider);
-    final userName = userState.value?.name;
+    final easyMode = ref.watch(authControllerProvider.select((u) => u.value?.easyMode ?? false));
+    // Round 14: easy mode for elders replaces Home.
+    if (easyMode) return const EasyHomeScreen();
 
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            const AppLogo(height: 32),
-            const SizedBox(width: 10),
-            Flexible(
-              child: Text(
-                userName == null ? strings.appName : 'Hi, $userName',
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          Builder(
-            builder: (context) {
-              final unread =
-                  ref.watch(unreadNotificationCountProvider).valueOrNull ?? 0;
-              return IconButton(
-                tooltip: strings.notifications,
-                onPressed: () async {
-                  await context.push(AppRoutes.inbox);
-                  ref.invalidate(unreadNotificationCountProvider);
-                },
-                icon: Badge(
-                  isLabelVisible: unread > 0,
-                  label: Text(unread > 99 ? '99+' : '$unread'),
-                  child: const Icon(Icons.notifications_outlined),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(myNoticesProvider);
+          ref.invalidate(familyStatusSummaryProvider);
           await ref.read(authControllerProvider.notifier).refreshProfile();
         },
+        // Round 14: the demo's Home. A navy band, the "Today's medicine"
+        // card over it, services, family, health reminders, notices.
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.zero,
           children: [
-            const ReminderStatusBanner(),
-            const FullScreenPromptOnce(),
-            const MedicineBoxButton(card: true),
-            const _TodaysMedicineSection(),
-            const SizedBox(height: 20),
-            const _HealthRemindersSection(),
-            const SizedBox(height: 20),
-            // The first thing every new user does, and the main thing a
-            // returning patient does: one large button, not hidden in a tab.
-            FilledButton.icon(
-              onPressed: () => openPrescriptionEntryForm(context),
-              icon: const Icon(Icons.upload_file_outlined, size: 26),
-              label: Text(strings.uploadPrescription),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(60),
-                textStyle: Theme.of(context).textTheme.titleMedium,
+            const HomeBand(),
+            const TodayHeroCard(),
+            Transform.translate(
+              offset: const Offset(0, -42),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const FullScreenPromptOnce(),
+                    const HomeServices(),
+                    const SizedBox(height: 12),
+                    const HomeFamilyCard(),
+                    const SizedBox(height: 16),
+                    const _HealthRemindersSection(),
+                    const SizedBox(height: 20),
+                    // Active notices only: published, not expired, audience-matched
+                    // (the server filters; expiry is re-checked on the client).
+                    const _HomeNotices(),
+                    const SizedBox(height: 16),
+                    // Ad slot: static for now, to be sold to a sponsor later.
+                    SponsoredAdBanner(
+                      tag: ref.watch(stringsProvider).sponsoredAdTag,
+                      title: ref.watch(stringsProvider).adHeadline,
+                      message: ref.watch(stringsProvider).adMessage,
+                    ),
+                    // Room for the AI button above the bottom bar.
+                    const SizedBox(height: 48),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            _AssistantCard(
-              title: strings.aiAssistant,
-              subtitle: strings.assistantCardSubtitle,
-              onTap: () => context.push(AppRoutes.assistant),
-            ),
-            const SizedBox(height: 20),
-            // Active notices only: published, not expired, audience-matched
-            // (the server filters; expiry is re-checked on the client).
-            const _HomeNotices(),
-            const SizedBox(height: 16),
-            // Ad slot: static for now, to be sold to a sponsor later.
-            SponsoredAdBanner(
-              tag: strings.sponsoredAdTag,
-              title: strings.adHeadline,
-              message: strings.adMessage,
             ),
           ],
         ),
@@ -125,13 +84,11 @@ String _formatTime(DateTime dt) {
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({
     required this.title,
-    this.trailing,
     required this.onSeeAll,
     required this.seeAllLabel,
   });
 
   final String title;
-  final String? trailing;
   final VoidCallback onSeeAll;
   final String seeAllLabel;
 
@@ -145,147 +102,8 @@ class _SectionHeader extends StatelessWidget {
             child: Text(title, style: Theme.of(context).textTheme.titleMedium),
           ),
         ),
-        if (trailing != null)
-          Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: Text(
-              trailing!,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ),
         TextButton(onPressed: onSeeAll, child: Text(seeAllLabel)),
       ],
-    );
-  }
-}
-
-/// Today's doses from the LOCAL database, so this works offline. Anything
-/// that still needs attention (due / missed / upcoming) is listed before what
-/// is already taken, and the list is capped so Home stays short.
-class _TodaysMedicineSection extends ConsumerWidget {
-  const _TodaysMedicineSection();
-
-  static const _maxShown = 4;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final strings = ref.watch(stringsProvider);
-    final doses = ref.watch(todaysMedicineProvider).valueOrNull;
-
-    if (doses == null) {
-      return Column(
-        children: [
-          _SectionHeader(
-            title: strings.todaysMedicine,
-            onSeeAll: () => context.go(AppRoutes.todaysMedicine),
-            seeAllLabel: strings.seeAll,
-          ),
-          const SkeletonLines(),
-        ],
-      );
-    }
-
-    final taken = doses.where((d) => d.isTaken).length;
-    final attention = doses.where((d) => !d.isTaken).toList();
-    final ordered = [...attention, ...doses.where((d) => d.isTaken)];
-    final shown = ordered.take(_maxShown).toList();
-    final more = ordered.length - shown.length;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _SectionHeader(
-          title: strings.todaysMedicine,
-          trailing: doses.isEmpty
-              ? null
-              : '$taken/${doses.length} ${strings.doseTaken}',
-          onSeeAll: () => context.go(AppRoutes.todaysMedicine),
-          seeAllLabel: strings.seeAll,
-        ),
-        if (doses.isEmpty)
-          _EmptyLine(
-            icon: Icons.medication_outlined,
-            text: strings.noMedicineToday,
-          )
-        else ...[
-          for (final dose in shown) _DoseRow(dose: dose, strings: strings),
-          if (more > 0)
-            Padding(
-              padding: const EdgeInsets.only(top: 4, left: 4),
-              child: Text(
-                '+$more',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
-        ],
-      ],
-    );
-  }
-}
-
-class _DoseRow extends StatelessWidget {
-  const _DoseRow({required this.dose, required this.strings});
-
-  final MedicineDoseModel dose;
-  final AppStrings strings;
-
-  @override
-  Widget build(BuildContext context) {
-    final (icon, color, label) = switch (computeDoseDisplayStatus(dose)) {
-      DoseDisplayStatus.taken => (
-        Icons.check_circle,
-        context.palette.success,
-        strings.doseTaken,
-      ),
-      DoseDisplayStatus.missed => (
-        Icons.cancel_outlined,
-        Theme.of(context).colorScheme.error,
-        strings.doseMissed,
-      ),
-      DoseDisplayStatus.due => (
-        Icons.notifications_active_outlined,
-        context.palette.warning,
-        strings.doseDue,
-      ),
-      DoseDisplayStatus.skipped => (
-        Icons.block,
-        context.palette.muted,
-        strings.doseMissed,
-      ),
-      DoseDisplayStatus.upcoming => (
-        Icons.schedule,
-        Colors.blueGrey,
-        strings.doseUpcoming,
-      ),
-    };
-    final time = _formatTime(dose.scheduledAt);
-    // Status is conveyed by icon + colour + WORD, and the whole row is one
-    // screen-reader announcement, so colour is never the only signal.
-    return Semantics(
-      label: '${dose.medicineName}, ${dose.dosage}, $time, $label',
-      excludeSemantics: true,
-      child: Card(
-        margin: const EdgeInsets.only(top: 8),
-        child: ListTile(
-          minVerticalPadding: 8,
-          leading: Icon(icon, color: color),
-          title: Text(
-            dose.medicineName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Text(
-            '${dose.dosage} • $time',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          trailing: Text(
-            label,
-            style: TextStyle(color: color, fontWeight: FontWeight.w600),
-          ),
-          onTap: () => context.go(AppRoutes.todaysMedicine),
-        ),
-      ),
     );
   }
 }
@@ -524,55 +342,6 @@ class _PlaceholderSectionCard extends StatelessWidget {
               ),
               if (onTap != null) const Icon(Icons.chevron_right),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The AI assistant, as one large card on Home (no tab of its own).
-class _AssistantCard extends StatelessWidget {
-  const _AssistantCard({required this.title, required this.subtitle, required this.onTap});
-
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Semantics(
-      button: true,
-      label: '$title. $subtitle',
-      excludeSemantics: true,
-      child: Card(
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 28,
-                  backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.12),
-                  child: Icon(Icons.smart_toy_outlined, size: 30, color: theme.colorScheme.primary),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: theme.textTheme.titleMedium),
-                      const SizedBox(height: 4),
-                      Text(subtitle, style: theme.textTheme.bodyMedium),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.chevron_right),
-              ],
-            ),
           ),
         ),
       ),

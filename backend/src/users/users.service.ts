@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   HttpException,
   HttpStatus,
@@ -19,6 +20,8 @@ import { phoneVariants } from '../common/utils/phone.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { sanitizeUser, SafeUser } from '../common/utils/sanitize-user';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdateReminderTimingDto } from './dto/update-reminder-timing.dto';
+import { effectiveTiming, lastRingEndsMinutes, OWN_TIMING_SELECT, reminderTiming } from '../common/config/reminder-timing';
 import { DELETED_USER_NAME } from './lib/deleted-user';
 import { assertValidDetails, dateOfBirthColumn } from './lib/profile-details';
 
@@ -52,6 +55,53 @@ export class UsersService {
       data: { ...dto, dateOfBirth: dateOfBirthColumn(dto.dateOfBirth) },
     });
     return sanitizeUser(user);
+  }
+
+  /**
+   * Round 14: the reminder timings that apply to the user (their own values
+   * on top of .env), the .env defaults and their own values (null = default).
+   */
+  async getReminderTiming(userId: string) {
+    const own = await this.prisma.user.findUnique({ where: { id: userId }, select: OWN_TIMING_SELECT });
+    if (!own) throw new NotFoundException('User not found');
+    const defaults = reminderTiming();
+    return {
+      effective: effectiveTiming(own, defaults),
+      defaults,
+      own: {
+        repeatMinutes: own.reminderRepeatMinutes,
+        laterMinutes: own.reminderLaterMinutes,
+        rings: own.reminderRings,
+        familyAlertMinutes: own.familyAlertMinutes,
+      },
+    };
+  }
+
+  /**
+   * Saves the user's own timings. The family must be told after the last
+   * ring has finished (FAMILY_ALERT_TOO_EARLY otherwise), the same rule as
+   * the API's start-up warning for .env.
+   */
+  async updateReminderTiming(userId: string, dto: UpdateReminderTimingDto) {
+    const current = await this.prisma.user.findUnique({ where: { id: userId }, select: OWN_TIMING_SELECT });
+    if (!current) throw new NotFoundException('User not found');
+    const keep = <T>(value: T | undefined, old: T) => (value === undefined ? old : value);
+    const next = {
+      reminderRepeatMinutes: keep(dto.repeatMinutes, current.reminderRepeatMinutes),
+      reminderLaterMinutes: keep(dto.laterMinutes, current.reminderLaterMinutes),
+      reminderRings: keep(dto.rings, current.reminderRings),
+      familyAlertMinutes: keep(dto.familyAlertMinutes, current.familyAlertMinutes),
+    };
+    const t = effectiveTiming(next);
+    const lastRingEnds = lastRingEndsMinutes(t);
+    if (t.missedGraceMinutes <= lastRingEnds) {
+      throw withCode(
+        new BadRequestException(`The family alert must come after the last ring has finished (after ${lastRingEnds} minutes)`),
+        ErrorCode.FAMILY_ALERT_TOO_EARLY,
+      );
+    }
+    await this.prisma.user.update({ where: { id: userId }, data: next });
+    return this.getReminderTiming(userId);
   }
 
   /**

@@ -1,3 +1,5 @@
+part 'app_strings_r14.dart';
+
 /// A deliberately simple, hand-maintained i18n layer.
 ///
 /// The MVP only needs two languages and a modest string set, so a full

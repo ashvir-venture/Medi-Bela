@@ -86,7 +86,7 @@ export class CaregiverAccessService {
    * inbox tab). Neutral text: no medicine names. `key` makes it idempotent
    * per action (e.g. one push per dose). Never fails the action itself.
    */
-  async notifyMember(acting: ActingFor, action: CaregiverAction, key: string) {
+  async notifyMember(acting: ActingFor, action: CaregiverAction, key: string, extra?: Record<string, string>) {
     if (!acting.byCaregiver) return;
     try {
       const member = await this.prisma.user.findUnique({
@@ -102,7 +102,8 @@ export class CaregiverAccessService {
           title: copy.title,
           body: copy.body,
           relatedEntityId: `caregiver:${action}:${key}`,
-          data: { kind: 'caregiver_action', action },
+          // `extra` = ids only (e.g. doseIds, so the member's phone stops ringing for them).
+          data: { kind: 'caregiver_action', action, ...extra },
         },
       ]);
     } catch (err) {

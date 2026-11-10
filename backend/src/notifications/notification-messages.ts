@@ -29,7 +29,10 @@ export type CaregiverAction =
   | 'reminder_added'
   | 'reminder_updated'
   | 'reminder_removed'
-  | 'medicine_box_updated';
+  | 'medicine_box_updated'
+  | 'dose_given'
+  | 'easy_mode_on'
+  | 'easy_mode_off';
 
 const CAREGIVER_BODY: Record<CaregiverAction, { en: string; bn: string }> = {
   prescription_uploaded: {
@@ -59,6 +62,18 @@ const CAREGIVER_BODY: Record<CaregiverAction, { en: string; bn: string }> = {
   medicine_box_updated: {
     en: 'Your caregiver updated your medicine box.',
     bn: 'আপনার পরিচর্যাকারী আপনার ওষুধের বাক্স হালনাগাদ করেছেন।',
+  },
+  dose_given: {
+    en: 'Your caregiver marked your medicine as taken.',
+    bn: 'আপনার পরিচর্যাকারী আপনার ওষুধ খাওয়া হয়েছে বলে চিহ্নিত করেছেন।',
+  },
+  easy_mode_on: {
+    en: 'Your caregiver turned on easy mode. You can turn it off in Profile.',
+    bn: 'আপনার পরিচর্যাকারী সহজ মোড চালু করেছেন। প্রোফাইল থেকে বন্ধ করতে পারেন।',
+  },
+  easy_mode_off: {
+    en: 'Your caregiver turned off easy mode.',
+    bn: 'আপনার পরিচর্যাকারী সহজ মোড বন্ধ করেছেন।',
   },
   routine_added: {
     en: 'Your caregiver added a medicine to your routine.',

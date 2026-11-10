@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_strings.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/core_providers.dart';
@@ -79,13 +80,11 @@ class ReminderCheckScreen extends ConsumerWidget {
                 actionLabel: strings.openSettingsAction,
                 onAction: service.openBatterySettings,
               ),
+              const SizedBox(height: 8),
+              // Round 14: steps for this phone's maker (autostart, battery).
+              const PhoneBrandSteps(),
               const SizedBox(height: 16),
               Text(strings.fullScreenFallback, style: Theme.of(context).textTheme.bodySmall),
-              const SizedBox(height: 8),
-              Text(
-                strings.reminderVendorTip,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
             ],
           ),
         ),
@@ -144,6 +143,65 @@ class _CheckTile extends StatelessWidget {
               const SizedBox(width: 8),
               FilledButton(onPressed: onAction, child: Text(actionLabel)),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The phone maker, read once (Build.MANUFACTURER through MainActivity).
+final deviceBrandProvider = FutureProvider<String>((ref) => ref.watch(reminderStatusServiceProvider).deviceBrand());
+
+/// Round 14: the autostart / battery steps for this phone's maker (Xiaomi,
+/// Oppo / Realme, Vivo, Samsung, Tecno / Infinix / itel, Huawei / Honor,
+/// OnePlus, or the general ones), with a button to the app's settings page.
+class PhoneBrandSteps extends ConsumerWidget {
+  const PhoneBrandSteps({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(stringsProvider).r14;
+    final p = context.palette;
+    final brand = ref.watch(deviceBrandProvider).valueOrNull ?? '';
+    final steps = s.brandSteps[phoneFamily(brand)] ?? s.brandSteps['other']!;
+    final shown = brand.isEmpty ? 'Android' : brand[0].toUpperCase() + brand.substring(1);
+    return Card(
+      key: const ValueKey('phone-brand-steps'),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(s.brandTitle(shown), style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(s.brandStepsHelp, style: TextStyle(color: p.muted, fontSize: 14)),
+            const SizedBox(height: 10),
+            for (var i = 0; i < steps.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 26,
+                      height: 26,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(color: p.primaryContainer, shape: BoxShape.circle),
+                      child: Text('${i + 1}',
+                          style: TextStyle(color: p.onPrimaryContainer, fontWeight: FontWeight.w800)),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(steps[i], style: const TextStyle(fontSize: 15, height: 1.4))),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 4),
+            OutlinedButton.icon(
+              onPressed: () => ref.read(reminderStatusServiceProvider).openAppSettings(),
+              icon: const Icon(Icons.settings_outlined),
+              label: Text(s.openPhoneSettings),
+            ),
           ],
         ),
       ),

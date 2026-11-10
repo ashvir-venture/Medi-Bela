@@ -40,6 +40,9 @@ function makeFakePrisma() {
         return { count };
       }),
     },
+    // The patient's own family-alert time (Round 14); none set = the .env default.
+    _user: { familyAlertMinutes: null as number | null },
+    user: { findUnique: jest.fn(async function (this: any) { return null; }) },
     medicineRoutine: {
       findMany: jest.fn(async () => []),
       findFirst: jest.fn(async () => null),
@@ -69,7 +72,46 @@ describe('MedicineScheduleService — dose tracking', () => {
 
   beforeEach(() => {
     prisma = makeFakePrisma();
+    prisma.user.findUnique = jest.fn(async () => prisma._user);
     service = new MedicineScheduleService(prisma);
+  });
+
+  // Round 14 (owner, 2026-11-10): On time = taken before the family-alert time; after it = Late.
+  describe('On time / Late and who gave it', () => {
+    const saved = process.env.DOSE_MISSED_GRACE_MINUTES;
+    beforeEach(() => delete process.env.DOSE_MISSED_GRACE_MINUTES);
+    afterAll(() => {
+      if (saved === undefined) delete process.env.DOSE_MISSED_GRACE_MINUTES;
+      else process.env.DOSE_MISSED_GRACE_MINUTES = saved;
+    });
+
+    it('taken before the default family-alert time (50 min) is on time', async () => {
+      prisma._doses.set('dose-1', makeDose());
+      const result = await service.markDoseTaken('user-1', 'dose-1', '2026-03-01T08:50:00.000Z');
+      expect(result).toMatchObject({ takenLate: false, takenById: null });
+    });
+
+    it('taken after it is Late', async () => {
+      prisma._doses.set('dose-1', makeDose());
+      const result = await service.markDoseTaken('user-1', 'dose-1', '2026-03-01T08:51:00.000Z');
+      expect(result.takenLate).toBe(true);
+    });
+
+    it("uses the patient's own family-alert time", async () => {
+      prisma._user.familyAlertMinutes = 90;
+      prisma._doses.set('dose-1', makeDose());
+      const result = await service.markDoseTaken('user-1', 'dose-1', '2026-03-01T09:20:00.000Z');
+      expect(result.takenLate).toBe(false);
+    });
+
+    it('stores the caregiver who gave it, never the patient themself', async () => {
+      prisma._doses.set('dose-1', makeDose());
+      const given = await service.markDoseTaken('user-1', 'dose-1', '2026-03-01T08:05:00.000Z', 'carer-1');
+      expect(given.takenById).toBe('carer-1');
+      prisma._doses.set('dose-2', makeDose({ id: 'dose-2' }));
+      const own = await service.markDoseTaken('user-1', 'dose-2', '2026-03-01T08:05:00.000Z', 'user-1');
+      expect(own.takenById).toBeNull();
+    });
   });
 
   describe('markDoseTaken', () => {

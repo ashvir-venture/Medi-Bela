@@ -70,6 +70,11 @@ class MainActivity : FlutterActivity() {
                     launchRoute = null
                 }
                 "finishAlarm" -> result.success(finishAlarm())
+                // Round 14: phone-brand steps on Reminder check.
+                "deviceBrand" -> result.success(android.os.Build.MANUFACTURER ?: "")
+                "openAppSettings" -> result.success(
+                    launch(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))),
+                )
                 else -> result.notImplemented()
             }
         }

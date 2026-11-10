@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:mobile/core/localization/app_strings.dart';
+import 'package:mobile/core/localization/locale_controller.dart';
 import 'package:mobile/widgets/double_back_to_exit.dart';
 import 'package:mobile/widgets/main_scaffold.dart';
 
@@ -16,7 +17,14 @@ void main() {
       SharedPreferences.setMockInitialValues({'pref_language_code': 'en'});
       now = DateTime(2026, 10, 30, 9);
       exits = 0;
-      await tester.pumpWidget(ProviderScope(
+      // Round 14: the app starts in Bengali until the saved choice ('en') loads,
+      // so the language is loaded before the screen (which reads it on back).
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container.read(localeControllerProvider);
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
         child: MaterialApp(
           home: DoubleBackToExit(
             clock: () => now,
@@ -72,7 +80,9 @@ void main() {
       expect(tab('/family/member/u1/prescriptions'), 2);
       expect(tab('/health/records'), 3);
       expect(tab('/diabetes'), 3);
-      expect(tab('/profile/settings'), 4);
+      // Round 14: Profile opens from the avatar on Home (no tab of its own).
+      expect(tab('/profile'), 0);
+      expect(tab('/profile/settings'), 0);
     });
 
     test('tab roots go back to Home; pushed screens pop', () {
@@ -81,7 +91,7 @@ void main() {
       expect(root('/medicines?tab=today'), isTrue);
       expect(root('/family'), isTrue);
       expect(root('/health'), isTrue);
-      expect(root('/profile'), isTrue);
+      expect(root('/profile'), isFalse);
       expect(root('/medicines?for=u1'), isFalse);
       expect(root('/profile/settings'), isFalse);
       expect(root('/family/member/u1'), isFalse);

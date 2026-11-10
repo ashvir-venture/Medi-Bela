@@ -4,7 +4,7 @@ import { AccountStatus, DoseStatus, Language, NotificationType, Prisma } from '@
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService, NewNotification } from '../notifications/notifications.service';
 import { messages } from '../notifications/notification-messages';
-import { missedCutoff } from './lib/dose-status.util';
+import { missedGraceMinutes } from './lib/dose-status.util';
 import { reminderTiming } from '../common/config/reminder-timing';
 
 const BATCH_SIZE = 200;
@@ -65,11 +65,16 @@ export class MissedDoseAlertService {
 
   /** One pass. Public so it can be unit-tested and triggered manually. */
   async run(now: Date = new Date()): Promise<{ swept: number; alerted: number; backstops: number }> {
-    // 1. Detect: any PENDING dose past the grace window is MISSED (idempotent).
-    const sweep = await this.prisma.medicineDose.updateMany({
-      where: { status: DoseStatus.PENDING, scheduledAt: { lt: missedCutoff(now) } },
-      data: { status: DoseStatus.MISSED },
-    });
+    // 1. Detect: any PENDING dose past its patient's family-alert time (their
+    //    own, Round 14, or the .env default) is MISSED (idempotent).
+    const swept = await this.prisma.$executeRaw(Prisma.sql`
+      UPDATE medicine_doses d
+      SET status = 'MISSED', "updatedAt" = (${now.toISOString()}::timestamptz AT TIME ZONE 'UTC')
+      FROM users u
+      WHERE u.id = d."userId" AND d.status = 'PENDING'
+        AND d."scheduledAt" < (${now.toISOString()}::timestamptz AT TIME ZONE 'UTC')
+          - make_interval(mins => COALESCE(u."familyAlertMinutes", ${missedGraceMinutes()}::int))`);
+    const sweep = { count: swept };
 
     // 2. Close out stale backlog silently so it is never reconsidered.
     const staleBefore = new Date(now.getTime() - alertMaxAgeMs());
@@ -149,7 +154,7 @@ export class MissedDoseAlertService {
    * Exactly once via the (user, type, relatedEntityId) unique key.
    */
   async sendBackstops(now: Date = new Date()): Promise<number> {
-    const dueBefore = new Date(now.getTime() - backstopAfterMinutes() * 60_000);
+    const nowUtc = now.toISOString();
     const started = Date.now();
     let sent = 0;
 
@@ -166,8 +171,12 @@ export class MissedDoseAlertService {
         FROM medicine_doses d
         JOIN users u ON u.id = d."userId"
         WHERE d.status = 'PENDING'
-          AND d."scheduledAt" >= (${missedCutoff(now).toISOString()}::timestamptz AT TIME ZONE 'UTC')
-          AND d."scheduledAt" <= (${dueBefore.toISOString()}::timestamptz AT TIME ZONE 'UTC')
+          -- Between the patient's second ring (their own ring gap, Round 14, else
+          -- BACKSTOP_AFTER_MINUTES) and their family-alert time.
+          AND d."scheduledAt" >= (${nowUtc}::timestamptz AT TIME ZONE 'UTC')
+            - make_interval(mins => COALESCE(u."familyAlertMinutes", ${missedGraceMinutes()}::int))
+          AND d."scheduledAt" <= (${nowUtc}::timestamptz AT TIME ZONE 'UTC')
+            - make_interval(mins => COALESCE(u."reminderRepeatMinutes", ${backstopAfterMinutes()}::int))
           AND u."accountStatus" = 'ACTIVE' AND u."medicineRemindersEnabled"
           AND NOT EXISTS (
             SELECT 1 FROM notifications n

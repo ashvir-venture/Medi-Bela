@@ -11,7 +11,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { messages } from '../notifications/notification-messages';
 import { appDayBounds } from '../common/utils/time.util';
 import { cleanPhone, phoneVariants } from '../common/utils/phone.util';
-import { effectiveStatus } from '../medicine-schedule/lib/dose-status.util';
+import { effectiveStatus, missedGraceMinutes } from '../medicine-schedule/lib/dose-status.util';
 import { CURSOR_ORDER, cursorWhere, toCursorPage, USER_PAGE_SIZE } from '../common/utils/cursor-pagination';
 import { DELETED_USER_NAME } from '../users/lib/deleted-user';
 import { FamilyMembershipService } from './family-membership.service';
@@ -156,7 +156,9 @@ export class FamilyService {
     const membership = await this.requireMembership(userId);
     const members = await this.prisma.familyMember.findMany({
       where: { familyId: membership.familyId, userId: { not: userId } },
-      include: { user: { select: { id: true, name: true, profileVisibleToFamily: true, accountStatus: true } } },
+      include: {
+        user: { select: { id: true, name: true, profileVisibleToFamily: true, accountStatus: true, familyAlertMinutes: true } },
+      },
       orderBy: { joinedAt: 'asc' },
     });
 
@@ -182,7 +184,7 @@ export class FamilyService {
         }
         const mine = doses
           .filter((d) => d.userId === m.userId)
-          .map((d) => effectiveStatus(d.status, d.scheduledAt));
+          .map((d) => effectiveStatus(d.status, d.scheduledAt, new Date(), m.user.familyAlertMinutes ?? missedGraceMinutes()));
         return {
           userId: m.userId,
           name: m.user.name,
@@ -204,13 +206,32 @@ export class FamilyService {
     const membership = await this.requireMembership(userId);
     const target = await this.prisma.familyMember.findFirst({
       where: { userId: memberUserId, familyId: membership.familyId },
-      include: { user: { select: { id: true, name: true, profileVisibleToFamily: true, accountStatus: true } } },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            profileVisibleToFamily: true,
+            accountStatus: true,
+            familyAlertMinutes: true,
+            easyMode: true,
+          },
+        },
+      },
     });
     if (!target) throw new NotFoundException('Family member not found');
 
     const paused = isPaused(target.user.accountStatus);
-    const member = { userId: target.userId, name: target.user.name, paused };
     const isSelf = target.userId === userId;
+    // Round 14: the caregiver may mark this member's doses ("I gave it") and
+    // switch easy mode, so they get the dose ids and the switch's state.
+    const asCaregiver = !isSelf && membership.role === FamilyRole.CAREGIVER;
+    const member = {
+      userId: target.userId,
+      name: target.user.name,
+      paused,
+      ...(asCaregiver && !paused && target.user.profileVisibleToFamily ? { easyMode: target.user.easyMode } : {}),
+    };
     if (paused || (!isSelf && !target.user.profileVisibleToFamily)) {
       return { member, shared: false as const, today: null, doses: [] };
     }
@@ -220,20 +241,29 @@ export class FamilyService {
       where: { userId: target.userId, scheduledAt: { gte: start, lt: end } },
       orderBy: { scheduledAt: 'asc' },
       select: {
+        id: true,
         scheduledAt: true,
         status: true,
         takenAt: true,
+        takenLate: true,
+        takenById: true,
         routine: { select: { medicineName: true } },
       },
     });
 
     // Data minimisation: name, time and status only — no dosage, no
-    // instructions, no prescription, no dose/routine ids.
+    // instructions, no prescription, no routine ids. Round 14: On time / Late
+    // and "given by caregiver" for everyone; the dose id only for the
+    // caregiver (to mark it, "I gave it").
+    const grace = target.user.familyAlertMinutes ?? missedGraceMinutes();
     const doses = rows.map((d) => ({
+      ...(asCaregiver ? { id: d.id } : {}),
       medicineName: d.routine.medicineName,
       scheduledAt: d.scheduledAt,
-      status: effectiveStatus(d.status, d.scheduledAt),
+      status: effectiveStatus(d.status, d.scheduledAt, new Date(), grace),
       takenAt: d.takenAt,
+      takenLate: d.takenLate,
+      givenByCaregiver: d.takenById != null,
     }));
     return {
       member,

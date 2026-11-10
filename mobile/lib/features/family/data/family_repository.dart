@@ -140,6 +140,26 @@ class FamilyRepository {
     }
   }
 
+  /// Round 14: "I gave it" for a member's dose (caregiver only; online).
+  Future<Result<void>> giveDose(String memberUserId, String doseId) async {
+    try {
+      await _api.giveDose(memberUserId, doseId);
+      return const Result.success(null);
+    } on DioException catch (e) {
+      return Result.failure(friendlyErrorMessage(e));
+    }
+  }
+
+  /// Round 14: easy mode for a member (caregiver only; online).
+  Future<Result<void>> setEasyMode(String memberUserId, bool on) async {
+    try {
+      await _api.setEasyMode(memberUserId, on);
+      return const Result.success(null);
+    } on DioException catch (e) {
+      return Result.failure(friendlyErrorMessage(e));
+    }
+  }
+
   /// Online only (no cache), like invitations.
   Future<Result<FamilyEventsPage>> listEvents({String? cursor}) async {
     try {

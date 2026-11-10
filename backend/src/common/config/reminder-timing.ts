@@ -8,8 +8,10 @@ import { missedGraceMinutes } from '../../medicine-schedule/lib/dose-status.util
  * value falls back to the default.
  */
 export interface ReminderTiming {
-  /** Minutes between medicine rings, and what Later waits (REMINDER_REPEAT_MINUTES, 15). */
+  /** Minutes between medicine rings (REMINDER_REPEAT_MINUTES, 15). */
   repeatMinutes: number;
+  /** What Later waits before the next ring (REMINDER_LATER_MINUTES, = repeatMinutes). */
+  laterMinutes: number;
   /** Rings per dose time before the family is told (REMINDER_RINGS, 4). */
   rings: number;
   /** How long one ring sounds (REMINDER_RING_MINUTES, 2). */
@@ -47,6 +49,7 @@ export function reminderTiming(): ReminderTiming {
   const repeatMinutes = int('REMINDER_REPEAT_MINUTES', 15, 1, 180);
   return {
     repeatMinutes,
+    laterMinutes: int('REMINDER_LATER_MINUTES', repeatMinutes, 1, 180),
     rings: int('REMINDER_RINGS', 4, 1, 10),
     ringMinutes: int('REMINDER_RING_MINUTES', 2, 1, 10),
     missedGraceMinutes: missedGraceMinutes(),
@@ -65,9 +68,56 @@ export function reminderTiming(): ReminderTiming {
  * (rings - 1) x repeat + ring. Returns a warning when it doesn't.
  */
 export function timingWarning(t: ReminderTiming = reminderTiming()): string | null {
-  const lastRingEnds = (t.rings - 1) * t.repeatMinutes + t.ringMinutes;
+  const lastRingEnds = lastRingEndsMinutes(t);
   return t.missedGraceMinutes <= lastRingEnds
     ? `DOSE_MISSED_GRACE_MINUTES (${t.missedGraceMinutes}) should be more than ${lastRingEnds}: ` +
         `the family would be alerted while a reminder can still ring`
     : null;
+}
+
+/**
+ * Round 14: a user may set their own ring gap, Later delay, number of rings
+ * and family-alert time (users.reminder* / familyAlertMinutes; NULL = the
+ * .env default). The family-alert time is also the On time / Late line.
+ */
+export interface OwnReminderTiming {
+  reminderRepeatMinutes: number | null;
+  reminderLaterMinutes: number | null;
+  reminderRings: number | null;
+  familyAlertMinutes: number | null;
+}
+
+/** Ranges the app offers; the database has the same CHECK constraints (pending SQL 013). */
+export const OWN_TIMING_LIMITS = {
+  repeatMinutes: { min: 5, max: 60 },
+  laterMinutes: { min: 5, max: 60 },
+  rings: { min: 1, max: 6 },
+  familyAlertMinutes: { min: 5, max: 360 },
+} as const;
+
+/** Prisma select for a user's own timings. */
+export const OWN_TIMING_SELECT = {
+  reminderRepeatMinutes: true,
+  reminderLaterMinutes: true,
+  reminderRings: true,
+  familyAlertMinutes: true,
+} as const;
+
+/** The .env timings with the user's own values on top. */
+export function effectiveTiming(own: Partial<OwnReminderTiming> | null | undefined, base: ReminderTiming = reminderTiming()): ReminderTiming {
+  const repeatMinutes = own?.reminderRepeatMinutes ?? base.repeatMinutes;
+  return {
+    ...base,
+    repeatMinutes,
+    // A user's own ring gap also moves the server backstop (it goes out with the second ring).
+    backstopAfterMinutes: own?.reminderRepeatMinutes != null ? repeatMinutes : base.backstopAfterMinutes,
+    laterMinutes: own?.reminderLaterMinutes ?? (own?.reminderRepeatMinutes != null ? repeatMinutes : base.laterMinutes),
+    rings: own?.reminderRings ?? base.rings,
+    missedGraceMinutes: own?.familyAlertMinutes ?? base.missedGraceMinutes,
+  };
+}
+
+/** When the last ring has finished, in minutes after the dose time. */
+export function lastRingEndsMinutes(t: Pick<ReminderTiming, 'rings' | 'repeatMinutes' | 'ringMinutes'>): number {
+  return (t.rings - 1) * t.repeatMinutes + t.ringMinutes;
 }

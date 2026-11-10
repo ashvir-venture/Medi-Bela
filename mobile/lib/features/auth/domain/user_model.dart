@@ -13,6 +13,7 @@ class UserModel {
     required this.profileVisibleToFamily,
     this.medicineRemindersEnabled = true,
     this.noticesEnabled = true,
+    this.easyMode = false,
     this.dateOfBirth,
     this.genderId,
     this.divisionId,
@@ -33,6 +34,8 @@ class UserModel {
   final bool medicineRemindersEnabled;
   /// Off: notices are not pushed (still listed in the app).
   final bool noticesEnabled;
+  /// Round 14: easy mode for elders (the user or their caregiver switches it).
+  final bool easyMode;
   // Personal details (only from the server; the Drift cache keeps the basics).
   final DateTime? dateOfBirth;
   final int? genderId;
@@ -54,6 +57,7 @@ class UserModel {
           json['profileVisibleToFamily'] as bool? ?? true,
       medicineRemindersEnabled: json['medicineRemindersEnabled'] as bool? ?? true,
       noticesEnabled: json['noticesEnabled'] as bool? ?? true,
+      easyMode: json['easyMode'] as bool? ?? false,
       dateOfBirth: json['dateOfBirth'] == null ? null : DateTime.parse(json['dateOfBirth'] as String),
       genderId: json['genderId'] as int?,
       divisionId: json['divisionId'] as int?,

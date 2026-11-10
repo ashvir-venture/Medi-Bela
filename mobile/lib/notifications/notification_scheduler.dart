@@ -58,10 +58,10 @@ const _doseKind = 'dose';
 const _healthKind = 'health';
 const _personalKind = 'personal';
 
-// From the server's .env (ReminderTiming): REMINDER_REPEAT_MINUTES,
-// REMINDER_RINGS. Defaults 15 minutes x 4 rings.
+// From the server's .env with the user's own values on top (ReminderTiming):
+// ring gap, rings, Later delay. Defaults 15 minutes x 4 rings, Later 15.
 Duration get repeatAfter => Duration(minutes: ReminderTiming.current.repeatMinutes);
-Duration get snoozeFor => repeatAfter;
+Duration get snoozeFor => Duration(minutes: ReminderTiming.current.laterMinutes);
 int get maxReminderStage => ReminderTiming.current.rings - 1;
 
 /// No medicine ring after this long past the dose time (the last automatic one).

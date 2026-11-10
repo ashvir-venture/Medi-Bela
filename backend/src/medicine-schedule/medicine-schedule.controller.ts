@@ -16,11 +16,12 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { MarkDoseTakenDto } from './dto/mark-dose-taken.dto';
 import { CreateRoutineDto, UpdateRoutineDto } from './dto/routine.dto';
 import { CaregiverAccessService } from '../family/caregiver-access.service';
+import { AuditService } from '../audit/audit.service';
 
 /**
  * `?forUserId=` (where accepted) = the family caregiver acting for that
- * member; see CaregiverAccessService. Marking a dose taken is the
- * patient's own action only: a caregiver views doses but never marks them.
+ * member; see CaregiverAccessService. Round 14 (owner, 2026-11-10): the
+ * caregiver may also mark a member's dose taken ("I gave it").
  */
 @Controller('medicine-schedule')
 export class MedicineScheduleController {
@@ -28,6 +29,7 @@ export class MedicineScheduleController {
     private readonly schedule: MedicineScheduleService,
     private readonly routines: RoutineManagementService,
     private readonly caregivers: CaregiverAccessService,
+    private readonly audit: AuditService,
   ) {}
 
   /** Active routines with labels (selfAdded, addedBy, editedBy). */
@@ -134,12 +136,35 @@ export class MedicineScheduleController {
     return this.schedule.getDoseDetail(userId, id);
   }
 
+  /**
+   * The patient marks their own dose, or (Round 14) their caregiver marks it
+   * with ?forUserId= ("I gave it"): stored as takenById, audited, and the
+   * member gets a neutral push carrying the dose id so their phone stops
+   * ringing for it.
+   */
   @Post('doses/:id/taken')
-  markDoseTaken(
+  async markDoseTaken(
     @CurrentUser('id') userId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: MarkDoseTakenDto,
+    @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
   ) {
-    return this.schedule.markDoseTaken(userId, id, dto.takenAt);
+    const acting = await this.caregivers.resolve(userId, forUserId);
+    if (!acting.byCaregiver) return this.schedule.markDoseTaken(userId, id, dto.takenAt);
+
+    const before = await this.schedule.getDoseDetail(acting.subjectId, id);
+    const dose = await this.schedule.markDoseTaken(acting.subjectId, id, dto.takenAt, acting.actorId);
+    if (before.status !== dose.status) {
+      await this.audit.record({
+        actorId: acting.actorId,
+        subjectUserId: acting.subjectId,
+        action: 'dose.give',
+        entityType: 'dose',
+        entityId: id,
+        after: { status: dose.status, takenLate: dose.takenLate, byCaregiver: true },
+      });
+      await this.caregivers.notifyMember(acting, 'dose_given', id, { doseIds: id });
+    }
+    return dose;
   }
 }

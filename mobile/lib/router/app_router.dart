@@ -34,7 +34,9 @@ import '../features/profile/presentation/profile_screen.dart';
 import '../features/profile/presentation/settings_screen.dart';
 import '../features/reminders/presentation/full_screen_permission_screen.dart';
 import '../features/reminders/presentation/reminder_check_screen.dart';
+import '../features/reminders/presentation/notification_look_screen.dart';
 import '../features/reminders/presentation/reminder_pages.dart';
+import '../features/reminders/presentation/reminder_rules_screen.dart';
 import '../widgets/main_scaffold.dart';
 import '../widgets/not_found_screen.dart';
 import '../widgets/state_views.dart';
@@ -60,12 +62,17 @@ class AppRoutes {
   static const health = '/health';
   static const healthReminders = '/health/reminders';
   static const healthRecords = '/health/records';
+  /// Round 14: the quick-add "Log a reading" (opens the add sheet at once).
+  static const healthRecordsAdd = '/health/records?add=1';
   static const healthSuggestions = '/health/suggestions';
   static const notices = '/notices';
   static const diabetes = '/diabetes';
   static const profile = '/profile';
   static const reminderCheck = '/profile/reminders';
   static const fullScreenSetup = '/profile/reminders/full-screen';
+  // Round 14: the user's own reminder timings, and what notifications look like.
+  static const reminderRules = '/profile/reminders/rules';
+  static const notificationLook = '/profile/reminders/look';
   // Round 13: personal reminders and the medicine box (?for=&name= = a
   // caregiver looking after a member).
   static const personalReminders = '/health/personal-reminders';
@@ -271,7 +278,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.healthRecords,
-            builder: (context, state) => const HealthRecordsScreen(),
+            builder: (context, state) => HealthRecordsScreen(openAdd: state.uri.queryParameters['add'] == '1'),
           ),
           GoRoute(
             path: AppRoutes.healthSuggestions,
@@ -326,6 +333,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.fullScreenSetup,
             builder: (context, state) => const FullScreenPermissionScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.reminderRules,
+            builder: (context, state) => const ReminderRulesScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.notificationLook,
+            builder: (context, state) => const NotificationLookScreen(),
           ),
           GoRoute(
             path: AppRoutes.reminderCheck,

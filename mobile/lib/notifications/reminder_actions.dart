@@ -20,6 +20,7 @@ import '../main.dart' show flutterLocalNotificationsPlugin;
 import '../providers/core_providers.dart';
 import 'local_notifications_gateway.dart';
 import 'notification_scheduler.dart';
+import 'push_service.dart' show isCaregiverActionMessage;
 import '../features/medicine_box/data/medicine_box_alerts.dart' show boxActionIgnore, medicineBoxType;
 import 'reminder_preference.dart';
 import 'reminder_timing.dart';
@@ -204,6 +205,17 @@ Future<void> firebaseBackgroundHandler(RemoteMessage message) async {
         clearNotices: () => container.read(noticesCacheProvider).clear(),
       );
     } finally {
+      container.dispose();
+    }
+    return;
+  }
+  // Round 14: the caregiver gave a dose ("I gave it"): pull it, which also
+  // takes that dose off this phone's reminders.
+  if (isCaregiverActionMessage(message.data) && message.data['action'] == 'dose_given') {
+    final container = await openBackgroundContainer();
+    try {
+      await container.read(medicineScheduleRepositoryProvider).refreshFromServer();
+    } catch (_) {/* the next refresh catches up */} finally {
       container.dispose();
     }
     return;

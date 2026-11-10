@@ -8,16 +8,26 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import { FamilyService } from './family.service';
 import { CreateFamilyDto } from './dto/create-family.dto';
 import { InviteMemberDto } from './dto/invite-member.dto';
+import { SetEasyModeDto } from './dto/set-easy-mode.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CaregiverAccessService } from './caregiver-access.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 
 @Controller('family')
 export class FamilyController {
-  constructor(private readonly familyService: FamilyService) {}
+  constructor(
+    private readonly familyService: FamilyService,
+    private readonly caregivers: CaregiverAccessService,
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -61,6 +71,35 @@ export class FamilyController {
   @Get('events')
   events(@CurrentUser('id') userId: string, @Query('cursor') cursor?: string) {
     return this.familyService.listEvents(userId, cursor);
+  }
+
+  /**
+   * Round 14 (owner, 2026-11-10): the caregiver turns easy mode on or off for
+   * a member, like other caregiver actions (404 for anyone else or a member
+   * who hides from family). The member is told and can turn it off.
+   */
+  @Put('members/:userId/easy-mode')
+  async setEasyMode(
+    @CurrentUser('id') userId: string,
+    @Param('userId', ParseUUIDPipe) memberUserId: string,
+    @Body() dto: SetEasyModeDto,
+  ) {
+    const acting = await this.caregivers.resolve(userId, memberUserId);
+    const before = await this.prisma.user.findUniqueOrThrow({ where: { id: acting.subjectId }, select: { easyMode: true } });
+    if (before.easyMode !== dto.on) {
+      await this.prisma.user.update({ where: { id: acting.subjectId }, data: { easyMode: dto.on } });
+      await this.audit.record({
+        actorId: acting.actorId,
+        subjectUserId: acting.subjectId,
+        action: 'user.easy_mode',
+        entityType: 'user',
+        entityId: acting.subjectId,
+        before: { easyMode: before.easyMode },
+        after: { easyMode: dto.on, byCaregiver: acting.byCaregiver },
+      });
+      await this.caregivers.notifyMember(acting, dto.on ? 'easy_mode_on' : 'easy_mode_off', `${Date.now()}`);
+    }
+    return { userId: acting.subjectId, easyMode: dto.on };
   }
 
   @Get('members/:userId/status')

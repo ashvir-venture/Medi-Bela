@@ -69,7 +69,8 @@ void main() {
   tearDown(() => db.close());
 
   Future<void> pump(WidgetTester tester, {required bool online, List<FamilyMemberModel> family = const []}) async {
-    tester.view.physicalSize = const Size(1080, 6000);
+    // Tall enough for the whole list (Round 14 added rows; the ListView builds lazily).
+    tester.view.physicalSize = const Size(1080, 9000);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(ProviderScope(
@@ -109,6 +110,7 @@ void main() {
       s.deleteAccount,
     ];
     for (var i = 1; i < order.length; i++) {
+
       expect(y(tester, order[i]), greaterThan(y(tester, order[i - 1])), reason: '${order[i]} after ${order[i - 1]}');
     }
     expect(find.text(s.allGood), findsOneWidget);

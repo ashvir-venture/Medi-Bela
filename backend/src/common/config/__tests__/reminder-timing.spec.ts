@@ -1,4 +1,4 @@
-import { reminderTiming, timingWarning } from '../reminder-timing';
+import { effectiveTiming, lastRingEndsMinutes, reminderTiming, timingWarning } from '../reminder-timing';
 import { takenWindow } from '../../../medicine-schedule/lib/taken-window';
 import { backstopAfterMinutes } from '../../../medicine-schedule/missed-dose-alert.service';
 import { testReminderTime } from '../../../prescriptions/prescriptions.service';
@@ -6,6 +6,7 @@ import { testCaregiverAlertAfterMs } from '../../../health/test-reminder.job';
 
 const KEYS = [
   'REMINDER_REPEAT_MINUTES',
+  'REMINDER_LATER_MINUTES',
   'REMINDER_RINGS',
   'REMINDER_RING_MINUTES',
   'DOSE_MISSED_GRACE_MINUTES',
@@ -37,6 +38,7 @@ describe('reminder timings from .env', () => {
   it('defaults: 15-minute rings x 4, family at 50, Taken until 1 h before the next, tests 3 days at 08:00', () => {
     expect(reminderTiming()).toEqual({
       repeatMinutes: 15,
+      laterMinutes: 15,
       rings: 4,
       ringMinutes: 2,
       missedGraceMinutes: 50,
@@ -83,5 +85,19 @@ describe('reminder timings from .env', () => {
     process.env.REMINDER_REPEAT_MINUTES = '20';
     process.env.DOSE_MISSED_GRACE_MINUTES = '50'; // last ring ends at 3 x 20 + 2 = 62
     expect(timingWarning()).toContain('should be more than 62');
+  });
+
+  // Round 14 (owner, 2026-11-10): a user may set ring gap, Later delay, rings and family-alert time.
+  it("a user's own values replace the .env ones; empty ones keep the default", () => {
+    const none = effectiveTiming(null);
+    expect([none.repeatMinutes, none.laterMinutes, none.rings, none.missedGraceMinutes]).toEqual([15, 15, 4, 50]);
+
+    const own = effectiveTiming({ reminderRepeatMinutes: 10, reminderLaterMinutes: null, reminderRings: 3, familyAlertMinutes: 40 });
+    expect(own).toMatchObject({ repeatMinutes: 10, laterMinutes: 10, rings: 3, missedGraceMinutes: 40, backstopAfterMinutes: 10 });
+    expect(lastRingEndsMinutes(own)).toBe(22);
+
+    process.env.REMINDER_LATER_MINUTES = '20';
+    expect(effectiveTiming({ reminderLaterMinutes: 30 }).laterMinutes).toBe(30);
+    expect(effectiveTiming({}).laterMinutes).toBe(20);
   });
 });

@@ -93,6 +93,18 @@ class ReminderStatusService {
     await _call<bool>('openBatterySettings');
   }
 
+  /// The phone maker (Build.MANUFACTURER), e.g. "Xiaomi"; '' when unknown.
+  Future<String> deviceBrand() async {
+    if (_android == null) return '';
+    return await _call<String>('deviceBrand') ?? '';
+  }
+
+  /// Android's page for this app (battery, autostart on most phones).
+  Future<void> openAppSettings() async {
+    if (_android == null) return;
+    await _call<bool>('openAppSettings');
+  }
+
   Future<T?> _call<T>(String method, [Map<String, Object?>? args]) async {
     try {
       return await _channel.invokeMethod<T>(method, args);

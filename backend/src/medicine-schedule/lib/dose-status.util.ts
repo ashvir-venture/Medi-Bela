@@ -27,10 +27,18 @@ export function missedGraceMinutes(): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_MISSED_GRACE_MINUTES;
 }
 
-export function missedCutoff(reference: Date = new Date()): Date {
-  const cutoff = new Date(reference);
-  cutoff.setMinutes(cutoff.getMinutes() - missedGraceMinutes());
-  return cutoff;
+/** [graceMinutes]: the patient's own family-alert time (Round 14); the .env default when omitted. */
+export function missedCutoff(reference: Date = new Date(), graceMinutes: number = missedGraceMinutes()): Date {
+  return new Date(reference.getTime() - graceMinutes * 60_000);
+}
+
+/**
+ * Round 14 dose status On time / Late: a dose taken after its family-alert
+ * time (the patient's own or the .env default) is Late. Missed = never taken
+ * (status MISSED). Decided once, when the dose is marked taken.
+ */
+export function isTakenLate(scheduledAt: Date, takenAt: Date, graceMinutes: number = missedGraceMinutes()): boolean {
+  return takenAt.getTime() > scheduledAt.getTime() + graceMinutes * 60_000;
 }
 
 export function computeDisplayStatus(
@@ -55,8 +63,9 @@ export function effectiveStatus(
   status: DoseStatus,
   scheduledAt: Date,
   now: Date = new Date(),
+  graceMinutes: number = missedGraceMinutes(),
 ): DoseStatus {
-  if (status === DoseStatus.PENDING && scheduledAt.getTime() < missedCutoff(now).getTime()) {
+  if (status === DoseStatus.PENDING && scheduledAt.getTime() < missedCutoff(now, graceMinutes).getTime()) {
     return DoseStatus.MISSED;
   }
   return status;

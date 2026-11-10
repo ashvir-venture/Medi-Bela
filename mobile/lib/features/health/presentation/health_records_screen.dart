@@ -8,7 +8,10 @@ import '../domain/health_models.dart';
 import 'health_controller.dart';
 
 class HealthRecordsScreen extends ConsumerStatefulWidget {
-  const HealthRecordsScreen({super.key});
+  const HealthRecordsScreen({super.key, this.openAdd = false});
+
+  /// Round 14: opened from quick add, so the add sheet comes up at once.
+  final bool openAdd;
 
   @override
   ConsumerState<HealthRecordsScreen> createState() => _HealthRecordsScreenState();
@@ -19,6 +22,11 @@ class _HealthRecordsScreenState extends ConsumerState<HealthRecordsScreen> {
   void initState() {
     super.initState();
     Future.microtask(() => ref.read(refreshHealthRecordsProvider)());
+    if (widget.openAdd) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openAddRecordSheet(context);
+      });
+    }
   }
 
   @override

@@ -58,6 +58,10 @@ class ApiEndpoints {
   static const String medicineToday = '/medicine-schedule/today';
   static const String medicineUpcoming = '/medicine-schedule/upcoming';
   static String doseDetail(String id) => '/medicine-schedule/doses/$id';
+
+  // Round 14
+  static const String reminderTiming = '/users/me/reminder-timing';
+  static String memberEasyMode(String userId) => '/family/members/$userId/easy-mode';
   static String markDoseTaken(String id) => '/medicine-schedule/doses/$id/taken';
 
   // Health reminders (Phase 3B)

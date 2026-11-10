@@ -6,14 +6,21 @@ import '../../../core/localization/locale_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../router/app_router.dart';
 import '../../../widgets/state_views.dart';
+import '../../../core/localization/app_strings.dart';
+import '../../../providers/core_providers.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../home/presentation/easy_home_screen.dart';
+import '../../home/presentation/home_top.dart';
+import '../../medicine_schedule/domain/dose_display_status.dart';
+import '../../medicine_schedule/domain/medicine_schedule_models.dart';
 import '../domain/family_models.dart';
 import 'family_controller.dart';
 
-/// A family member's medicine status for today, read-only and online-only:
-/// name / time / status (the server decides what is shareable). The
-/// caregiver also gets shortcuts to manage the member's medicines and
-/// prescriptions. Nobody but the member marks their doses taken.
+/// A family member's medicine status for today, online-only: name / time /
+/// status, On time / Late / Missed (the server decides what is shareable).
+/// The caregiver also gets shortcuts to manage the member's medicines and
+/// prescriptions, "I gave it" on a due dose and the easy-mode switch
+/// (Round 14, owner 2026-11-10).
 class MemberStatusScreen extends ConsumerWidget {
   const MemberStatusScreen({super.key, required this.userId});
 
@@ -68,6 +75,10 @@ class MemberStatusScreen extends ConsumerWidget {
               children: [
                 if (iAmCaregiver) ...[
                   _CaregiverShortcuts(userId: userId, name: detail.name),
+                  if (detail.asCaregiver) ...[
+                    const SizedBox(height: 12),
+                    _EasyModeCard(detail: detail),
+                  ],
                   const SizedBox(height: 20),
                 ],
                 Text(
@@ -84,7 +95,7 @@ class MemberStatusScreen extends ConsumerWidget {
                   for (final dose in detail.doses)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: _DoseTile(dose: dose),
+                      child: _DoseTile(dose: dose, memberUserId: userId, canGive: detail.asCaregiver),
                     ),
               ],
             );
@@ -155,13 +166,105 @@ class _CaregiverShortcuts extends ConsumerWidget {
   }
 }
 
-class _DoseTile extends ConsumerWidget {
-  const _DoseTile({required this.dose});
+/// Round 14: the caregiver switches the member's easy mode, and can see
+/// what that looks like on the member's phone.
+class _EasyModeCard extends ConsumerStatefulWidget {
+  const _EasyModeCard({required this.detail});
 
-  final MemberDoseStatus dose;
+  final MemberStatusDetail detail;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_EasyModeCard> createState() => _EasyModeCardState();
+}
+
+class _EasyModeCardState extends ConsumerState<_EasyModeCard> {
+  bool _busy = false;
+
+  Future<void> _set(bool on) async {
+    setState(() => _busy = true);
+    final result = await ref.read(familyRepositoryProvider).setEasyMode(widget.detail.userId, on);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    result.when(
+      success: (_) => ref.invalidate(memberStatusProvider(widget.detail.userId)),
+      failure: (m) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m))),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider).r14;
+    final d = widget.detail;
+    return Card(
+      child: Column(
+        children: [
+          SwitchListTile(
+            key: const ValueKey('member-easy-mode'),
+            title: Text(s.easyMode),
+            subtitle: Text(s.easyModeMemberHelp),
+            value: d.easyMode ?? false,
+            onChanged: _busy ? null : _set,
+          ),
+          ListTile(
+            leading: const Icon(Icons.visibility_outlined),
+            title: Text(s.easyPreview),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => EasyHomePreviewScreen(name: d.name, doses: previewDoses(d)),
+            )),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The member's shared doses as dose models for the easy-home preview.
+List<MedicineDoseModel> previewDoses(MemberStatusDetail d) => [
+      for (var i = 0; i < d.doses.length; i++)
+        MedicineDoseModel(
+          id: d.doses[i].id ?? 'preview-$i',
+          routineId: 'preview-${d.doses[i].medicineName}',
+          medicineName: d.doses[i].medicineName,
+          dosage: '',
+          scheduledAt: d.doses[i].scheduledAt,
+          status: d.doses[i].status,
+          takenAt: d.doses[i].takenAt,
+        ),
+    ];
+
+class _DoseTile extends ConsumerStatefulWidget {
+  const _DoseTile({required this.dose, required this.memberUserId, this.canGive = false});
+
+  final MemberDoseStatus dose;
+  final String memberUserId;
+  final bool canGive;
+
+  @override
+  ConsumerState<_DoseTile> createState() => _DoseTileState();
+}
+
+class _DoseTileState extends ConsumerState<_DoseTile> {
+  bool _busy = false;
+
+  Future<void> _give() async {
+    final s = ref.read(stringsProvider).r14;
+    setState(() => _busy = true);
+    final result = await ref.read(familyRepositoryProvider).giveDose(widget.memberUserId, widget.dose.id!);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    result.when(
+      success: (_) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.doseGiven)));
+        ref.invalidate(memberStatusProvider(widget.memberUserId));
+      },
+      failure: (m) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m))),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dose = widget.dose;
     final strings = ref.watch(stringsProvider);
     final theme = Theme.of(context);
 
@@ -186,15 +289,62 @@ class _DoseTile extends ConsumerWidget {
         color = due ? context.palette.warning : context.palette.subtle;
     }
 
+    final outcome = switch (dose.status) {
+      'TAKEN' => dose.takenLate == true ? DoseOutcome.late : DoseOutcome.onTime,
+      'MISSED' || 'SKIPPED' => DoseOutcome.missed,
+      _ => null,
+    };
+    final mayGive = widget.canGive &&
+        dose.id != null &&
+        (dose.status == 'PENDING' || dose.status == 'MISSED') &&
+        !dose.scheduledAt.isAfter(DateTime.now().add(const Duration(minutes: 2)));
+
     return Card(
-      child: ListTile(
-        title: Text(dose.medicineName),
-        subtitle: Text(TimeOfDay.fromDateTime(dose.scheduledAt).format(context)),
-        trailing: Chip(
-          label: Text(label, style: TextStyle(color: color, fontSize: 12)),
-          visualDensity: VisualDensity.compact,
-          backgroundColor: color.withValues(alpha: 0.1),
-          side: BorderSide.none,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(dose.medicineName, style: theme.textTheme.titleMedium),
+                      Text(TimeOfDay.fromDateTime(dose.scheduledAt).format(context),
+                          style: TextStyle(color: context.palette.muted)),
+                    ],
+                  ),
+                ),
+                if (outcome == null)
+                  Chip(
+                    label: Text(label, style: TextStyle(color: color, fontSize: 12)),
+                    visualDensity: VisualDensity.compact,
+                    backgroundColor: color.withValues(alpha: 0.1),
+                    side: BorderSide.none,
+                  ),
+              ],
+            ),
+            if (outcome != null) ...[
+              const SizedBox(height: 6),
+              DoseOutcomeChip(outcome: outcome, given: dose.givenByCaregiver),
+            ],
+            if (mayGive) ...[
+              const SizedBox(height: 8),
+              FilledButton.icon(
+                key: ValueKey('give-${dose.id}'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                  backgroundColor: context.palette.taken,
+                  foregroundColor: context.palette.onTaken,
+                ),
+                onPressed: _busy ? null : _give,
+                icon: const Icon(Icons.check),
+                label: Text(strings.r14.iGaveIt),
+              ),
+            ],
+          ],
         ),
       ),
     );

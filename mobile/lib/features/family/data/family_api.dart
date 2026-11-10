@@ -104,4 +104,15 @@ class FamilyApi {
     );
     return MemberStatusDetail.fromJson(response.data!);
   }
+
+  /// Round 14: the caregiver marks a member's dose taken ("I gave it").
+  Future<void> giveDose(String memberUserId, String doseId) => _dio.post<void>(
+        '${ApiEndpoints.doseDetail(doseId)}/taken',
+        data: {'takenAt': DateTime.now().toUtc().toIso8601String()},
+        queryParameters: {'forUserId': memberUserId},
+      );
+
+  /// Round 14: the caregiver switches easy mode for a member.
+  Future<void> setEasyMode(String memberUserId, bool on) =>
+      _dio.put<void>(ApiEndpoints.memberEasyMode(memberUserId), data: {'on': on});
 }

@@ -30,14 +30,27 @@ void main() {
       expect(restored.state, ThemeMode.dark);
     });
 
-    test('light mode keeps the colors used before dark mode', () {
+    // Round 14 (owner, 2026-11-10): the demo's colours. Teal primary, navy
+    // headings, green Taken, red Later, in light and dark.
+    test("the demo's colours, light and dark", () {
       final light = AppTheme.light();
-      expect(light.extension<AppPalette>()!.muted, Colors.grey.shade700);
-      expect(light.extension<AppPalette>()!.success, Colors.green.shade700);
+      final p = light.extension<AppPalette>()!;
+      expect(light.colorScheme.primary, const Color(0xFF0F7C8A));
+      expect(p.head, const Color(0xFF143D6B));
+      expect(p.ink, const Color(0xFF0F2137));
+      expect(p.muted, const Color(0xFF4E5E6D));
+      expect(p.taken, const Color(0xFF2F7A3A));
+      expect(p.later, const Color(0xFFB3261E));
+      expect(p.band, const Color(0xFF143D6B));
       expect(light.scaffoldBackgroundColor, AppTheme.background);
       expect(light.cardTheme.color, Colors.white);
-      expect(AppTheme.dark().brightness, Brightness.dark);
-      expect(AppTheme.dark().extension<AppPalette>(), AppPalette.dark);
+
+      final dark = AppTheme.dark();
+      expect(dark.brightness, Brightness.dark);
+      expect(dark.extension<AppPalette>(), AppPalette.dark);
+      expect(dark.colorScheme.primary, const Color(0xFF5CC8D4));
+      expect(AppPalette.dark.later, const Color(0xFFFFB4AB));
+      expect(dark.scaffoldBackgroundColor, AppTheme.darkBackground);
     });
   });
 
