@@ -5,9 +5,11 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 import { Language } from '@prisma/client';
 
@@ -79,4 +81,12 @@ export class UpdateProfileDto {
   @IsInt()
   @Min(1)
   upazilaId?: number;
+
+  /** Round 15: optional height in cm (BMI on weight readings); null clears it. */
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsInt()
+  @Min(50)
+  @Max(250)
+  heightCm?: number | null;
 }

@@ -32,7 +32,8 @@ export type CaregiverAction =
   | 'medicine_box_updated'
   | 'dose_given'
   | 'easy_mode_on'
-  | 'easy_mode_off';
+  | 'easy_mode_off'
+  | 'health_updated';
 
 const CAREGIVER_BODY: Record<CaregiverAction, { en: string; bn: string }> = {
   prescription_uploaded: {
@@ -74,6 +75,10 @@ const CAREGIVER_BODY: Record<CaregiverAction, { en: string; bn: string }> = {
   easy_mode_off: {
     en: 'Your caregiver turned off easy mode.',
     bn: 'আপনার পরিচর্যাকারী সহজ মোড বন্ধ করেছেন।',
+  },
+  health_updated: {
+    en: 'Your caregiver updated your health records.',
+    bn: 'আপনার পরিচর্যাকারী আপনার স্বাস্থ্যের রেকর্ড হালনাগাদ করেছেন।',
   },
   routine_added: {
     en: 'Your caregiver added a medicine to your routine.',
@@ -139,6 +144,22 @@ export const messages = {
     return lang === Language.BN
       ? { title: 'ওষুধ শেষ', body: `${name}-এর একটি ওষুধ শেষ হয়ে গেছে। অনুগ্রহ করে খোঁজ নিন।` }
       : { title: 'Medicine ran out', body: `${name} has run out of a medicine. Please check in with them.` };
+  },
+
+  /** To the caregiver: a reading is outside the doctor's limits. Never the value. */
+  readingOutOfRangeCaregiver(lang: Language, memberName: string): MessageCopy {
+    const name = clip(memberName, 40);
+    return lang === Language.BN
+      ? { title: 'স্বাস্থ্যের রিডিং', body: `${name}-এর একটি রিডিং ডাক্তারের দেওয়া সীমার বাইরে। অনুগ্রহ করে খোঁজ নিন।` }
+      : { title: 'Health reading', body: `A reading of ${name}'s is outside the doctor's limits. Please check in with them.` };
+  },
+
+  /** To the caregiver: the member pressed "Alert family" on an emergency sheet. */
+  helpAlertCaregiver(lang: Language, memberName: string): MessageCopy {
+    const name = clip(memberName, 40);
+    return lang === Language.BN
+      ? { title: 'জরুরি: খোঁজ নিন', body: `${name} অ্যাপ থেকে জরুরি খবর পাঠিয়েছেন। এখনই ফোন করুন।` }
+      : { title: 'Urgent: please call', body: `${name} sent an urgent alert from the app. Please call them now.` };
   },
 
   /** To the caregiver: a member's prescription is ready to confirm. */

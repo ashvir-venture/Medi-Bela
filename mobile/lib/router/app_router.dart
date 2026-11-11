@@ -10,10 +10,19 @@ import '../features/auth/presentation/session_notifier.dart';
 import '../features/auth/presentation/splash_screen.dart';
 import '../features/assistant/presentation/assistant_conversations_screen.dart';
 import '../features/assistant/presentation/assistant_screen.dart';
-import '../features/diabetes/presentation/diabetes_tracker_screen.dart';
 import '../features/family/presentation/family_screen.dart';
 import '../features/family/presentation/member_status_screen.dart';
 import '../features/inbox/presentation/inbox_screen.dart';
+import '../features/care/presentation/care_providers.dart' show CareSubject;
+import '../features/care/presentation/condition_screen.dart';
+import '../features/care/presentation/doctor_report_screen.dart';
+import '../features/care/presentation/insulin_screen.dart';
+import '../features/care/presentation/limits_screen.dart';
+import '../features/care/presentation/my_care_screen.dart';
+import '../features/care/presentation/reading_screen.dart';
+import '../features/care/presentation/records_screens.dart';
+import '../features/care/presentation/test_form_screen.dart';
+import '../features/care/presentation/visit_form_screen.dart';
 import '../features/health/presentation/health_records_screen.dart';
 import '../features/help/presentation/help_screens.dart';
 import '../features/health/presentation/health_reminders_screen.dart';
@@ -63,7 +72,10 @@ class AppRoutes {
   static const healthReminders = '/health/reminders';
   static const healthRecords = '/health/records';
   /// Round 14: the quick-add "Log a reading" (opens the add sheet at once).
-  static const healthRecordsAdd = '/health/records?add=1';
+  /// Round 15: "Log a reading" (quick add and Health tiles).
+  static const healthRecordsAdd = '/health/reading';
+  /// The plain list of every reading (before Round 16 this was /health/records).
+  static const healthReadings = '/health/readings';
   static const healthSuggestions = '/health/suggestions';
   static const notices = '/notices';
   static const diabetes = '/diabetes';
@@ -276,9 +288,67 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.healthReminders,
             builder: (context, state) => const HealthRemindersScreen(),
           ),
+          // Rounds 15-16: my care, readings, limits, condition pages, insulin,
+          // health records 2.0. `?for=&name=` = the caregiver for a member (online).
+          GoRoute(
+            path: AppRoutes.healthReadings,
+            builder: (context, state) => HealthRecordsScreen(openAdd: state.uri.queryParameters['add'] == '1'),
+          ),
           GoRoute(
             path: AppRoutes.healthRecords,
-            builder: (context, state) => HealthRecordsScreen(openAdd: state.uri.queryParameters['add'] == '1'),
+            builder: (context, state) => _careRoute(state, (who) => RecordsScreen(who: who)),
+          ),
+          GoRoute(
+            path: '/health/my-care',
+            builder: (context, state) => _careRoute(
+              state,
+              (who) => MyCareScreen(signupStep: state.uri.queryParameters['step'] == '1', who: who),
+            ),
+          ),
+          GoRoute(
+            path: '/health/reading',
+            builder: (context, state) => _careRoute(state, (who) => ReadingScreen(initialType: state.uri.queryParameters['type'], who: who)),
+          ),
+          GoRoute(
+            path: '/health/limits',
+            builder: (context, state) => _careRoute(state, (who) => LimitsScreen(who: who)),
+          ),
+          GoRoute(
+            path: '/health/care/:code',
+            builder: (context, state) => _careRoute(state, (who) => ConditionScreen(code: state.pathParameters['code']!, who: who)),
+          ),
+          GoRoute(
+            path: '/health/insulin',
+            builder: (context, state) => _careRoute(state, (who) => InsulinScreen(who: who)),
+          ),
+          GoRoute(
+            path: '/health/records/test',
+            builder: (context, state) {
+              final q = state.uri.queryParameters;
+              return _careRoute(
+                state,
+                (who) => TestFormScreen(id: q['id'], kind: q['kind'], done: q['done'] == '1', reminderId: q['reminder'], condition: q['condition'], who: who),
+              );
+            },
+          ),
+          GoRoute(
+            path: '/health/records/report/:id',
+            builder: (context, state) => _careRoute(state, (who) => TestReportScreen(id: state.pathParameters['id']!, who: who)),
+          ),
+          GoRoute(
+            path: '/health/records/visit',
+            builder: (context, state) {
+              final q = state.uri.queryParameters;
+              return _careRoute(state, (who) => VisitFormScreen(id: q['id'], kind: q['kind'] ?? 'VISIT', condition: q['condition'], who: who));
+            },
+          ),
+          GoRoute(
+            path: '/health/records/rx',
+            builder: (context, state) => _careRoute(state, (who) => RecordPrescriptionScreen(id: state.uri.queryParameters['id'], who: who)),
+          ),
+          GoRoute(
+            path: '/health/records/pdf',
+            builder: (context, state) => const DoctorReportScreen(),
           ),
           GoRoute(
             path: AppRoutes.healthSuggestions,
@@ -289,9 +359,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             // ?id= (from a push or the inbox) shows that notice first, highlighted.
             builder: (context, state) => NoticesScreen(highlightId: state.uri.queryParameters['id']),
           ),
+          // Round 15: the diabetes page replaces the earlier placeholder tracker.
           GoRoute(
             path: AppRoutes.diabetes,
-            builder: (context, state) => const DiabetesTrackerScreen(),
+            redirect: (context, state) => '/health/care/diabetes',
           ),
           GoRoute(
             path: AppRoutes.profile,
@@ -403,3 +474,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+/// A care screen for me, or for a member (`?for=&name=`, online only).
+Widget _careRoute(GoRouterState state, Widget Function(CareSubject who) build) {
+  final who = subjectFromQuery(state.uri.queryParameters);
+  return who.isMember ? OnlineOnly(child: build(who)) : build(who);
+}

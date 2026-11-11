@@ -44,6 +44,15 @@ import 'reminder_timing.dart';
 /// Each reconcile kind only ever touches its own rows.
 const _healthKeyPrefix = 'health:';
 const _personalKeyPrefix = 'pr:';
+/// Round 15-16 reminders worked out from my care and health records:
+/// `care:<kind>:<id>:<ms>` (visit, check-up, chemo, test, dialysis, pen).
+const _careKeyPrefix = 'care:';
+const _careKind = 'care';
+/// How many care reminders are kept on the OS at a time (topped up on refresh).
+const _maxScheduledCare = 16;
+
+/// Payload `type` of a care reminder; `route` is the page it opens.
+const careReminderType = 'CARE_REMINDER';
 const _groupKeyPrefix = 'grp:';
 const _snoozeKeyPrefix = 'snz:';
 
@@ -181,7 +190,10 @@ class NotificationScheduler {
     final rescheduleAll = _appliedExact[_doseKind] != exact;
 
     final rows = (await _db.select(_db.scheduledMedicineNotifications).get())
-        .where((r) => !r.doseId.startsWith(_healthKeyPrefix) && !r.doseId.startsWith(_personalKeyPrefix))
+        .where((r) =>
+            !r.doseId.startsWith(_healthKeyPrefix) &&
+            !r.doseId.startsWith(_personalKeyPrefix) &&
+            !r.doseId.startsWith(_careKeyPrefix))
         .toList();
     final snoozes = {
       for (final r in rows.where((r) => r.doseId.startsWith(_snoozeKeyPrefix)))
@@ -510,6 +522,49 @@ class NotificationScheduler {
     _appliedExact[_personalKind] = exact;
   }
 
+  /// Round 15-16 care reminders (visits and check-ups the day before at
+  /// 19:00, own tests the day before at 09:00, dialysis an hour before a
+  /// session, the insulin pen before it expires): plain banners with neutral
+  /// lock-screen text, worked out from the cached care and records. Keeps
+  /// the next [_maxScheduledCare]; each refresh tops them up.
+  Future<void> reconcileCareReminders(List<CareReminderItem> items) async {
+    final exact = await _gateway.canScheduleExact();
+    final rescheduleAll = _appliedExact[_careKind] != exact;
+    final now = _now();
+    final upcoming = [
+      if (_remindersEnabled())
+        for (final i in items)
+          if (i.at.isAfter(now)) i,
+    ]..sort((a, b) => a.at.compareTo(b.at));
+    final desired = {for (final i in upcoming.take(_maxScheduledCare)) '$_careKeyPrefix${i.key}:${i.at.millisecondsSinceEpoch}': i};
+
+    final existing = (await _db.select(_db.scheduledMedicineNotifications).get())
+        .where((r) => r.doseId.startsWith(_careKeyPrefix))
+        .toList();
+    for (final row in existing) {
+      if (rescheduleAll || !desired.containsKey(row.doseId)) await _cancelKey(row.doseId, row.notificationId);
+    }
+    final kept = {for (final row in existing) row.doseId};
+    for (final entry in desired.entries) {
+      if (!rescheduleAll && kept.contains(entry.key)) continue;
+      final item = entry.value;
+      final id = notificationIdForKey(entry.key);
+      await _gateway.schedule(
+        ScheduledReminder(
+          id: id,
+          title: item.title,
+          body: item.body,
+          at: item.at,
+          style: ReminderStyle.banner,
+          payload: jsonEncode({'type': careReminderType, 'route': item.route}),
+        ),
+        exact: exact,
+      );
+      await _upsertRow(entry.key, id, item.at);
+    }
+    _appliedExact[_careKind] = exact;
+  }
+
   /// Cancels a key's own notification and, for a test reminder, its daily ones.
   Future<void> _cancelHealthKey(String key, int notificationId) async {
     for (var day = 0; day < _maxTestDaysEver; day++) {
@@ -588,4 +643,16 @@ class NotificationScheduler {
     final hour12 = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
     return '$hour12:${dt.minute.toString().padLeft(2, '0')} $period';
   }
+}
+
+/// One care reminder ready for the OS (see NotificationScheduler.reconcileCareReminders).
+class CareReminderItem {
+  const CareReminderItem({required this.key, required this.at, required this.title, required this.body, required this.route});
+
+  /// Stable per source (e.g. `visit:<id>`); the time is added to the row key.
+  final String key;
+  final DateTime at;
+  final String title;
+  final String body;
+  final String route;
 }

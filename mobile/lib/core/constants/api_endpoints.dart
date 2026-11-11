@@ -96,4 +96,30 @@ class ApiEndpoints {
       '/assistant/conversations/$id';
   static String assistantConversationMessages(String id) =>
       '/assistant/conversations/$id/messages';
+
+  // Round 15: my care (conditions, limits, settings, ticks, logs, questions).
+  static const String care = '/care';
+  static const String careConditions = '/care/conditions';
+  static const String careStepSkip = '/care/step-skip';
+  static const String careLimits = '/care/limits';
+  static String careSettings(String code) => '/care/settings/$code';
+  static const String careTicks = '/care/ticks';
+  static const String careLogs = '/care/logs';
+  static String careLog(String id) => '/care/logs/$id';
+  static const String careQuestions = '/care/questions';
+  static String careQuestion(String id) => '/care/questions/$id';
+  static const String careAlertFamily = '/care/alert-family';
+
+  // Round 16: health records 2.0.
+  static const String records = '/records';
+  static const String recordsDoctorSearch = '/records/doctors/search';
+  static const String recordsAppointments = '/records/appointments';
+  static String recordsAppointment(String id) => '/records/appointments/$id';
+  static const String recordsTests = '/records/tests';
+  static String recordsTest(String id) => '/records/tests/$id';
+  static String recordsTestPhotos(String id) => '/records/tests/$id/photos';
+  static const String recordsPrescriptions = '/records/prescriptions';
+  static String recordsPrescription(String id) => '/records/prescriptions/$id';
+  static String recordsPrescriptionPhotos(String id) => '/records/prescriptions/$id/photos';
+  static String recordsPhoto(String id) => '/records/photos/$id';
 }

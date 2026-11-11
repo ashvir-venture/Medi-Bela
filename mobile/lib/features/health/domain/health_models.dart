@@ -14,6 +14,7 @@ class HealthReminderModel {
     this.syncState = 'synced',
     this.kind = 'RULE',
     this.mealTiming,
+    this.testKindCode,
   });
 
   final String id;
@@ -29,6 +30,9 @@ class HealthReminderModel {
   final String kind;
   /// Test reminders: the meal timing's name, e.g. "Before meal".
   final String? mealTiming;
+  /// Round 16: the test list entry the owner linked to this test (opens
+  /// "Add result" with its fields); null = not linked.
+  final String? testKindCode;
 
   bool get isTest => kind == 'TEST';
   bool get isCompleted => status == 'COMPLETED';
@@ -59,6 +63,7 @@ class HealthReminderModel {
           json['completedAt'] == null ? null : DateTime.parse(json['completedAt'] as String),
       kind: json['kind'] as String? ?? (json['testId'] != null ? 'TEST' : 'RULE'),
       mealTiming: meal is Map ? meal['name'] as String? : null,
+      testKindCode: json['testKindCode'] as String?,
     );
   }
 }
@@ -100,6 +105,7 @@ class HealthRecordModel {
     this.notes,
     required this.recordedAt,
     required this.syncState,
+    this.details = const {},
   });
 
   final String id;
@@ -112,6 +118,45 @@ class HealthRecordModel {
   /// `PrescriptionDraftModel.status` naming for consistency.
   final String syncState;
 
+  /// Round 15 structured values, under the API's field names (see
+  /// [structuredKeys]): numericValue, systolic, diastolic, pulse, bpArm,
+  /// measurements, sugarContext, injectionSite, injectionGiver, doseId,
+  /// and from the server rangeState and byCaregiver.
+  final Map<String, dynamic> details;
+
+  static const structuredKeys = [
+    'numericValue',
+    'systolic',
+    'diastolic',
+    'pulse',
+    'bpArm',
+    'measurements',
+    'sugarContext',
+    'injectionSite',
+    'injectionGiver',
+    'doseId',
+    'rangeState',
+    'byCaregiver',
+  ];
+
+  double? get numericValue => (details['numericValue'] as num?)?.toDouble() ?? double.tryParse(value);
+  int? get systolic => (details['systolic'] as num?)?.toInt() ?? _bpPart(0);
+  int? get diastolic => (details['diastolic'] as num?)?.toInt() ?? _bpPart(1);
+  int? get pulse => (details['pulse'] as num?)?.toInt();
+  String? get bpArm => details['bpArm'] as String?;
+  String? get sugarContext => details['sugarContext'] as String?;
+  String? get injectionSite => details['injectionSite'] as String?;
+  String? get injectionGiver => details['injectionGiver'] as String?;
+  String? get doseId => details['doseId'] as String?;
+  bool get byCaregiver => details['byCaregiver'] == true;
+
+  /// Older records only have "120/80" in [value].
+  int? _bpPart(int i) {
+    if (type != 'BLOOD_PRESSURE') return null;
+    final parts = value.split('/');
+    return parts.length == 2 ? int.tryParse(parts[i].trim()) : null;
+  }
+
   factory HealthRecordModel.fromJson(Map<String, dynamic> json) {
     return HealthRecordModel(
       id: json['id'] as String,
@@ -121,6 +166,10 @@ class HealthRecordModel {
       notes: json['notes'] as String?,
       recordedAt: DateTime.parse(json['recordedAt'] as String),
       syncState: 'synced',
+      details: {
+        for (final k in structuredKeys)
+          if (json[k] != null) k: json[k],
+      },
     );
   }
 }

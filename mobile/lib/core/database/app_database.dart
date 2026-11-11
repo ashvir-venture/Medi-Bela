@@ -183,6 +183,8 @@ class CachedHealthReminders extends Table {
   TextColumn get kind => text().withDefault(const Constant('RULE'))();
   // Test reminders: the meal timing's name (e.g. "Before meal").
   TextColumn get mealTiming => text().nullable()();
+  // Round 16 (schema 6): the owner's test list entry linked to this test.
+  TextColumn get testKind => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -232,6 +234,9 @@ class HealthRecordDrafts extends Table {
   TextColumn get unit => text().nullable()();
   TextColumn get notes => text().nullable()();
   DateTimeColumn get recordedAt => dateTime()();
+  /// Round 15 (schema 6): structured values as JSON (systolic, sugarContext,
+  /// injectionSite, rangeState...; see HealthRecordModel.details).
+  TextColumn get details => text().nullable()();
   TextColumn get status =>
       text().withDefault(const Constant('draft'))(); // draft|queued|syncing|synced|failed
   TextColumn get serverId => text().nullable()();
@@ -281,7 +286,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -307,6 +312,10 @@ class AppDatabase extends _$AppDatabase {
           if (from < 5) {
             await m.createTable(cachedPersonalReminders);
             await m.createTable(cachedDocuments);
+          }
+          if (from >= 3 && from < 6) {
+            await m.addColumn(healthRecordDrafts, healthRecordDrafts.details);
+            await m.addColumn(cachedHealthReminders, cachedHealthReminders.testKind);
           }
         },
       );

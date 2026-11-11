@@ -66,7 +66,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     setState(() => _isSubmitting = false);
 
     result.when(
-      success: (_) => context.go(AppRoutes.home),
+      // Round 15: the "My care" step comes last (with Later).
+      success: (_) => context.go('/health/my-care?step=1'),
       failure: (message) => setState(() => _errorMessage = message),
     );
   }

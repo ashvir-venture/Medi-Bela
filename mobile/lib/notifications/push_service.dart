@@ -66,6 +66,10 @@ String routeForNotificationData(Map<String, dynamic> data) {
       return '/medicine-box';
     case 'PERSONAL_REMINDER':
       return '/health/personal-reminders';
+    case 'CARE_REMINDER':
+      // Round 15-16: visit / test / session / pen reminders open their page.
+      final route = data['route'];
+      return route is String && route.startsWith('/health') ? route : '/health/records';
     case 'TEST_REMINDER':
       final id = data['reminderId'];
       final day = data['day'] is int ? data['day'] as int : 0;
@@ -79,6 +83,10 @@ String routeForNotificationData(Map<String, dynamic> data) {
           return member is String ? '/medicine-box?for=$member' : '/inbox';
         case 'personal_reminder_later':
           return member is String ? '/family/member/$member' : '/inbox';
+        // Round 15: a member's reading out of range, or their "Alert family".
+        case 'reading_alert':
+        case 'help_alert':
+          return member is String ? '/family/member/$member' : '/family';
       }
       return '/inbox';
     default:

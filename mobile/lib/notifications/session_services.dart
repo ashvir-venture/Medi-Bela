@@ -144,6 +144,7 @@ class SessionServices with WidgetsBindingObserver {
       await medicine.reconcileLocalNotifications();
       await health.reconcileLocalNotifications();
       await personal.reconcileLocalNotifications();
+      await _ref.read(careRemindersProvider).reconcile();
 
       // 2. Then pull fresh data (each of these reconciles again on success).
       await medicine.refreshFromServer();
@@ -157,6 +158,12 @@ class SessionServices with WidgetsBindingObserver {
       await _ref.read(prescriptionLocalRepositoryProvider).refreshStatuses();
       try {
         await _ref.read(healthRecordRepositoryProvider).refreshFromServer();
+      } catch (_) {/* kept for the next refresh */}
+      // Rounds 15-16: my care and health records (condition pages, visit and
+      // test reminders, the PDF), then their reminders.
+      try {
+        await _ref.read(careRepositoryProvider).refreshAll();
+        await _ref.read(careRemindersProvider).reconcile();
       } catch (_) {/* kept for the next refresh */}
       await _ref.read(pushServiceProvider).retryRegistration();
       await _syncLanguagePreference();

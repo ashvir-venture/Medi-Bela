@@ -1,4 +1,5 @@
 part 'app_strings_r14.dart';
+part 'app_strings_r15.dart';
 
 /// A deliberately simple, hand-maintained i18n layer.
 ///

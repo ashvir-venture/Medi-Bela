@@ -26,8 +26,11 @@ class HealthApi {
     return HealthReminderModel.fromJson(response.data!);
   }
 
-  Future<List<HealthRecordModel>> getRecords() async {
-    final response = await _dio.get<List<dynamic>>(ApiEndpoints.healthRecords);
+  Future<List<HealthRecordModel>> getRecords({String? forUserId}) async {
+    final response = await _dio.get<List<dynamic>>(
+      ApiEndpoints.healthRecords,
+      queryParameters: {'forUserId': ?forUserId},
+    );
     return response.data!
         .map((r) => HealthRecordModel.fromJson(r as Map<String, dynamic>))
         .toList();
@@ -40,11 +43,17 @@ class HealthApi {
     String? notes,
     required DateTime recordedAt,
     String? clientId,
+    Map<String, dynamic> details = const {},
+    String? forUserId,
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       ApiEndpoints.healthRecords,
+      queryParameters: {'forUserId': ?forUserId},
       data: {
-        if (clientId != null) 'clientId': clientId,
+        // Round 15 structured values (never the server-only keys).
+        for (final e in details.entries)
+          if (e.value != null && e.key != 'rangeState' && e.key != 'byCaregiver') e.key: e.value,
+        'clientId': ?clientId,
         'type': type,
         'value': value,
         if (unit != null && unit.isNotEmpty) 'unit': unit,

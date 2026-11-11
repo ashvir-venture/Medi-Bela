@@ -88,6 +88,76 @@ enum HealthRecordType {
   TEMPERATURE
   HEART_RATE
   OTHER
+  // Round 15
+  INSULIN
+  SLEEP
+  WATER
+  PEAK_FLOW
+}
+
+// Round 15: when a sugar reading was taken.
+enum SugarContext {
+  FASTING
+  AFTER_FOOD
+  BEFORE_BED
+  RANDOM
+}
+
+enum BpArm {
+  LEFT
+  RIGHT
+}
+
+// Insulin injection sites (the body faces the viewer in the app).
+enum InjectionSite {
+  LEFT_THIGH
+  RIGHT_THIGH
+  LEFT_ABDOMEN
+  RIGHT_ABDOMEN
+  LEFT_ARM
+  RIGHT_ARM
+}
+
+enum InjectionGiver {
+  SELF
+  FAMILY
+  NURSE
+}
+
+// A reading against the user's own saved limits at the time it was saved.
+// NULL = no limit saved for that kind (no chip, no alert).
+enum RangeState {
+  IN_RANGE
+  BELOW
+  ABOVE
+}
+
+enum SugarUnit {
+  MMOL
+  MGDL
+}
+
+// Round 15: things logged on the condition pages (one row per event).
+// Round 16: dated health-record entries with a reminder the day before.
+enum AppointmentKind {
+  // Doctor visit: reminder the day before at 19:00.
+  VISIT
+  // Pregnancy check-up (ANC), numbered; same reminder as a visit.
+  ANC
+  // Chemo session (cancer page); same reminder as a visit.
+  CHEMO
+}
+
+enum OwnTestStatus {
+  UPCOMING
+  DONE
+}
+
+enum CareLogKind {
+  SYMPTOMS
+  KICKS
+  RELIEVER
+  TD_DOSE
 }
 
 enum SuggestionStatus {
@@ -187,6 +257,10 @@ model User {
   birthYear                Int?
   // When the user ticked "I agree to the Privacy & terms" at sign-up (Round 11).
   termsAcceptedAt          DateTime?
+  // Round 15: optional height (BMI on weight readings) and when the
+  // "My care" step after sign-up was done or skipped (null = show it).
+  heightCm                 Int?
+  careStepDoneAt           DateTime?
 
   familyMemberships        FamilyMember[]
   sentInvitations          FamilyInvitation[]      @relation("InvitationSender")
@@ -225,6 +299,17 @@ model User {
   updatedMedicineStocks    MedicineStock[]         @relation("MedicineStockUpdater")
   familyEventsAbout        FamilyEvent[]           @relation("FamilyEventSubject")
   familyEventsBy           FamilyEvent[]           @relation("FamilyEventActor")
+  conditions               UserCondition[]
+  healthLimits             HealthLimits?           @relation("HealthLimitsOwner")
+  careSettings             CareSetting[]           @relation("CareSettingOwner")
+  dayTicks                 DayTick[]
+  careLogs                 CareLog[]               @relation("CareLogOwner")
+  doctorQuestions          DoctorQuestion[]
+  myDoctors                MyDoctor[]
+  appointments             Appointment[]           @relation("AppointmentOwner")
+  ownTests                 OwnTest[]               @relation("OwnTestOwner")
+  recordPrescriptions      RecordPrescription[]    @relation("RecordPrescriptionOwner")
+  recordPhotos             RecordPhoto[]
 
   @@index([role])
   @@map("users")
@@ -586,11 +671,157 @@ model HealthRecord {
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
 
+  // Round 15: structured values next to the display `value`. numericValue:
+  // sugar in mmol/L, weight kg, temperature °F, insulin units, sleep hours,
+  // water glasses, peak flow L/min. BP: the average of 1-2 measurements.
+  numericValue    Float?
+  systolic        Int?
+  diastolic       Int?
+  pulse           Int?
+  bpArm           BpArm?
+  measurements    Int?
+  sugarContext    SugarContext?
+  injectionSite   InjectionSite?
+  injectionGiver  InjectionGiver?
+  // The insulin dose this injection was logged for (marks it taken too).
+  doseId          String?         @db.Uuid
+  rangeState      RangeState?
+  // Set when the caregiver logged it for the member (never sent to apps).
+  enteredById     String?         @db.Uuid
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, clientId])
   @@index([userId, type, recordedAt])
   @@map("health_records")
+}
+
+// Round 15: the 8 conditions (owner-edited; `code` picks the app's page).
+model Condition {
+  id         Int             @id @default(autoincrement())
+  code       String          @unique
+  nameEn     String
+  nameBn     String
+  subtitleEn String?
+  subtitleBn String?
+  sortOrder  Int             @default(0)
+  users      UserCondition[]
+
+  @@map("conditions")
+}
+
+model UserCondition {
+  userId      String   @db.Uuid
+  conditionId Int
+  createdAt   DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  condition Condition @relation(fields: [conditionId], references: [id], onDelete: Restrict)
+
+  @@id([userId, conditionId])
+  @@map("user_conditions")
+}
+
+// Round 15: the doctor's numbers, entered by the user or their caregiver.
+// Every field NULL = not set (no range chip, no alert for that kind).
+// Sugar is stored in mmol/L whatever the display unit.
+model HealthLimits {
+  userId            String    @id @db.Uuid
+  sugarUnit         SugarUnit @default(MMOL)
+  fastingLow        Float?
+  fastingHigh       Float?
+  afterFoodHigh     Float?
+  lowSugar          Float?
+  hba1cTarget       Float?
+  bpSystolicHigh    Int?
+  bpDiastolicHigh   Int?
+  bpSystolicLow     Int?
+  // Crisis sheet level; NULL = the fixed 180/120 (160/110 in pregnancy).
+  bpCrisisSystolic  Int?
+  bpCrisisDiastolic Int?
+  peakFlowBest      Int?
+  weightGain3Days   Float?
+  tshLow            Float?
+  tshHigh           Float?
+  fluidLimitMl      Int?
+  feverAboveF       Float?
+  weightGoalKg      Float?
+  waterGlasses      Int?
+  sleepHours        Float?
+  // "Tell my family when a reading is out of range" (the caregiver only).
+  notifyFamily      Boolean   @default(true)
+  // Which doctor gave the numbers, and when (free text).
+  doctorNote        String?
+  updatedById       String?   @db.Uuid
+  updatedAt         DateTime  @updatedAt
+
+  user User @relation("HealthLimitsOwner", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("health_limits")
+}
+
+// Round 15: per-condition settings and the care plan (habits, regular tests
+// and how often), kept as one JSON document per (user, condition); the API
+// validates its shape per condition code.
+model CareSetting {
+  userId        String   @db.Uuid
+  conditionCode String
+  data          Json
+  updatedById   String?  @db.Uuid
+  updatedAt     DateTime @updatedAt
+
+  user User @relation("CareSettingOwner", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, conditionCode])
+  @@map("care_settings")
+}
+
+// Round 15: a yes for one day: a habit done ("habit:<key>"), or a night
+// woken by asthma ("asthma_night"). No row = not ticked.
+model DayTick {
+  userId    String   @db.Uuid
+  key       String
+  day       DateTime @db.Date
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, key, day])
+  @@map("day_ticks")
+}
+
+// Round 15: symptom check-ins, baby kick counts, reliever puffs, Td doses.
+// `data` holds the kind's fields (symptom codes, count and minutes, ...).
+model CareLog {
+  id            String      @id @default(uuid()) @db.Uuid
+  userId        String      @db.Uuid
+  kind          CareLogKind
+  conditionCode String?
+  loggedAt      DateTime    @default(now())
+  data          Json
+  clientId      String?     @db.Uuid
+  enteredById   String?     @db.Uuid
+  createdAt     DateTime    @default(now())
+
+  user User @relation("CareLogOwner", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clientId])
+  @@index([userId, kind, loggedAt])
+  @@map("care_logs")
+}
+
+// Round 15: "Questions for my doctor".
+model DoctorQuestion {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  text        String
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("doctor_questions")
 }
 
 model HealthSuggestionRule {
@@ -908,6 +1139,8 @@ model Doctor {
   district      District?        @relation(fields: [districtId], references: [id], onDelete: Restrict)
   createdBy     User?            @relation("DoctorCreator", fields: [createdById], references: [id], onDelete: SetNull)
   prescriptions Prescription[]
+  appointments        Appointment[]
+  recordPrescriptions RecordPrescription[]
 
   @@index([name])
   @@map("doctors")
@@ -957,6 +1190,7 @@ model DiagnosticTest {
   category      TestCategory?      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   prescriptions PrescriptionTest[]
   reminders     HealthReminder[]
+  testKinds     TestKind[]
 
   @@map("diagnostic_tests")
 }
@@ -1014,4 +1248,180 @@ model AuditLog {
   // Admin audit log: newest first, keyset pages.
   @@index([createdAt, id])
   @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Round 16: health records 2.0
+// ---------------------------------------------------------------------------
+
+// A doctor the patient typed (private to them, reused next time); patients
+// never touch the pharmacists' catalog (doctors).
+model MyDoctor {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  name      String
+  chamber   String?
+  area      String?
+  createdAt DateTime @default(now())
+
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointments        Appointment[]
+  recordPrescriptions RecordPrescription[]
+
+  @@index([userId])
+  @@map("my_doctors")
+}
+
+// Doctor visits, pregnancy check-ups and chemo sessions. At most one of
+// doctorId (catalog) / myDoctorId (private) is set.
+model Appointment {
+  id            String          @id @default(uuid()) @db.Uuid
+  userId        String          @db.Uuid
+  kind          AppointmentKind @default(VISIT)
+  date          DateTime        @db.Date
+  // "HH:mm", optional.
+  time          String?
+  doctorId      String?         @db.Uuid
+  myDoctorId    String?         @db.Uuid
+  conditionCode String?
+  // ANC check-up number (1, 2, ...).
+  number        Int?
+  note          String?
+  remind        Boolean         @default(true)
+  doneAt        DateTime?
+  createdById   String?         @db.Uuid
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  user     User      @relation("AppointmentOwner", fields: [userId], references: [id], onDelete: Cascade)
+  doctor   Doctor?   @relation(fields: [doctorId], references: [id], onDelete: SetNull)
+  myDoctor MyDoctor? @relation(fields: [myDoctorId], references: [id], onDelete: SetNull)
+
+  @@index([userId, date])
+  @@map("appointments")
+}
+
+// The tests a patient records (owner-edited lookup, EN/BN). A kind may link
+// to a catalog test so a prescription's test reminder opens its result form.
+model TestKind {
+  id               Int     @id @default(autoincrement())
+  code             String  @unique
+  nameEn           String
+  nameBn           String
+  diagnosticTestId String? @db.Uuid
+  sortOrder        Int     @default(0)
+
+  diagnosticTest DiagnosticTest? @relation(fields: [diagnosticTestId], references: [id], onDelete: SetNull)
+  fields         TestKindField[]
+  ownTests       OwnTest[]
+
+  @@map("test_kinds")
+}
+
+model TestKindField {
+  id         Int     @id @default(autoincrement())
+  testKindId Int
+  code       String
+  nameEn     String
+  nameBn     String
+  unit       String?
+  sortOrder  Int     @default(0)
+
+  testKind TestKind          @relation(fields: [testKindId], references: [id], onDelete: Cascade)
+  values   TestResultValue[]
+
+  @@unique([testKindId, code])
+  @@map("test_kind_fields")
+}
+
+// A test the patient has coming up or has done (with results). testKindId
+// NULL = "Other" (otherName typed).
+model OwnTest {
+  id               String        @id @default(uuid()) @db.Uuid
+  userId           String        @db.Uuid
+  testKindId       Int?
+  otherName        String?
+  status           OwnTestStatus @default(UPCOMING)
+  date             DateTime      @db.Date
+  // Upcoming: reminder the day before at 09:00, and whether to fast.
+  remind           Boolean       @default(true)
+  fasting          Boolean       @default(false)
+  findings         String?
+  lab              String?
+  conditionCode    String?
+  // The prescription test reminder this result answers, if any.
+  healthReminderId String?       @db.Uuid
+  createdById      String?       @db.Uuid
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  user     User              @relation("OwnTestOwner", fields: [userId], references: [id], onDelete: Cascade)
+  testKind TestKind?         @relation(fields: [testKindId], references: [id], onDelete: Restrict)
+  values   TestResultValue[]
+  photos   RecordPhoto[]
+
+  @@index([userId, status, date])
+  @@map("own_tests")
+}
+
+// One number (or text, e.g. a blood group) on a test result. fieldId NULL =
+// a value the user added by name.
+model TestResultValue {
+  id        String  @id @default(uuid()) @db.Uuid
+  ownTestId String  @db.Uuid
+  fieldId   Int?
+  name      String
+  value     Float?
+  textValue String?
+  unit      String?
+  sortOrder Int     @default(0)
+
+  ownTest OwnTest        @relation(fields: [ownTestId], references: [id], onDelete: Cascade)
+  field   TestKindField? @relation(fields: [fieldId], references: [id], onDelete: SetNull)
+
+  @@index([ownTestId])
+  @@map("test_result_values")
+}
+
+// A prescription kept for the record only: never in the pharmacist queue,
+// creates no medicines.
+model RecordPrescription {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @db.Uuid
+  date          DateTime @db.Date
+  doctorId      String?  @db.Uuid
+  myDoctorId    String?  @db.Uuid
+  conditionCode String?
+  note          String?
+  createdById   String?  @db.Uuid
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user     User          @relation("RecordPrescriptionOwner", fields: [userId], references: [id], onDelete: Cascade)
+  doctor   Doctor?       @relation(fields: [doctorId], references: [id], onDelete: SetNull)
+  myDoctor MyDoctor?     @relation(fields: [myDoctorId], references: [id], onDelete: SetNull)
+  photos   RecordPhoto[]
+
+  @@index([userId, date])
+  @@map("record_prescriptions")
+}
+
+// A page photo of a test report or a record-only prescription (private
+// Cloudinary asset; responses carry a signed link). Exactly one owner.
+model RecordPhoto {
+  id                   String   @id @default(uuid()) @db.Uuid
+  userId               String   @db.Uuid
+  ownTestId            String?  @db.Uuid
+  recordPrescriptionId String?  @db.Uuid
+  imageUrl             String
+  page                 Int      @default(1)
+  createdAt            DateTime @default(now())
+
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ownTest            OwnTest?            @relation(fields: [ownTestId], references: [id], onDelete: Cascade)
+  recordPrescription RecordPrescription? @relation(fields: [recordPrescriptionId], references: [id], onDelete: Cascade)
+
+  @@index([ownTestId])
+  @@index([recordPrescriptionId])
+  @@map("record_photos")
 }

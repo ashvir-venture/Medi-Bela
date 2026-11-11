@@ -6,11 +6,19 @@ import { ErrorCode, withCode } from '../common/filters/error-codes';
 /** Phone clocks run a little early or late: a tap this close before the time counts. */
 const CLOCK_TOLERANCE_MS = 2 * 60_000;
 
-/** Test reminders carry their meal timing and a `kind` the app can tell apart. */
-const INCLUDE = { mealTiming: true } as const;
+/**
+ * Test reminders carry their meal timing, a `kind` the app can tell apart
+ * and (Round 16) `testKindCode`: the owner's test list entry linked to this
+ * catalog test, so "Add result" opens the right result form (null = none).
+ */
+const INCLUDE = {
+  mealTiming: true,
+  test: { select: { testKinds: { select: { code: true }, orderBy: { sortOrder: 'asc' as const }, take: 1 } } },
+} as const;
 
-function present<T extends { testId: string | null }>(reminder: T) {
-  return { ...reminder, kind: reminder.testId ? 'TEST' : 'RULE' };
+function present<T extends { testId: string | null; test?: { testKinds: { code: string }[] } | null }>(reminder: T) {
+  const { test, ...rest } = reminder;
+  return { ...rest, kind: reminder.testId ? 'TEST' : 'RULE', testKindCode: test?.testKinds[0]?.code ?? null };
 }
 
 @Injectable()

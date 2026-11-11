@@ -1,3 +1,6 @@
+import '../features/care/data/care_api.dart';
+import '../features/care/data/care_repository.dart';
+import '../features/care/data/care_reminders.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -229,6 +232,22 @@ final medicineBoxAlertsProvider = Provider<MedicineBoxAlerts>((ref) {
       ref.read(appRouterProvider).go(route);
       return true;
     },
+  );
+});
+
+// ---- My care and health records 2.0 (Rounds 15-16) ----
+
+final careApiProvider = Provider<CareApi>((ref) => CareApi(ref.watch(dioClientProvider).dio));
+
+final careRepositoryProvider = Provider<CareRepository>((ref) {
+  return CareRepository(api: ref.watch(careApiProvider), database: ref.watch(appDatabaseProvider));
+});
+
+final careRemindersProvider = Provider<CareReminders>((ref) {
+  return CareReminders(
+    repository: ref.watch(careRepositoryProvider),
+    scheduler: ref.watch(notificationSchedulerProvider),
+    strings: () => ref.read(stringsProvider),
   );
 });
 

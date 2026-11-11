@@ -2075,3 +2075,508 @@ ALTER TABLE "users" ADD CONSTRAINT "users_reminderLaterMinutes_check" CHECK ("re
 ALTER TABLE "users" ADD CONSTRAINT "users_reminderRings_check" CHECK ("reminderRings" IS NULL OR "reminderRings" BETWEEN 1 AND 6);
 ALTER TABLE "users" ADD CONSTRAINT "users_familyAlertMinutes_check" CHECK ("familyAlertMinutes" IS NULL OR "familyAlertMinutes" BETWEEN 5 AND 360);
 
+
+-- ===== prisma/pending-sql/014_round15_my_care_readings.sql =====
+-- Round 15: my care (conditions), structured readings, the doctor's limits,
+-- care settings, habit / night ticks, care logs, questions for the doctor,
+-- optional height. Additive only: existing health records keep their
+-- display value and get NULL in the new columns (no data conversion).
+-- Note: ALTER TYPE ... ADD VALUE runs in the same script; the new values
+-- are not used in it, so this is safe on PostgreSQL 12+.
+
+-- CreateEnum
+CREATE TYPE "SugarContext" AS ENUM ('FASTING', 'AFTER_FOOD', 'BEFORE_BED', 'RANDOM');
+
+-- CreateEnum
+CREATE TYPE "BpArm" AS ENUM ('LEFT', 'RIGHT');
+
+-- CreateEnum
+CREATE TYPE "InjectionSite" AS ENUM ('LEFT_THIGH', 'RIGHT_THIGH', 'LEFT_ABDOMEN', 'RIGHT_ABDOMEN', 'LEFT_ARM', 'RIGHT_ARM');
+
+-- CreateEnum
+CREATE TYPE "InjectionGiver" AS ENUM ('SELF', 'FAMILY', 'NURSE');
+
+-- CreateEnum
+CREATE TYPE "RangeState" AS ENUM ('IN_RANGE', 'BELOW', 'ABOVE');
+
+-- CreateEnum
+CREATE TYPE "SugarUnit" AS ENUM ('MMOL', 'MGDL');
+
+-- CreateEnum
+CREATE TYPE "CareLogKind" AS ENUM ('SYMPTOMS', 'KICKS', 'RELIEVER', 'TD_DOSE');
+
+-- AlterEnum
+-- This migration adds more than one value to an enum.
+-- With PostgreSQL versions 11 and earlier, this is not possible
+-- in a single migration. This can be worked around by creating
+-- multiple migrations, each migration adding only one value to
+-- the enum.
+
+
+ALTER TYPE "HealthRecordType" ADD VALUE 'INSULIN';
+ALTER TYPE "HealthRecordType" ADD VALUE 'SLEEP';
+ALTER TYPE "HealthRecordType" ADD VALUE 'WATER';
+ALTER TYPE "HealthRecordType" ADD VALUE 'PEAK_FLOW';
+
+-- AlterTable
+ALTER TABLE "users" ADD COLUMN     "careStepDoneAt" TIMESTAMP(3),
+ADD COLUMN     "heightCm" INTEGER;
+
+-- AlterTable
+ALTER TABLE "health_records" ADD COLUMN     "bpArm" "BpArm",
+ADD COLUMN     "diastolic" INTEGER,
+ADD COLUMN     "doseId" UUID,
+ADD COLUMN     "enteredById" UUID,
+ADD COLUMN     "injectionGiver" "InjectionGiver",
+ADD COLUMN     "injectionSite" "InjectionSite",
+ADD COLUMN     "measurements" INTEGER,
+ADD COLUMN     "numericValue" DOUBLE PRECISION,
+ADD COLUMN     "pulse" INTEGER,
+ADD COLUMN     "rangeState" "RangeState",
+ADD COLUMN     "sugarContext" "SugarContext",
+ADD COLUMN     "systolic" INTEGER;
+
+-- CreateTable
+CREATE TABLE "conditions" (
+    "id" SERIAL NOT NULL,
+    "code" TEXT NOT NULL,
+    "nameEn" TEXT NOT NULL,
+    "nameBn" TEXT NOT NULL,
+    "subtitleEn" TEXT,
+    "subtitleBn" TEXT,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT "conditions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "user_conditions" (
+    "userId" UUID NOT NULL,
+    "conditionId" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "user_conditions_pkey" PRIMARY KEY ("userId","conditionId")
+);
+
+-- CreateTable
+CREATE TABLE "health_limits" (
+    "userId" UUID NOT NULL,
+    "sugarUnit" "SugarUnit" NOT NULL DEFAULT 'MMOL',
+    "fastingLow" DOUBLE PRECISION,
+    "fastingHigh" DOUBLE PRECISION,
+    "afterFoodHigh" DOUBLE PRECISION,
+    "lowSugar" DOUBLE PRECISION,
+    "hba1cTarget" DOUBLE PRECISION,
+    "bpSystolicHigh" INTEGER,
+    "bpDiastolicHigh" INTEGER,
+    "bpSystolicLow" INTEGER,
+    "bpCrisisSystolic" INTEGER,
+    "bpCrisisDiastolic" INTEGER,
+    "peakFlowBest" INTEGER,
+    "weightGain3Days" DOUBLE PRECISION,
+    "tshLow" DOUBLE PRECISION,
+    "tshHigh" DOUBLE PRECISION,
+    "fluidLimitMl" INTEGER,
+    "feverAboveF" DOUBLE PRECISION,
+    "weightGoalKg" DOUBLE PRECISION,
+    "waterGlasses" INTEGER,
+    "sleepHours" DOUBLE PRECISION,
+    "notifyFamily" BOOLEAN NOT NULL DEFAULT true,
+    "doctorNote" TEXT,
+    "updatedById" UUID,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "health_limits_pkey" PRIMARY KEY ("userId")
+);
+
+-- CreateTable
+CREATE TABLE "care_settings" (
+    "userId" UUID NOT NULL,
+    "conditionCode" TEXT NOT NULL,
+    "data" JSONB NOT NULL,
+    "updatedById" UUID,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "care_settings_pkey" PRIMARY KEY ("userId","conditionCode")
+);
+
+-- CreateTable
+CREATE TABLE "day_ticks" (
+    "userId" UUID NOT NULL,
+    "key" TEXT NOT NULL,
+    "day" DATE NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "day_ticks_pkey" PRIMARY KEY ("userId","key","day")
+);
+
+-- CreateTable
+CREATE TABLE "care_logs" (
+    "id" UUID NOT NULL,
+    "userId" UUID NOT NULL,
+    "kind" "CareLogKind" NOT NULL,
+    "conditionCode" TEXT,
+    "loggedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "data" JSONB NOT NULL,
+    "clientId" UUID,
+    "enteredById" UUID,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "care_logs_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "doctor_questions" (
+    "id" UUID NOT NULL,
+    "userId" UUID NOT NULL,
+    "text" TEXT NOT NULL,
+    "createdById" UUID,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "doctor_questions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "conditions_code_key" ON "conditions"("code");
+
+-- CreateIndex
+CREATE INDEX "care_logs_userId_kind_loggedAt_idx" ON "care_logs"("userId", "kind", "loggedAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "care_logs_userId_clientId_key" ON "care_logs"("userId", "clientId");
+
+-- CreateIndex
+CREATE INDEX "doctor_questions_userId_createdAt_idx" ON "doctor_questions"("userId", "createdAt");
+
+-- AddForeignKey
+ALTER TABLE "user_conditions" ADD CONSTRAINT "user_conditions_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_conditions" ADD CONSTRAINT "user_conditions_conditionId_fkey" FOREIGN KEY ("conditionId") REFERENCES "conditions"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "health_limits" ADD CONSTRAINT "health_limits_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "care_settings" ADD CONSTRAINT "care_settings_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "day_ticks" ADD CONSTRAINT "day_ticks_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "care_logs" ADD CONSTRAINT "care_logs_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "doctor_questions" ADD CONSTRAINT "doctor_questions_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Ranges the app offers (also checked by the API). Sugar limits in mmol/L.
+ALTER TABLE "users" ADD CONSTRAINT "users_heightCm_check" CHECK ("heightCm" IS NULL OR "heightCm" BETWEEN 50 AND 250);
+ALTER TABLE "health_records" ADD CONSTRAINT "health_records_measurements_check" CHECK ("measurements" IS NULL OR "measurements" BETWEEN 1 AND 2);
+ALTER TABLE "health_limits" ADD CONSTRAINT "health_limits_sugar_check" CHECK (
+  ("fastingLow" IS NULL OR "fastingLow" BETWEEN 1 AND 30) AND
+  ("fastingHigh" IS NULL OR "fastingHigh" BETWEEN 1 AND 30) AND
+  ("afterFoodHigh" IS NULL OR "afterFoodHigh" BETWEEN 1 AND 30) AND
+  ("lowSugar" IS NULL OR "lowSugar" BETWEEN 1 AND 30) AND
+  ("hba1cTarget" IS NULL OR "hba1cTarget" BETWEEN 4 AND 14));
+ALTER TABLE "health_limits" ADD CONSTRAINT "health_limits_bp_check" CHECK (
+  ("bpSystolicHigh" IS NULL OR "bpSystolicHigh" BETWEEN 90 AND 200) AND
+  ("bpDiastolicHigh" IS NULL OR "bpDiastolicHigh" BETWEEN 50 AND 130) AND
+  ("bpSystolicLow" IS NULL OR "bpSystolicLow" BETWEEN 60 AND 130) AND
+  ("bpCrisisSystolic" IS NULL OR "bpCrisisSystolic" BETWEEN 140 AND 220) AND
+  ("bpCrisisDiastolic" IS NULL OR "bpCrisisDiastolic" BETWEEN 90 AND 140));
+ALTER TABLE "health_limits" ADD CONSTRAINT "health_limits_other_check" CHECK (
+  ("peakFlowBest" IS NULL OR "peakFlowBest" BETWEEN 100 AND 800) AND
+  ("weightGain3Days" IS NULL OR "weightGain3Days" BETWEEN 0.5 AND 5) AND
+  ("tshLow" IS NULL OR "tshLow" BETWEEN 0.01 AND 10) AND
+  ("tshHigh" IS NULL OR "tshHigh" BETWEEN 0.1 AND 20) AND
+  ("fluidLimitMl" IS NULL OR "fluidLimitMl" BETWEEN 0 AND 5000) AND
+  ("feverAboveF" IS NULL OR "feverAboveF" BETWEEN 98 AND 104) AND
+  ("weightGoalKg" IS NULL OR "weightGoalKg" BETWEEN 20 AND 200) AND
+  ("waterGlasses" IS NULL OR "waterGlasses" BETWEEN 1 AND 20) AND
+  ("sleepHours" IS NULL OR "sleepHours" BETWEEN 3 AND 12));
+
+-- The 8 conditions (owner edits names and subtitles; the code picks the page).
+INSERT INTO "conditions" ("code", "nameEn", "nameBn", "subtitleEn", "subtitleBn", "sortOrder") VALUES
+  ('diabetes', 'Diabetes', 'ডায়াবেটিস', 'Sugar, insulin, HbA1c', 'সুগার, ইনসুলিন, HbA1c', 1),
+  ('bp', 'High blood pressure', 'উচ্চ রক্তচাপ', 'BP readings and medicine', 'প্রেসার মাপা ও ওষুধ', 2),
+  ('heart', 'Heart disease', 'হৃদরোগ', 'Medicine and check-ups', 'ওষুধ ও চেকআপ', 3),
+  ('kidney', 'Kidney disease', 'কিডনি রোগ', 'Tests and dialysis', 'টেস্ট ও ডায়ালাইসিস', 4),
+  ('cancer', 'Cancer treatment', 'ক্যান্সার চিকিৎসা', 'Chemo and weekly tests', 'কেমো ও সাপ্তাহিক টেস্ট', 5),
+  ('asthma', 'Asthma', 'শ্বাসকষ্ট, অ্যাজমা', 'Inhaler and medicine', 'ইনহেলার ও ওষুধ', 6),
+  ('thyroid', 'Thyroid', 'থাইরয়েড', 'Daily medicine, tests', 'রোজকার ওষুধ, টেস্ট', 7),
+  ('pregnancy', 'Pregnancy', 'গর্ভাবস্থা', 'Check-ups and vaccines', 'চেকআপ ও টিকা', 8)
+ON CONFLICT ("code") DO NOTHING;
+
+
+-- ===== prisma/pending-sql/015_round16_health_records.sql =====
+-- Round 16: health records 2.0: private "my doctors", appointments (doctor
+-- visits, pregnancy check-ups, chemo sessions), the test list (test_kinds and
+-- their result fields, EN/BN, owner-edited), own upcoming tests and results,
+-- record-only prescriptions, report / prescription photos. New tables only.
+
+-- CreateEnum
+CREATE TYPE "AppointmentKind" AS ENUM ('VISIT', 'ANC', 'CHEMO');
+
+-- CreateEnum
+CREATE TYPE "OwnTestStatus" AS ENUM ('UPCOMING', 'DONE');
+
+-- CreateTable
+CREATE TABLE "my_doctors" (
+    "id" UUID NOT NULL,
+    "userId" UUID NOT NULL,
+    "name" TEXT NOT NULL,
+    "chamber" TEXT,
+    "area" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "my_doctors_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "appointments" (
+    "id" UUID NOT NULL,
+    "userId" UUID NOT NULL,
+    "kind" "AppointmentKind" NOT NULL DEFAULT 'VISIT',
+    "date" DATE NOT NULL,
+    "time" TEXT,
+    "doctorId" UUID,
+    "myDoctorId" UUID,
+    "conditionCode" TEXT,
+    "number" INTEGER,
+    "note" TEXT,
+    "remind" BOOLEAN NOT NULL DEFAULT true,
+    "doneAt" TIMESTAMP(3),
+    "createdById" UUID,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "appointments_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "test_kinds" (
+    "id" SERIAL NOT NULL,
+    "code" TEXT NOT NULL,
+    "nameEn" TEXT NOT NULL,
+    "nameBn" TEXT NOT NULL,
+    "diagnosticTestId" UUID,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT "test_kinds_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "test_kind_fields" (
+    "id" SERIAL NOT NULL,
+    "testKindId" INTEGER NOT NULL,
+    "code" TEXT NOT NULL,
+    "nameEn" TEXT NOT NULL,
+    "nameBn" TEXT NOT NULL,
+    "unit" TEXT,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT "test_kind_fields_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "own_tests" (
+    "id" UUID NOT NULL,
+    "userId" UUID NOT NULL,
+    "testKindId" INTEGER,
+    "otherName" TEXT,
+    "status" "OwnTestStatus" NOT NULL DEFAULT 'UPCOMING',
+    "date" DATE NOT NULL,
+    "remind" BOOLEAN NOT NULL DEFAULT true,
+    "fasting" BOOLEAN NOT NULL DEFAULT false,
+    "findings" TEXT,
+    "lab" TEXT,
+    "conditionCode" TEXT,
+    "healthReminderId" UUID,
+    "createdById" UUID,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "own_tests_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "test_result_values" (
+    "id" UUID NOT NULL,
+    "ownTestId" UUID NOT NULL,
+    "fieldId" INTEGER,
+    "name" TEXT NOT NULL,
+    "value" DOUBLE PRECISION,
+    "textValue" TEXT,
+    "unit" TEXT,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT "test_result_values_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "record_prescriptions" (
+    "id" UUID NOT NULL,
+    "userId" UUID NOT NULL,
+    "date" DATE NOT NULL,
+    "doctorId" UUID,
+    "myDoctorId" UUID,
+    "conditionCode" TEXT,
+    "note" TEXT,
+    "createdById" UUID,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "record_prescriptions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "record_photos" (
+    "id" UUID NOT NULL,
+    "userId" UUID NOT NULL,
+    "ownTestId" UUID,
+    "recordPrescriptionId" UUID,
+    "imageUrl" TEXT NOT NULL,
+    "page" INTEGER NOT NULL DEFAULT 1,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "record_photos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX "my_doctors_userId_idx" ON "my_doctors"("userId");
+
+-- CreateIndex
+CREATE INDEX "appointments_userId_date_idx" ON "appointments"("userId", "date");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "test_kinds_code_key" ON "test_kinds"("code");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "test_kind_fields_testKindId_code_key" ON "test_kind_fields"("testKindId", "code");
+
+-- CreateIndex
+CREATE INDEX "own_tests_userId_status_date_idx" ON "own_tests"("userId", "status", "date");
+
+-- CreateIndex
+CREATE INDEX "test_result_values_ownTestId_idx" ON "test_result_values"("ownTestId");
+
+-- CreateIndex
+CREATE INDEX "record_prescriptions_userId_date_idx" ON "record_prescriptions"("userId", "date");
+
+-- CreateIndex
+CREATE INDEX "record_photos_ownTestId_idx" ON "record_photos"("ownTestId");
+
+-- CreateIndex
+CREATE INDEX "record_photos_recordPrescriptionId_idx" ON "record_photos"("recordPrescriptionId");
+
+-- AddForeignKey
+ALTER TABLE "my_doctors" ADD CONSTRAINT "my_doctors_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "appointments" ADD CONSTRAINT "appointments_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "appointments" ADD CONSTRAINT "appointments_doctorId_fkey" FOREIGN KEY ("doctorId") REFERENCES "doctors"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "appointments" ADD CONSTRAINT "appointments_myDoctorId_fkey" FOREIGN KEY ("myDoctorId") REFERENCES "my_doctors"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "test_kinds" ADD CONSTRAINT "test_kinds_diagnosticTestId_fkey" FOREIGN KEY ("diagnosticTestId") REFERENCES "diagnostic_tests"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "test_kind_fields" ADD CONSTRAINT "test_kind_fields_testKindId_fkey" FOREIGN KEY ("testKindId") REFERENCES "test_kinds"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "own_tests" ADD CONSTRAINT "own_tests_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "own_tests" ADD CONSTRAINT "own_tests_testKindId_fkey" FOREIGN KEY ("testKindId") REFERENCES "test_kinds"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "test_result_values" ADD CONSTRAINT "test_result_values_ownTestId_fkey" FOREIGN KEY ("ownTestId") REFERENCES "own_tests"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "test_result_values" ADD CONSTRAINT "test_result_values_fieldId_fkey" FOREIGN KEY ("fieldId") REFERENCES "test_kind_fields"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "record_prescriptions" ADD CONSTRAINT "record_prescriptions_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "record_prescriptions" ADD CONSTRAINT "record_prescriptions_doctorId_fkey" FOREIGN KEY ("doctorId") REFERENCES "doctors"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "record_prescriptions" ADD CONSTRAINT "record_prescriptions_myDoctorId_fkey" FOREIGN KEY ("myDoctorId") REFERENCES "my_doctors"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "record_photos" ADD CONSTRAINT "record_photos_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "record_photos" ADD CONSTRAINT "record_photos_ownTestId_fkey" FOREIGN KEY ("ownTestId") REFERENCES "own_tests"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "record_photos" ADD CONSTRAINT "record_photos_recordPrescriptionId_fkey" FOREIGN KEY ("recordPrescriptionId") REFERENCES "record_prescriptions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Rules Prisma cannot express (also checked by the API).
+ALTER TABLE "appointments" ADD CONSTRAINT "appointments_one_doctor_check" CHECK ("doctorId" IS NULL OR "myDoctorId" IS NULL);
+ALTER TABLE "appointments" ADD CONSTRAINT "appointments_time_check" CHECK ("time" IS NULL OR "time" ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$');
+ALTER TABLE "record_prescriptions" ADD CONSTRAINT "record_prescriptions_one_doctor_check" CHECK ("doctorId" IS NULL OR "myDoctorId" IS NULL);
+ALTER TABLE "own_tests" ADD CONSTRAINT "own_tests_name_check" CHECK ("testKindId" IS NOT NULL OR "otherName" IS NOT NULL);
+ALTER TABLE "record_photos" ADD CONSTRAINT "record_photos_one_owner_check" CHECK (("ownTestId" IS NULL) <> ("recordPrescriptionId" IS NULL));
+
+-- The test list (from the owner's demo). The owner may link a kind to a
+-- catalog test: UPDATE test_kinds SET "diagnosticTestId" = ... WHERE code = ...;
+INSERT INTO "test_kinds" ("code", "nameEn", "nameBn", "sortOrder") VALUES
+  ('hba1c', 'HbA1c', 'HbA1c', 1),
+  ('cbc', 'Blood count (CBC)', 'রক্ত পরীক্ষা (CBC)', 2),
+  ('kidney', 'Kidney (creatinine)', 'কিডনি (ক্রিয়েটিনিন)', 3),
+  ('lipid', 'Lipid profile', 'লিপিড প্রোফাইল', 4),
+  ('tsh', 'Thyroid (TSH)', 'থাইরয়েড (TSH)', 5),
+  ('potassium', 'Potassium', 'পটাশিয়াম', 6),
+  ('urine', 'Urine albumin', 'প্রস্রাবে অ্যালবুমিন', 7),
+  ('egfr', 'eGFR (kidney function)', 'eGFR (কিডনির কাজ)', 8),
+  ('hb', 'Haemoglobin (anaemia)', 'হিমোগ্লোবিন (রক্তস্বল্পতা)', 9),
+  ('ogtt', 'Sugar test (OGTT)', 'সুগার টেস্ট (OGTT)', 10),
+  ('ecg', 'ECG', 'ইসিজি', 11),
+  ('echo', 'Echo (heart ultrasound)', 'ইকো (হার্টের আল্ট্রাসাউন্ড)', 12),
+  ('eye', 'Eye check', 'চোখ পরীক্ষা', 13),
+  ('usg', 'Ultrasound scan', 'আল্ট্রাসনোগ্রাম', 14),
+  ('bgroup', 'Blood group', 'রক্তের গ্রুপ', 15),
+  ('spiro', 'Lung test (spirometry)', 'ফুসফুস পরীক্ষা (স্পাইরোমেট্রি)', 16),
+  ('checkup', 'Check-up', 'চেকআপ', 17)
+ON CONFLICT ("code") DO NOTHING;
+
+INSERT INTO "test_kind_fields" ("testKindId", "code", "nameEn", "nameBn", "unit", "sortOrder")
+SELECT k."id", v."code", v."nameEn", v."nameBn", v."unit", v."sortOrder"
+FROM (VALUES
+  ('hba1c', 'hba1c', 'HbA1c', 'HbA1c', '%', 1),
+  ('cbc', 'hb', 'Haemoglobin', 'হিমোগ্লোবিন', 'g/dL', 1),
+  ('cbc', 'wbc', 'White cells (WBC)', 'শ্বেত রক্তকণিকা (WBC)', '×10³/µL', 2),
+  ('cbc', 'plt', 'Platelets', 'প্লাটিলেট', '×10³/µL', 3),
+  ('kidney', 'creat', 'Creatinine', 'ক্রিয়েটিনিন', 'mg/dL', 1),
+  ('kidney', 'urea', 'Urea', 'ইউরিয়া', 'mg/dL', 2),
+  ('lipid', 'tc', 'Total cholesterol', 'মোট কোলেস্টেরল', 'mg/dL', 1),
+  ('lipid', 'ldl', 'LDL', 'LDL', 'mg/dL', 2),
+  ('lipid', 'hdl', 'HDL', 'HDL', 'mg/dL', 3),
+  ('lipid', 'tg', 'Triglycerides', 'ট্রাইগ্লিসারাইড', 'mg/dL', 4),
+  ('tsh', 'tsh', 'TSH', 'TSH', 'mIU/L', 1),
+  ('potassium', 'k', 'Potassium', 'পটাশিয়াম', 'mmol/L', 1),
+  ('urine', 'acr', 'Albumin (ACR)', 'অ্যালবুমিন (ACR)', 'mg/g', 1),
+  ('egfr', 'egfr', 'eGFR', 'eGFR', 'mL/min', 1),
+  ('hb', 'hb', 'Haemoglobin', 'হিমোগ্লোবিন', 'g/dL', 1),
+  ('ogtt', 'f', 'Fasting', 'খালি পেটে', 'mmol/L', 1),
+  ('ogtt', 'h2', 'After 2 hours', '২ ঘণ্টা পর', 'mmol/L', 2),
+  ('echo', 'ef', 'Ejection fraction (EF)', 'ইজেকশন ফ্র্যাকশন (EF)', '%', 1),
+  ('bgroup', 'bg', 'Blood group', 'রক্তের গ্রুপ', NULL, 1),
+  ('spiro', 'fev1', 'FEV1', 'FEV1', 'L', 1)
+) AS v("kind", "code", "nameEn", "nameBn", "unit", "sortOrder")
+JOIN "test_kinds" k ON k."code" = v."kind"
+ON CONFLICT ("testKindId", "code") DO NOTHING;
+
+
+-- ===== prisma/pending-sql/016_insulin_form.sql =====
+-- Round 15 (owner, 2026-11-11): an "Insulin" medicine form, so the insulin
+-- log can tell insulin from other injections. Reference data only.
+INSERT INTO "medicine_forms" ("name") VALUES ('Insulin')
+ON CONFLICT ("name") DO NOTHING;
+

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../care/presentation/member_care_section.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -161,6 +162,8 @@ class _CaregiverShortcuts extends ConsumerWidget {
             ),
           ],
         ),
+        // Rounds 15-16: the member's conditions, readings and records.
+        MemberCareSection(memberId: userId, memberName: name),
       ],
     );
   }

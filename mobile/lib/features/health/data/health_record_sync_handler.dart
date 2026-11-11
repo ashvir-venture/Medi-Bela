@@ -39,12 +39,14 @@ class HealthRecordSyncHandler implements SyncHandler {
       // The draft's uuid doubles as the idempotency key: a retried sync
       // returns the same server record instead of creating a duplicate.
       clientId: localId,
+      details: Map<String, dynamic>.from(payload['details'] as Map? ?? const {}),
     );
 
     await (_db.update(_db.healthRecordDrafts)..where((t) => t.id.equals(localId))).write(
       HealthRecordDraftsCompanion(
         status: const Value('synced'),
         serverId: Value(serverRecord.id),
+        details: serverRecord.details.isEmpty ? const Value.absent() : Value(jsonEncode(serverRecord.details)),
         updatedAt: Value(DateTime.now()),
       ),
     );

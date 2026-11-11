@@ -12,6 +12,8 @@ import { FamilyModule } from './family/family.module';
 import { PrescriptionsModule } from './prescriptions/prescriptions.module';
 import { MedicineScheduleModule } from './medicine-schedule/medicine-schedule.module';
 import { HealthModule } from './health/health.module';
+import { CareModule } from './care/care.module';
+import { RecordsModule } from './records/records.module';
 import { NoticesModule } from './notices/notices.module';
 import { AdminModule } from './admin/admin.module';
 import { AssistantModule } from './assistant/assistant.module';
@@ -47,6 +49,8 @@ import { rateLimitOptions } from './common/rate-limit/rate-limit.config';
     PrescriptionsModule,
     MedicineScheduleModule,
     HealthModule,
+    CareModule,
+    RecordsModule,
     NoticesModule,
     AdminModule,
     AssistantModule,

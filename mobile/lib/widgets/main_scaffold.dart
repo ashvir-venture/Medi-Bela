@@ -242,6 +242,7 @@ class QuickAddSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(stringsProvider).r14;
+    final r15 = ref.watch(stringsProvider).r15;
     final p = context.palette;
 
     void open(void Function(BuildContext) action) {
@@ -328,6 +329,33 @@ class QuickAddSheet extends ConsumerWidget {
               subtitle: Text(s.qBoxSub),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => open((c) => c.push(AppRoutes.medicineBox)),
+            ),
+            // Round 16: a test and a doctor visit.
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(color: p.violetContainer, borderRadius: BorderRadius.circular(12)),
+                child: Icon(Icons.science_outlined, color: p.onVioletContainer),
+              ),
+              title: Text(r15.addTestReport),
+              subtitle: Text(r15.addUpcomingTest),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => open((c) => c.push('/health/records/test')),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(color: p.navyContainer, borderRadius: BorderRadius.circular(12)),
+                child: Icon(Icons.medical_services_outlined, color: p.onNavyContainer),
+              ),
+              title: Text(r15.addVisit),
+              subtitle: Text(r15.remindDayBefore),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => open((c) => c.push('/health/records/visit')),
             ),
           ],
         ),

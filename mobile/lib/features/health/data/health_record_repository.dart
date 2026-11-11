@@ -23,6 +23,12 @@ class HealthRecordRepository {
   final HealthApi _api;
   final AppDatabase _db;
 
+  /// All records once (the PDF, condition pages' history).
+  Future<List<HealthRecordModel>> all() async {
+    final query = _db.select(_db.healthRecordDrafts)..orderBy([(t) => OrderingTerm.desc(t.recordedAt)]);
+    return (await query.get()).map(_rowToModel).toList();
+  }
+
   Stream<List<HealthRecordModel>> watchAll() {
     final query = _db.select(_db.healthRecordDrafts)
       ..orderBy([(t) => OrderingTerm.desc(t.recordedAt)]);
@@ -37,6 +43,7 @@ class HealthRecordRepository {
     String? unit,
     String? notes,
     DateTime? recordedAt,
+    Map<String, dynamic> details = const {},
   }) async {
     final id = _uuid.v4();
     final now = DateTime.now();
@@ -51,6 +58,7 @@ class HealthRecordRepository {
               unit: Value(unit),
               notes: Value(notes),
               recordedAt: effectiveRecordedAt,
+              details: Value(details.isEmpty ? null : jsonEncode(details)),
               status: const Value('queued'),
               createdAt: now,
               updatedAt: now,
@@ -70,6 +78,7 @@ class HealthRecordRepository {
                 'unit': unit,
                 'notes': notes,
                 'recordedAt': effectiveRecordedAt.toUtc().toIso8601String(),
+                if (details.isNotEmpty) 'details': details,
               }),
               createdAt: now,
             ),
@@ -87,7 +96,15 @@ class HealthRecordRepository {
 
     final now = DateTime.now();
     for (final record in serverRecords) {
-      if (knownServerIds.contains(record.id)) continue;
+      if (knownServerIds.contains(record.id)) {
+        // The server's judgement (range state) replaces what the phone guessed.
+        if (record.details.isNotEmpty) {
+          await (_db.update(_db.healthRecordDrafts)..where((t) => t.serverId.equals(record.id))).write(
+            HealthRecordDraftsCompanion(details: Value(jsonEncode(record.details))),
+          );
+        }
+        continue;
+      }
       await _db.into(_db.healthRecordDrafts).insert(
             HealthRecordDraftsCompanion.insert(
               id: record.id,
@@ -96,6 +113,7 @@ class HealthRecordRepository {
               unit: Value(record.unit),
               notes: Value(record.notes),
               recordedAt: record.recordedAt,
+              details: Value(record.details.isEmpty ? null : jsonEncode(record.details)),
               status: const Value('synced'),
               serverId: Value(record.id),
               createdAt: now,
@@ -114,6 +132,7 @@ class HealthRecordRepository {
       notes: row.notes,
       recordedAt: row.recordedAt,
       syncState: row.status,
+      details: row.details == null ? const {} : Map<String, dynamic>.from(jsonDecode(row.details!) as Map),
     );
   }
 }

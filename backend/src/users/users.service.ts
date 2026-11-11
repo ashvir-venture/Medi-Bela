@@ -156,6 +156,8 @@ export class UsersService {
       where: { userId, imageUrl: { not: null } },
       select: { imageUrl: true },
     });
+    // Round 16: report and record-only prescription photos are erased too.
+    const recordPhotos = await this.prisma.recordPhoto.findMany({ where: { userId }, select: { imageUrl: true } });
     const unusableHash = await argon2.hash(randomBytes(32).toString('hex'));
 
     const departure = await this.prisma.$transaction(async (tx) => {
@@ -180,6 +182,18 @@ export class UsersService {
       await tx.healthReminder.deleteMany({ where: { userId } });
       await tx.personalReminder.deleteMany({ where: { userId } });
       await tx.medicineStock.deleteMany({ where: { userId } });
+      // Round 15-16: my care and health records 2.0 (all personal).
+      await tx.userCondition.deleteMany({ where: { userId } });
+      await tx.healthLimits.deleteMany({ where: { userId } });
+      await tx.careSetting.deleteMany({ where: { userId } });
+      await tx.dayTick.deleteMany({ where: { userId } });
+      await tx.careLog.deleteMany({ where: { userId } });
+      await tx.doctorQuestion.deleteMany({ where: { userId } });
+      await tx.recordPhoto.deleteMany({ where: { userId } });
+      await tx.ownTest.deleteMany({ where: { userId } });
+      await tx.recordPrescription.deleteMany({ where: { userId } });
+      await tx.appointment.deleteMany({ where: { userId } });
+      await tx.myDoctor.deleteMany({ where: { userId } });
       await tx.healthSuggestion.deleteMany({ where: { userId } });
       await tx.assistantConversation.deleteMany({ where: { userId } });
       await tx.notification.deleteMany({ where: { userId } });
@@ -195,6 +209,7 @@ export class UsersService {
           birthYear: user.dateOfBirth ? user.dateOfBirth.getUTCFullYear() : user.birthYear,
           dateOfBirth: null,
           upazilaId: null,
+          heightCm: null,
           notificationsEnabled: false,
           medicineRemindersEnabled: false,
           noticesEnabled: false,
@@ -215,6 +230,7 @@ export class UsersService {
     await this.notifications.endSessions(userId);
     await this.family.notifyAfterCommit(departure);
     await Promise.all(images.map((i) => this.cloudinary.deleteImageByUrl(i.imageUrl!)));
+    await Promise.all(recordPhotos.map((i) => this.cloudinary.deleteImageByUrl(i.imageUrl)));
   }
 
   /** Patients only; the current password, throttled per user. */

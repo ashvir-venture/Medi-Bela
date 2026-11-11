@@ -28,12 +28,27 @@ async function setup(opts: { role?: string } = {}) {
     assistantConversation: { deleteMany: log('conversations') },
     notification: { deleteMany: log('notifications') },
     passwordResetCode: { deleteMany: log('resetCode') },
+    userCondition: { deleteMany: log('userCondition') },
+    healthLimits: { deleteMany: log('healthLimits') },
+    careSetting: { deleteMany: log('careSetting') },
+    dayTick: { deleteMany: log('dayTick') },
+    careLog: { deleteMany: log('careLog') },
+    doctorQuestion: { deleteMany: log('doctorQuestion') },
+    recordPhoto: { deleteMany: log('recordPhoto') },
+    ownTest: { deleteMany: log('ownTest') },
+    recordPrescription: { deleteMany: log('recordPrescription') },
+    appointment: { deleteMany: log('appointment') },
+    myDoctor: { deleteMany: log('myDoctor') },
     user: { update: jest.fn(async () => (calls.push('user'), user)) },
   };
   const prisma: any = {
     user: { findUnique: jest.fn(async () => user) },
     prescription: {
       findMany: jest.fn(async () => [{ imageUrl: 'https://res.cloudinary.com/x/image/upload/v1/prescriptions/a1.jpg' }]),
+    },
+    // Round 16: a test report photo is erased too.
+    recordPhoto: {
+      findMany: jest.fn(async () => [{ imageUrl: 'https://res.cloudinary.com/x/image/authenticated/v1/records/r1.jpg' }]),
     },
     $transaction: async (fn: any) => fn(tx),
   };
@@ -78,7 +93,7 @@ describe('deleteAccount (de-identify)', () => {
 
     expect(s.tx.prescription.deleteMany.mock.calls[0][0].where.status.in).toEqual(['PENDING', 'AWAITING_CONFIRMATION']);
     expect(s.tx.prescription.updateMany).toHaveBeenCalledWith({ where: { userId: 'u1' }, data: { imageUrl: null } });
-    for (const t of ['healthRecord', 'healthReminder', 'personalReminder', 'medicineStock', 'healthSuggestion', 'assistantConversation', 'notification', 'passwordResetCode']) {
+    for (const t of ['healthRecord', 'healthReminder', 'personalReminder', 'medicineStock', 'healthSuggestion', 'assistantConversation', 'notification', 'passwordResetCode', 'userCondition', 'healthLimits', 'careSetting', 'dayTick', 'careLog', 'doctorQuestion', 'recordPhoto', 'ownTest', 'recordPrescription', 'appointment', 'myDoctor']) {
       expect(s.tx[t].deleteMany).toHaveBeenCalledWith({ where: { userId: 'u1' } });
     }
     expect(s.tx.medicineRoutine.updateMany).toHaveBeenCalledWith({ where: { userId: 'u1', active: true }, data: { active: false } });
@@ -87,6 +102,8 @@ describe('deleteAccount (de-identify)', () => {
       { invitedPhone: { in: ['+8801712345678', '01712345678'] } },
     ]);
     expect(s.cloudinary.deleteImageByUrl).toHaveBeenCalledWith('https://res.cloudinary.com/x/image/upload/v1/prescriptions/a1.jpg');
+    expect(s.cloudinary.deleteImageByUrl).toHaveBeenCalledWith('https://res.cloudinary.com/x/image/authenticated/v1/records/r1.jpg');
+    expect(s.tx.user.update.mock.calls[0][0].data.heightCm).toBeNull();
   });
 
   it('leaves the family first (handover inside the transaction), signs devices out and pushes after commit', async () => {

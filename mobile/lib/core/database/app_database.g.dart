@@ -3837,6 +3837,17 @@ class $CachedHealthRemindersTable extends CachedHealthReminders
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _testKindMeta = const VerificationMeta(
+    'testKind',
+  );
+  @override
+  late final GeneratedColumn<String> testKind = GeneratedColumn<String>(
+    'test_kind',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3849,6 +3860,7 @@ class $CachedHealthRemindersTable extends CachedHealthReminders
     cachedAt,
     kind,
     mealTiming,
+    testKind,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3938,6 +3950,12 @@ class $CachedHealthRemindersTable extends CachedHealthReminders
         mealTiming.isAcceptableOrUnknown(data['meal_timing']!, _mealTimingMeta),
       );
     }
+    if (data.containsKey('test_kind')) {
+      context.handle(
+        _testKindMeta,
+        testKind.isAcceptableOrUnknown(data['test_kind']!, _testKindMeta),
+      );
+    }
     return context;
   }
 
@@ -3987,6 +4005,10 @@ class $CachedHealthRemindersTable extends CachedHealthReminders
         DriftSqlType.string,
         data['${effectivePrefix}meal_timing'],
       ),
+      testKind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}test_kind'],
+      ),
     );
   }
 
@@ -4008,6 +4030,7 @@ class CachedHealthReminder extends DataClass
   final DateTime cachedAt;
   final String kind;
   final String? mealTiming;
+  final String? testKind;
   const CachedHealthReminder({
     required this.id,
     required this.title,
@@ -4019,6 +4042,7 @@ class CachedHealthReminder extends DataClass
     required this.cachedAt,
     required this.kind,
     this.mealTiming,
+    this.testKind,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4038,6 +4062,9 @@ class CachedHealthReminder extends DataClass
     map['kind'] = Variable<String>(kind);
     if (!nullToAbsent || mealTiming != null) {
       map['meal_timing'] = Variable<String>(mealTiming);
+    }
+    if (!nullToAbsent || testKind != null) {
+      map['test_kind'] = Variable<String>(testKind);
     }
     return map;
   }
@@ -4060,6 +4087,9 @@ class CachedHealthReminder extends DataClass
       mealTiming: mealTiming == null && nullToAbsent
           ? const Value.absent()
           : Value(mealTiming),
+      testKind: testKind == null && nullToAbsent
+          ? const Value.absent()
+          : Value(testKind),
     );
   }
 
@@ -4079,6 +4109,7 @@ class CachedHealthReminder extends DataClass
       cachedAt: serializer.fromJson<DateTime>(json['cachedAt']),
       kind: serializer.fromJson<String>(json['kind']),
       mealTiming: serializer.fromJson<String?>(json['mealTiming']),
+      testKind: serializer.fromJson<String?>(json['testKind']),
     );
   }
   @override
@@ -4095,6 +4126,7 @@ class CachedHealthReminder extends DataClass
       'cachedAt': serializer.toJson<DateTime>(cachedAt),
       'kind': serializer.toJson<String>(kind),
       'mealTiming': serializer.toJson<String?>(mealTiming),
+      'testKind': serializer.toJson<String?>(testKind),
     };
   }
 
@@ -4109,6 +4141,7 @@ class CachedHealthReminder extends DataClass
     DateTime? cachedAt,
     String? kind,
     Value<String?> mealTiming = const Value.absent(),
+    Value<String?> testKind = const Value.absent(),
   }) => CachedHealthReminder(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -4120,6 +4153,7 @@ class CachedHealthReminder extends DataClass
     cachedAt: cachedAt ?? this.cachedAt,
     kind: kind ?? this.kind,
     mealTiming: mealTiming.present ? mealTiming.value : this.mealTiming,
+    testKind: testKind.present ? testKind.value : this.testKind,
   );
   CachedHealthReminder copyWithCompanion(CachedHealthRemindersCompanion data) {
     return CachedHealthReminder(
@@ -4141,6 +4175,7 @@ class CachedHealthReminder extends DataClass
       mealTiming: data.mealTiming.present
           ? data.mealTiming.value
           : this.mealTiming,
+      testKind: data.testKind.present ? data.testKind.value : this.testKind,
     );
   }
 
@@ -4156,7 +4191,8 @@ class CachedHealthReminder extends DataClass
           ..write('syncState: $syncState, ')
           ..write('cachedAt: $cachedAt, ')
           ..write('kind: $kind, ')
-          ..write('mealTiming: $mealTiming')
+          ..write('mealTiming: $mealTiming, ')
+          ..write('testKind: $testKind')
           ..write(')'))
         .toString();
   }
@@ -4173,6 +4209,7 @@ class CachedHealthReminder extends DataClass
     cachedAt,
     kind,
     mealTiming,
+    testKind,
   );
   @override
   bool operator ==(Object other) =>
@@ -4187,7 +4224,8 @@ class CachedHealthReminder extends DataClass
           other.syncState == this.syncState &&
           other.cachedAt == this.cachedAt &&
           other.kind == this.kind &&
-          other.mealTiming == this.mealTiming);
+          other.mealTiming == this.mealTiming &&
+          other.testKind == this.testKind);
 }
 
 class CachedHealthRemindersCompanion
@@ -4202,6 +4240,7 @@ class CachedHealthRemindersCompanion
   final Value<DateTime> cachedAt;
   final Value<String> kind;
   final Value<String?> mealTiming;
+  final Value<String?> testKind;
   final Value<int> rowid;
   const CachedHealthRemindersCompanion({
     this.id = const Value.absent(),
@@ -4214,6 +4253,7 @@ class CachedHealthRemindersCompanion
     this.cachedAt = const Value.absent(),
     this.kind = const Value.absent(),
     this.mealTiming = const Value.absent(),
+    this.testKind = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CachedHealthRemindersCompanion.insert({
@@ -4227,6 +4267,7 @@ class CachedHealthRemindersCompanion
     required DateTime cachedAt,
     this.kind = const Value.absent(),
     this.mealTiming = const Value.absent(),
+    this.testKind = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        title = Value(title),
@@ -4244,6 +4285,7 @@ class CachedHealthRemindersCompanion
     Expression<DateTime>? cachedAt,
     Expression<String>? kind,
     Expression<String>? mealTiming,
+    Expression<String>? testKind,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4257,6 +4299,7 @@ class CachedHealthRemindersCompanion
       if (cachedAt != null) 'cached_at': cachedAt,
       if (kind != null) 'kind': kind,
       if (mealTiming != null) 'meal_timing': mealTiming,
+      if (testKind != null) 'test_kind': testKind,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4272,6 +4315,7 @@ class CachedHealthRemindersCompanion
     Value<DateTime>? cachedAt,
     Value<String>? kind,
     Value<String?>? mealTiming,
+    Value<String?>? testKind,
     Value<int>? rowid,
   }) {
     return CachedHealthRemindersCompanion(
@@ -4285,6 +4329,7 @@ class CachedHealthRemindersCompanion
       cachedAt: cachedAt ?? this.cachedAt,
       kind: kind ?? this.kind,
       mealTiming: mealTiming ?? this.mealTiming,
+      testKind: testKind ?? this.testKind,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4322,6 +4367,9 @@ class CachedHealthRemindersCompanion
     if (mealTiming.present) {
       map['meal_timing'] = Variable<String>(mealTiming.value);
     }
+    if (testKind.present) {
+      map['test_kind'] = Variable<String>(testKind.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4341,6 +4389,7 @@ class CachedHealthRemindersCompanion
           ..write('cachedAt: $cachedAt, ')
           ..write('kind: $kind, ')
           ..write('mealTiming: $mealTiming, ')
+          ..write('testKind: $testKind, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4409,6 +4458,17 @@ class $HealthRecordDraftsTable extends HealthRecordDrafts
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _detailsMeta = const VerificationMeta(
+    'details',
+  );
+  @override
+  late final GeneratedColumn<String> details = GeneratedColumn<String>(
+    'details',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
   late final GeneratedColumn<String> status = GeneratedColumn<String>(
@@ -4460,6 +4520,7 @@ class $HealthRecordDraftsTable extends HealthRecordDrafts
     unit,
     notes,
     recordedAt,
+    details,
     status,
     serverId,
     createdAt,
@@ -4517,6 +4578,12 @@ class $HealthRecordDraftsTable extends HealthRecordDrafts
       );
     } else if (isInserting) {
       context.missing(_recordedAtMeta);
+    }
+    if (data.containsKey('details')) {
+      context.handle(
+        _detailsMeta,
+        details.isAcceptableOrUnknown(data['details']!, _detailsMeta),
+      );
     }
     if (data.containsKey('status')) {
       context.handle(
@@ -4579,6 +4646,10 @@ class $HealthRecordDraftsTable extends HealthRecordDrafts
         DriftSqlType.dateTime,
         data['${effectivePrefix}recorded_at'],
       )!,
+      details: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}details'],
+      ),
       status: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}status'],
@@ -4612,6 +4683,10 @@ class HealthRecordDraft extends DataClass
   final String? unit;
   final String? notes;
   final DateTime recordedAt;
+
+  /// Round 15 (schema 6): structured values as JSON (systolic, sugarContext,
+  /// injectionSite, rangeState...; see HealthRecordModel.details).
+  final String? details;
   final String status;
   final String? serverId;
   final DateTime createdAt;
@@ -4623,6 +4698,7 @@ class HealthRecordDraft extends DataClass
     this.unit,
     this.notes,
     required this.recordedAt,
+    this.details,
     required this.status,
     this.serverId,
     required this.createdAt,
@@ -4641,6 +4717,9 @@ class HealthRecordDraft extends DataClass
       map['notes'] = Variable<String>(notes);
     }
     map['recorded_at'] = Variable<DateTime>(recordedAt);
+    if (!nullToAbsent || details != null) {
+      map['details'] = Variable<String>(details);
+    }
     map['status'] = Variable<String>(status);
     if (!nullToAbsent || serverId != null) {
       map['server_id'] = Variable<String>(serverId);
@@ -4660,6 +4739,9 @@ class HealthRecordDraft extends DataClass
           ? const Value.absent()
           : Value(notes),
       recordedAt: Value(recordedAt),
+      details: details == null && nullToAbsent
+          ? const Value.absent()
+          : Value(details),
       status: Value(status),
       serverId: serverId == null && nullToAbsent
           ? const Value.absent()
@@ -4681,6 +4763,7 @@ class HealthRecordDraft extends DataClass
       unit: serializer.fromJson<String?>(json['unit']),
       notes: serializer.fromJson<String?>(json['notes']),
       recordedAt: serializer.fromJson<DateTime>(json['recordedAt']),
+      details: serializer.fromJson<String?>(json['details']),
       status: serializer.fromJson<String>(json['status']),
       serverId: serializer.fromJson<String?>(json['serverId']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -4697,6 +4780,7 @@ class HealthRecordDraft extends DataClass
       'unit': serializer.toJson<String?>(unit),
       'notes': serializer.toJson<String?>(notes),
       'recordedAt': serializer.toJson<DateTime>(recordedAt),
+      'details': serializer.toJson<String?>(details),
       'status': serializer.toJson<String>(status),
       'serverId': serializer.toJson<String?>(serverId),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -4711,6 +4795,7 @@ class HealthRecordDraft extends DataClass
     Value<String?> unit = const Value.absent(),
     Value<String?> notes = const Value.absent(),
     DateTime? recordedAt,
+    Value<String?> details = const Value.absent(),
     String? status,
     Value<String?> serverId = const Value.absent(),
     DateTime? createdAt,
@@ -4722,6 +4807,7 @@ class HealthRecordDraft extends DataClass
     unit: unit.present ? unit.value : this.unit,
     notes: notes.present ? notes.value : this.notes,
     recordedAt: recordedAt ?? this.recordedAt,
+    details: details.present ? details.value : this.details,
     status: status ?? this.status,
     serverId: serverId.present ? serverId.value : this.serverId,
     createdAt: createdAt ?? this.createdAt,
@@ -4737,6 +4823,7 @@ class HealthRecordDraft extends DataClass
       recordedAt: data.recordedAt.present
           ? data.recordedAt.value
           : this.recordedAt,
+      details: data.details.present ? data.details.value : this.details,
       status: data.status.present ? data.status.value : this.status,
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
@@ -4753,6 +4840,7 @@ class HealthRecordDraft extends DataClass
           ..write('unit: $unit, ')
           ..write('notes: $notes, ')
           ..write('recordedAt: $recordedAt, ')
+          ..write('details: $details, ')
           ..write('status: $status, ')
           ..write('serverId: $serverId, ')
           ..write('createdAt: $createdAt, ')
@@ -4769,6 +4857,7 @@ class HealthRecordDraft extends DataClass
     unit,
     notes,
     recordedAt,
+    details,
     status,
     serverId,
     createdAt,
@@ -4784,6 +4873,7 @@ class HealthRecordDraft extends DataClass
           other.unit == this.unit &&
           other.notes == this.notes &&
           other.recordedAt == this.recordedAt &&
+          other.details == this.details &&
           other.status == this.status &&
           other.serverId == this.serverId &&
           other.createdAt == this.createdAt &&
@@ -4797,6 +4887,7 @@ class HealthRecordDraftsCompanion extends UpdateCompanion<HealthRecordDraft> {
   final Value<String?> unit;
   final Value<String?> notes;
   final Value<DateTime> recordedAt;
+  final Value<String?> details;
   final Value<String> status;
   final Value<String?> serverId;
   final Value<DateTime> createdAt;
@@ -4809,6 +4900,7 @@ class HealthRecordDraftsCompanion extends UpdateCompanion<HealthRecordDraft> {
     this.unit = const Value.absent(),
     this.notes = const Value.absent(),
     this.recordedAt = const Value.absent(),
+    this.details = const Value.absent(),
     this.status = const Value.absent(),
     this.serverId = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -4822,6 +4914,7 @@ class HealthRecordDraftsCompanion extends UpdateCompanion<HealthRecordDraft> {
     this.unit = const Value.absent(),
     this.notes = const Value.absent(),
     required DateTime recordedAt,
+    this.details = const Value.absent(),
     this.status = const Value.absent(),
     this.serverId = const Value.absent(),
     required DateTime createdAt,
@@ -4840,6 +4933,7 @@ class HealthRecordDraftsCompanion extends UpdateCompanion<HealthRecordDraft> {
     Expression<String>? unit,
     Expression<String>? notes,
     Expression<DateTime>? recordedAt,
+    Expression<String>? details,
     Expression<String>? status,
     Expression<String>? serverId,
     Expression<DateTime>? createdAt,
@@ -4853,6 +4947,7 @@ class HealthRecordDraftsCompanion extends UpdateCompanion<HealthRecordDraft> {
       if (unit != null) 'unit': unit,
       if (notes != null) 'notes': notes,
       if (recordedAt != null) 'recorded_at': recordedAt,
+      if (details != null) 'details': details,
       if (status != null) 'status': status,
       if (serverId != null) 'server_id': serverId,
       if (createdAt != null) 'created_at': createdAt,
@@ -4868,6 +4963,7 @@ class HealthRecordDraftsCompanion extends UpdateCompanion<HealthRecordDraft> {
     Value<String?>? unit,
     Value<String?>? notes,
     Value<DateTime>? recordedAt,
+    Value<String?>? details,
     Value<String>? status,
     Value<String?>? serverId,
     Value<DateTime>? createdAt,
@@ -4881,6 +4977,7 @@ class HealthRecordDraftsCompanion extends UpdateCompanion<HealthRecordDraft> {
       unit: unit ?? this.unit,
       notes: notes ?? this.notes,
       recordedAt: recordedAt ?? this.recordedAt,
+      details: details ?? this.details,
       status: status ?? this.status,
       serverId: serverId ?? this.serverId,
       createdAt: createdAt ?? this.createdAt,
@@ -4910,6 +5007,9 @@ class HealthRecordDraftsCompanion extends UpdateCompanion<HealthRecordDraft> {
     if (recordedAt.present) {
       map['recorded_at'] = Variable<DateTime>(recordedAt.value);
     }
+    if (details.present) {
+      map['details'] = Variable<String>(details.value);
+    }
     if (status.present) {
       map['status'] = Variable<String>(status.value);
     }
@@ -4937,6 +5037,7 @@ class HealthRecordDraftsCompanion extends UpdateCompanion<HealthRecordDraft> {
           ..write('unit: $unit, ')
           ..write('notes: $notes, ')
           ..write('recordedAt: $recordedAt, ')
+          ..write('details: $details, ')
           ..write('status: $status, ')
           ..write('serverId: $serverId, ')
           ..write('createdAt: $createdAt, ')
@@ -7784,6 +7885,7 @@ typedef $$CachedHealthRemindersTableCreateCompanionBuilder =
       required DateTime cachedAt,
       Value<String> kind,
       Value<String?> mealTiming,
+      Value<String?> testKind,
       Value<int> rowid,
     });
 typedef $$CachedHealthRemindersTableUpdateCompanionBuilder =
@@ -7798,6 +7900,7 @@ typedef $$CachedHealthRemindersTableUpdateCompanionBuilder =
       Value<DateTime> cachedAt,
       Value<String> kind,
       Value<String?> mealTiming,
+      Value<String?> testKind,
       Value<int> rowid,
     });
 
@@ -7857,6 +7960,11 @@ class $$CachedHealthRemindersTableFilterComposer
 
   ColumnFilters<String> get mealTiming => $composableBuilder(
     column: $table.mealTiming,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get testKind => $composableBuilder(
+    column: $table.testKind,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -7919,6 +8027,11 @@ class $$CachedHealthRemindersTableOrderingComposer
     column: $table.mealTiming,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get testKind => $composableBuilder(
+    column: $table.testKind,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$CachedHealthRemindersTableAnnotationComposer
@@ -7967,6 +8080,9 @@ class $$CachedHealthRemindersTableAnnotationComposer
     column: $table.mealTiming,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get testKind =>
+      $composableBuilder(column: $table.testKind, builder: (column) => column);
 }
 
 class $$CachedHealthRemindersTableTableManager
@@ -8025,6 +8141,7 @@ class $$CachedHealthRemindersTableTableManager
                 Value<DateTime> cachedAt = const Value.absent(),
                 Value<String> kind = const Value.absent(),
                 Value<String?> mealTiming = const Value.absent(),
+                Value<String?> testKind = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CachedHealthRemindersCompanion(
                 id: id,
@@ -8037,6 +8154,7 @@ class $$CachedHealthRemindersTableTableManager
                 cachedAt: cachedAt,
                 kind: kind,
                 mealTiming: mealTiming,
+                testKind: testKind,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -8051,6 +8169,7 @@ class $$CachedHealthRemindersTableTableManager
                 required DateTime cachedAt,
                 Value<String> kind = const Value.absent(),
                 Value<String?> mealTiming = const Value.absent(),
+                Value<String?> testKind = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CachedHealthRemindersCompanion.insert(
                 id: id,
@@ -8063,6 +8182,7 @@ class $$CachedHealthRemindersTableTableManager
                 cachedAt: cachedAt,
                 kind: kind,
                 mealTiming: mealTiming,
+                testKind: testKind,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -8102,6 +8222,7 @@ typedef $$HealthRecordDraftsTableCreateCompanionBuilder =
       Value<String?> unit,
       Value<String?> notes,
       required DateTime recordedAt,
+      Value<String?> details,
       Value<String> status,
       Value<String?> serverId,
       required DateTime createdAt,
@@ -8116,6 +8237,7 @@ typedef $$HealthRecordDraftsTableUpdateCompanionBuilder =
       Value<String?> unit,
       Value<String?> notes,
       Value<DateTime> recordedAt,
+      Value<String?> details,
       Value<String> status,
       Value<String?> serverId,
       Value<DateTime> createdAt,
@@ -8159,6 +8281,11 @@ class $$HealthRecordDraftsTableFilterComposer
 
   ColumnFilters<DateTime> get recordedAt => $composableBuilder(
     column: $table.recordedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get details => $composableBuilder(
+    column: $table.details,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8222,6 +8349,11 @@ class $$HealthRecordDraftsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get details => $composableBuilder(
+    column: $table.details,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get status => $composableBuilder(
     column: $table.status,
     builder: (column) => ColumnOrderings(column),
@@ -8271,6 +8403,9 @@ class $$HealthRecordDraftsTableAnnotationComposer
     column: $table.recordedAt,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get details =>
+      $composableBuilder(column: $table.details, builder: (column) => column);
 
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
@@ -8331,6 +8466,7 @@ class $$HealthRecordDraftsTableTableManager
                 Value<String?> unit = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<DateTime> recordedAt = const Value.absent(),
+                Value<String?> details = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -8343,6 +8479,7 @@ class $$HealthRecordDraftsTableTableManager
                 unit: unit,
                 notes: notes,
                 recordedAt: recordedAt,
+                details: details,
                 status: status,
                 serverId: serverId,
                 createdAt: createdAt,
@@ -8357,6 +8494,7 @@ class $$HealthRecordDraftsTableTableManager
                 Value<String?> unit = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 required DateTime recordedAt,
+                Value<String?> details = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
                 required DateTime createdAt,
@@ -8369,6 +8507,7 @@ class $$HealthRecordDraftsTableTableManager
                 unit: unit,
                 notes: notes,
                 recordedAt: recordedAt,
+                details: details,
                 status: status,
                 serverId: serverId,
                 createdAt: createdAt,

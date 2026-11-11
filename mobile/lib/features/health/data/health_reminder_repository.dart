@@ -92,6 +92,7 @@ class HealthReminderRepository {
                   cachedAt: now,
                   kind: Value(r.kind),
                   mealTiming: Value(r.mealTiming),
+                  testKind: Value(r.testKindCode),
                 ),
               );
         }
@@ -159,6 +160,7 @@ class HealthReminderRepository {
       syncState: row.syncState,
       kind: row.kind,
       mealTiming: row.mealTiming,
+      testKindCode: row.testKind,
     );
   }
 }

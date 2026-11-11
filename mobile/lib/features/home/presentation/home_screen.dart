@@ -15,6 +15,7 @@ import '../../family/presentation/family_controller.dart';
 import '../../reminders/presentation/full_screen_permission_screen.dart';
 import 'easy_home_screen.dart';
 import 'home_top.dart';
+import '../../care/presentation/home_care_cards.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -47,6 +48,8 @@ class HomeScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const FullScreenPromptOnce(),
+                    // Round 15: one card per condition in "My care".
+                    const HomeCareCards(),
                     const HomeServices(),
                     const SizedBox(height: 12),
                     const HomeFamilyCard(),

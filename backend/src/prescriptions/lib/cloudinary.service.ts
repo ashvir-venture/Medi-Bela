@@ -45,6 +45,14 @@ export class CloudinaryService {
    * access on its own.
    */
   uploadPrescriptionImage(buffer: Buffer, originalFilename: string): Promise<string> {
+    return this.uploadPrivateImage(buffer, originalFilename, 'prescriptions');
+  }
+
+  /**
+   * The same private upload into another folder (Round 16: `records` for
+   * test report and record-only prescription photos).
+   */
+  uploadPrivateImage(buffer: Buffer, originalFilename: string, folder: string): Promise<string> {
     if (!this.configured) {
       throw new InternalServerErrorException(
         'File storage is not configured (missing Cloudinary credentials)',
@@ -54,7 +62,7 @@ export class CloudinaryService {
     return new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
         {
-          folder: 'prescriptions',
+          folder,
           resource_type: 'image',
           type: 'authenticated',
           filename_override: originalFilename,
@@ -62,7 +70,7 @@ export class CloudinaryService {
         (error, result) => {
           if (error || !result) {
             this.logger.warn(`Cloudinary upload failed: ${error?.message ?? 'no result'}`);
-            reject(new InternalServerErrorException('Failed to upload prescription image'));
+            reject(new InternalServerErrorException('Failed to upload the image'));
             return;
           }
           resolve(

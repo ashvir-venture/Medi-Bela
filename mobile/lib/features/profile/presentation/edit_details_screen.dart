@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/localization/app_strings.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../providers/core_providers.dart';
 import '../../../widgets/details_fields.dart';
@@ -22,6 +23,13 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _address = TextEditingController();
+  final _height = TextEditingController();
+
+  /// 50-250 cm, or null when empty / not a number.
+  int? _heightValue() {
+    final v = int.tryParse(_height.text.trim().replaceAllMapped(RegExp('[০-৯]'), (m) => '${'০১২৩৪৫৬৭৮৯'.indexOf(m[0]!)}'));
+    return v != null && v >= 50 && v <= 250 ? v : null;
+  }
   PersonalDetails _details = const PersonalDetails();
   bool _loading = true;
   bool _saving = false;
@@ -37,6 +45,7 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
   void dispose() {
     _name.dispose();
     _address.dispose();
+    _height.dispose();
     super.dispose();
   }
 
@@ -61,6 +70,10 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
       },
       failure: (message) => _error = message,
     );
+    // Round 15: height (for BMI) lives with my care.
+    final h = (await ref.read(careRepositoryProvider).care()).heightCm;
+    _height.text = h?.toString() ?? '';
+    if (!mounted) return;
     setState(() => _loading = false);
   }
 
@@ -75,7 +88,13 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
       'name': _name.text.trim(),
       'address': _address.text.trim(),
       ..._details.toJson(),
+      'heightCm': _heightValue(),
     });
+    if (result.isSuccess) {
+      try {
+        await ref.read(careRepositoryProvider).refreshCare();
+      } catch (_) {}
+    }
     if (!mounted) return;
     setState(() => _saving = false);
     result.when(
@@ -115,6 +134,16 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
                           labelText: strings.addressOptional,
                           prefixIcon: const Icon(Icons.home_outlined),
                         ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _height,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: strings.r15.heightOptional,
+                          prefixIcon: const Icon(Icons.height),
+                        ),
+                        validator: (v) => (v ?? '').trim().isEmpty || _heightValue() != null ? null : strings.r15.heightRange,
                       ),
                       if (_error != null) ...[
                         const SizedBox(height: 12),

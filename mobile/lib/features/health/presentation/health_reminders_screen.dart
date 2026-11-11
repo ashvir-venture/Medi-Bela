@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/localization/app_strings.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../widgets/details_fields.dart' show formatYmd;
 import '../../../widgets/state_views.dart';
+import '../../care/presentation/reading_screen.dart' show testFormPath;
 import '../domain/health_models.dart';
 import 'health_controller.dart';
 
@@ -114,7 +116,13 @@ class _ReminderTile extends ConsumerWidget {
                 onPressed: () => ref.read(completeHealthReminderProvider)(reminder.id),
                 child: Text(reminder.isTest ? strings.testDoneAction : strings.markComplete),
               )
-            : null,
+            // Round 16: a done test opens its result form (the linked test kind).
+            : reminder.isTest && reminder.isCompleted
+                ? TextButton(
+                    onPressed: () => context.push(testFormPath(kind: reminder.testKindCode, done: true, reminderId: reminder.id)),
+                    child: Text(strings.r15.addResult),
+                  )
+                : null,
       ),
     );
   }
