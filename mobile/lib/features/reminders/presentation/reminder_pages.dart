@@ -15,6 +15,7 @@ import '../../../widgets/first_use_tips.dart';
 import '../../health/domain/health_models.dart';
 import '../../medicine_schedule/domain/medicine_schedule_models.dart';
 import '../../prescription/presentation/confirm_prescription_screen.dart' show formatHhmm;
+import '../../../widgets/fit_label.dart';
 
 /// The medicines due at [at] with large Later (red) and Taken (green)
 /// buttons, which work like the notification's own (Taken marks the whole
@@ -281,7 +282,7 @@ class _ReminderScaffold extends StatelessWidget {
                             ),
                             onPressed: onLater,
                             icon: const Icon(Icons.snooze, size: 28),
-                            label: Text(laterLabel, textAlign: TextAlign.center),
+                            label: FitLabel(Text(laterLabel, textAlign: TextAlign.center)),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -296,7 +297,7 @@ class _ReminderScaffold extends StatelessWidget {
                           ),
                           onPressed: onDone,
                           icon: const Icon(Icons.check, size: 28),
-                          label: Text(doneLabel),
+                          label: FitLabel(Text(doneLabel)),
                         ),
                       ),
                     ],

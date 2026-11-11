@@ -12,6 +12,7 @@ import 'care_blocks.dart';
 import 'care_providers.dart';
 import 'care_widgets.dart';
 import 'reading_screen.dart';
+import '../../../widgets/fit_label.dart';
 
 int _avg(Iterable<int> xs) => xs.isEmpty ? 0 : (xs.reduce((a, b) => a + b) / xs.length).round();
 
@@ -113,9 +114,9 @@ class DiabetesSugarHero extends StatelessWidget {
         ],
       ),
       Row(children: [
-        Expanded(child: FilledButton.icon(onPressed: () => context.push(readingPath('BLOOD_SUGAR', c.who)), icon: const Icon(Icons.add), label: Text(s.logSugar))),
+        Expanded(child: FilledButton.icon(onPressed: () => context.push(readingPath('BLOOD_SUGAR', c.who)), icon: const Icon(Icons.add), label: FitLabel(Text(s.logSugar)))),
         const SizedBox(width: 8),
-        Expanded(child: OutlinedButton.icon(onPressed: () => context.push('/health/records/pdf'), icon: const Icon(Icons.description_outlined), label: Text(s.doctorPdf))),
+        Expanded(child: OutlinedButton.icon(onPressed: () => context.push('/health/records/pdf'), icon: const Icon(Icons.description_outlined), label: FitLabel(Text(s.doctorPdf)))),
       ]),
     ]);
   }
@@ -198,9 +199,9 @@ class BpHero extends StatelessWidget {
         ],
         const SizedBox(height: 10),
         Row(children: [
-          Expanded(child: FilledButton.icon(onPressed: () => context.push(readingPath('BLOOD_PRESSURE', c.who)), icon: const Icon(Icons.add), label: Text(s.logBp))),
+          Expanded(child: FilledButton.icon(onPressed: () => context.push(readingPath('BLOOD_PRESSURE', c.who)), icon: const Icon(Icons.add), label: FitLabel(Text(s.logBp)))),
           const SizedBox(width: 8),
-          Expanded(child: OutlinedButton.icon(onPressed: () => context.push(limitsPath(c.who)), icon: const Icon(Icons.track_changes, size: 18), label: Text(s.change))),
+          Expanded(child: OutlinedButton.icon(onPressed: () => context.push(limitsPath(c.who)), icon: const Icon(Icons.track_changes, size: 18), label: FitLabel(Text(s.change)))),
         ]),
       ]),
     ]);
@@ -468,9 +469,9 @@ class PregnancyVitalsBlock extends ConsumerWidget {
       Text(tr(pregnancyBpNote, s.bn), style: TextStyle(color: p.muted, fontSize: 13)),
       const SizedBox(height: 8),
       Row(children: [
-        Expanded(child: FilledButton(onPressed: () => context.push(readingPath('BLOOD_PRESSURE', c.who)), child: Text(s.logBp))),
+        Expanded(child: FilledButton(onPressed: () => context.push(readingPath('BLOOD_PRESSURE', c.who)), child: FitLabel(Text(s.logBp)))),
         const SizedBox(width: 8),
-        Expanded(child: OutlinedButton(onPressed: () => context.push(readingPath('WEIGHT', c.who)), child: Text(s.logWeight))),
+        Expanded(child: OutlinedButton(onPressed: () => context.push(readingPath('WEIGHT', c.who)), child: FitLabel(Text(s.logWeight)))),
       ]),
     ]);
   }
@@ -631,9 +632,9 @@ class HeartHero extends StatelessWidget {
         Text(limit == null ? s.weightNoLimit : s.weightAlertNote(numText(limit, s)), style: TextStyle(color: p.muted, fontSize: 13)),
       const SizedBox(height: 10),
       Row(children: [
-        Expanded(child: FilledButton(onPressed: () => context.push(readingPath('WEIGHT', c.who)), child: Text(s.logWeight))),
+        Expanded(child: FilledButton(onPressed: () => context.push(readingPath('WEIGHT', c.who)), child: FitLabel(Text(s.logWeight)))),
         const SizedBox(width: 8),
-        Expanded(child: OutlinedButton(onPressed: () => context.push(readingPath('BLOOD_PRESSURE', c.who)), child: Text(s.bpAndPulse))),
+        Expanded(child: OutlinedButton(onPressed: () => context.push(readingPath('BLOOD_PRESSURE', c.who)), child: FitLabel(Text(s.bpAndPulse)))),
       ]),
     ]);
   }
@@ -773,11 +774,11 @@ class AsthmaHero extends ConsumerWidget {
           child: FilledButton.icon(
             onPressed: () => runCareAction(context, ref, () => CareActions(ref, c.who).addLog(CareLogKind.reliever, {'puffs': 1}, condition: 'asthma'), done: s.relieverLogged),
             icon: const Icon(Icons.air),
-            label: Text(s.usedReliever),
+            label: FitLabel(Text(s.usedReliever)),
           ),
         ),
         const SizedBox(width: 8),
-        Expanded(child: OutlinedButton(onPressed: () => context.push(readingPath('PEAK_FLOW', c.who)), child: Text(s.logPeakFlow))),
+        Expanded(child: OutlinedButton(onPressed: () => context.push(readingPath('PEAK_FLOW', c.who)), child: FitLabel(Text(s.logPeakFlow)))),
       ]),
       CheckboxListTile(
         contentPadding: EdgeInsets.zero,
@@ -948,7 +949,7 @@ class CancerHero extends ConsumerWidget {
             style: FilledButton.styleFrom(backgroundColor: p.violet),
             onPressed: () => context.push(testFormPath(kind: 'cbc', done: true, condition: 'cancer', who: c.who)),
             icon: const Icon(Icons.upload_outlined),
-            label: Text(s.addReport),
+            label: FitLabel(Text(s.addReport)),
           ),
         ),
       ]),

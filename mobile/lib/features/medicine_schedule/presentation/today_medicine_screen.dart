@@ -84,7 +84,8 @@ class _TodaysMedicineScreenState extends ConsumerState<TodaysMedicineScreen> {
             }
 
             return ListView(
-              padding: const EdgeInsets.all(16),
+              // Bottom room for the AI button (tab root).
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
               children: [
                 const ReminderStatusBanner(),
                 // Round 14: how each of the last 7 days went.

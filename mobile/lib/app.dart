@@ -10,6 +10,7 @@ import 'features/auth/presentation/auth_controller.dart';
 import 'features/auth/presentation/session_notifier.dart';
 import 'notifications/session_services.dart';
 import 'router/app_router.dart';
+import 'widgets/bottom_safe_area.dart';
 import 'widgets/not_found_screen.dart';
 
 class CareBridgeApp extends ConsumerWidget {
@@ -51,10 +52,11 @@ class CareBridgeApp extends ConsumerWidget {
       routerConfig: router,
       // The API answered 503 (maintenance): one screen over everything.
       // Round 14: Text size (and easy mode) scale every screen.
+      // Owner 2026-11-12: nothing behind the phone's navigation bar.
       builder: (context, child) => withAppTextScale(
         context,
         textFactor,
-        maintenance
+        BottomSafeArea(child: maintenance
             ? MaintenanceScreen(
                 onTryAgain: () {
                   ref.read(maintenanceProvider.notifier).state = false;
@@ -62,7 +64,7 @@ class CareBridgeApp extends ConsumerWidget {
                   ref.read(authControllerProvider.notifier).refreshProfile();
                 },
               )
-            : child ?? const SizedBox.shrink(),
+            : child ?? const SizedBox.shrink()),
       ),
     );
   }

@@ -67,7 +67,7 @@ class HomeScreen extends ConsumerWidget {
                       message: ref.watch(stringsProvider).adMessage,
                     ),
                     // Room for the AI button above the bottom bar.
-                    const SizedBox(height: 48),
+                    const SizedBox(height: 96),
                   ],
                 ),
               ),

@@ -11,6 +11,7 @@ import 'care_widgets.dart';
 import 'doctor_picker.dart';
 import 'reading_screen.dart';
 import 'test_form_screen.dart';
+import '../../../widgets/fit_label.dart';
 
 /// Health records (Round 16): the doctor's PDF, doctor visits, upcoming
 /// tests (reminder switch, "Done, add result"), test reports, and
@@ -317,9 +318,9 @@ class TestReportScreen extends ConsumerWidget {
             ),
           ]),
           Row(children: [
-            Expanded(child: OutlinedButton.icon(onPressed: () => context.push(testFormPath(id: t.id, done: true, who: who)), icon: const Icon(Icons.edit_outlined), label: Text(s.editNumbers))),
+            Expanded(child: OutlinedButton.icon(onPressed: () => context.push(testFormPath(id: t.id, done: true, who: who)), icon: const Icon(Icons.edit_outlined), label: FitLabel(Text(s.editNumbers)))),
             const SizedBox(width: 8),
-            Expanded(child: OutlinedButton.icon(style: OutlinedButton.styleFrom(foregroundColor: p.later), onPressed: delete, icon: const Icon(Icons.delete_outline), label: Text(s.delete))),
+            Expanded(child: OutlinedButton.icon(style: OutlinedButton.styleFrom(foregroundColor: p.later), onPressed: delete, icon: const Icon(Icons.delete_outline), label: FitLabel(Text(s.delete)))),
           ]),
           const SizedBox(height: 8),
           NoteLine(s.pdfGetsNumbers, icon: Icons.description_outlined),

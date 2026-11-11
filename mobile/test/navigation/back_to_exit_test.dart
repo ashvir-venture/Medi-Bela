@@ -6,7 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile/core/localization/app_strings.dart';
 import 'package:mobile/core/localization/locale_controller.dart';
 import 'package:mobile/widgets/double_back_to_exit.dart';
+import 'package:mobile/widgets/first_use_tips.dart';
 import 'package:mobile/widgets/main_scaffold.dart';
+import 'package:mobile/widgets/nav_history.dart';
 
 void main() {
   group('press back again to exit', () {
@@ -85,7 +87,7 @@ void main() {
       expect(tab('/profile/settings'), 0);
     });
 
-    test('tab roots go back to Home; pushed screens pop', () {
+    test('tab roots are switched with go; everything else is pushed', () {
       bool root(String location) => isTabRoot(Uri.parse(location));
       expect(root('/home'), isTrue);
       expect(root('/medicines?tab=today'), isTrue);
@@ -95,6 +97,53 @@ void main() {
       expect(root('/medicines?for=u1'), isFalse);
       expect(root('/profile/settings'), isFalse);
       expect(root('/family/member/u1'), isFalse);
+    });
+  });
+
+  group('back returns to the previous page (owner 2026-11-12)', () {
+    test('tab switches: back walks the way you came, then Home', () {
+      final h = NavHistory()..visit('/home')..visit('/medicines?tab=today')..visit('/family');
+      expect(h.previous(), '/medicines?tab=today');
+      h.visit('/medicines?tab=today'); // went back
+      expect(h.previous(), '/home');
+      h.visit('/home');
+      expect(h.entries, ['/home']);
+    });
+
+    test('a page opened with go (inbox entry) goes back to the inbox, not Home', () {
+      final h = NavHistory()..visit('/home')..visit('/inbox')..visit('/notices?id=n1');
+      expect(h.previous(), '/inbox');
+    });
+
+    test('rebuilds of the same page change nothing; a pushed page popped is one step back', () {
+      final h = NavHistory()..visit('/home')..visit('/health')..visit('/health')..visit('/health/records');
+      expect(h.entries, ['/home', '/health', '/health/records']);
+      h.visit('/health'); // popped
+      expect(h.entries, ['/home', '/health']);
+    });
+
+    test('with nothing recorded, back leads Home; going Home clears the rest', () {
+      expect(NavHistory().previous(), '/home');
+      final h = NavHistory()..visit('/family')..visit('/health')..visit('/home?x=1');
+      expect(h.entries, ['/home?x=1']);
+    });
+
+    test('the list is capped', () {
+      final h = NavHistory(max: 3);
+      for (final p in ['/a', '/b', '/c', '/d']) {
+        h.visit(p);
+      }
+      expect(h.entries, ['/b', '/c', '/d']);
+    });
+
+    test('tab roots know their tips (none on easy-mode Home), so the AI button hides while one shows', () {
+      TipsScreen? t(String l, {bool easy = false}) => tipsScreenForRoot(Uri.parse(l), easyMode: easy);
+      expect(t('/home'), TipsScreen.home);
+      expect(t('/home', easy: true), isNull);
+      expect(t('/medicines?tab=mine'), TipsScreen.medicines);
+      expect(t('/family'), TipsScreen.family);
+      expect(t('/health'), TipsScreen.health);
+      expect(t('/profile'), isNull);
     });
   });
 }

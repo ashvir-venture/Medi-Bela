@@ -54,6 +54,9 @@ class AppTheme {
     );
     final scaffold = isDark ? darkBackground : background;
     final pill = RoundedRectangleBorder(borderRadius: BorderRadius.circular(999));
+    // Buttons: a rounded rectangle (owner 2026-11-12: pills looked too round).
+    final buttonShape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(12));
+    const buttonPadding = EdgeInsets.symmetric(horizontal: 16, vertical: 10);
 
     return ThemeData(
       useMaterial3: true,
@@ -91,8 +94,9 @@ class AppTheme {
           backgroundColor: colorScheme.primary,
           foregroundColor: colorScheme.onPrimary,
           elevation: 0,
+          padding: buttonPadding,
           textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-          shape: pill,
+          shape: buttonShape,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -100,8 +104,9 @@ class AppTheme {
           minimumSize: const Size.fromHeight(52),
           foregroundColor: p.head,
           side: BorderSide(color: p.line2, width: 1.5),
+          padding: buttonPadding,
           textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-          shape: pill,
+          shape: buttonShape,
         ),
       ),
       // Filled buttons sit inside rows (e.g. "Mark as taken"), so they get a
@@ -109,9 +114,9 @@ class AppTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           minimumSize: const Size(64, 48),
-          padding: const EdgeInsets.symmetric(horizontal: 18),
+          padding: buttonPadding,
           textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-          shape: pill,
+          shape: buttonShape,
         ),
       ),
       iconButtonTheme: IconButtonThemeData(
@@ -139,6 +144,7 @@ class AppTheme {
           foregroundColor: p.muted2,
           side: BorderSide(color: p.segment),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          shape: buttonShape,
         ),
       ),
       switchTheme: SwitchThemeData(
@@ -153,6 +159,7 @@ class AppTheme {
           minimumSize: const Size(48, 48),
           foregroundColor: p.link,
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          shape: buttonShape,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(

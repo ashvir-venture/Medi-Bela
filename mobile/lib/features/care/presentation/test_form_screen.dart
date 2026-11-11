@@ -13,6 +13,7 @@ import '../domain/care_models.dart';
 import 'care_actions.dart';
 import 'care_providers.dart';
 import 'care_widgets.dart';
+import '../../../widgets/fit_label.dart';
 
 /// Picks one page photo, shrunk like prescription photos (2000 px, q80).
 Future<String?> pickRecordPhoto(ImageSource source) async {
@@ -74,7 +75,7 @@ class PhotoPagesField extends StatelessWidget {
               : FilledButton.icon(onPressed: () => onAdd(ImageSource.camera), icon: const Icon(Icons.photo_camera_outlined), label: Text(s.takePhoto)),
         ),
         const SizedBox(width: 8),
-        Expanded(child: OutlinedButton.icon(onPressed: () => onAdd(ImageSource.gallery), icon: const Icon(Icons.image_outlined), label: Text(s.fromGallery))),
+        Expanded(child: OutlinedButton.icon(onPressed: () => onAdd(ImageSource.gallery), icon: const Icon(Icons.image_outlined), label: FitLabel(Text(s.fromGallery)))),
       ]),
     ]);
   }
@@ -285,7 +286,7 @@ class _TestFormScreenState extends ConsumerState<TestFormScreen> {
           const SizedBox(height: 14),
           if (_existing == null || !_existing!.done)
             SegmentedButton<bool>(
-              segments: [ButtonSegment(value: false, label: Text(s.comingUpMode)), ButtonSegment(value: true, label: Text(s.doneMode))],
+              segments: [ButtonSegment(value: false, label: FitLabel(Text(s.comingUpMode))), ButtonSegment(value: true, label: FitLabel(Text(s.doneMode)))],
               selected: {_done},
               onSelectionChanged: (v) => setState(() => _done = v.first),
             ),

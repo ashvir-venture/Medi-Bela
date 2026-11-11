@@ -6,6 +6,7 @@ import '../../../providers/core_providers.dart';
 import '../../help/presentation/help_screens.dart';
 import '../domain/care_content.dart';
 import 'care_providers.dart';
+import '../../../widgets/fit_label.dart';
 
 enum CrisisKind { bp, sugar }
 
@@ -114,7 +115,7 @@ class CrisisSheet extends ConsumerWidget {
         Row(children: [
           if (!forMember) ...[
             Expanded(
-              child: OutlinedButton.icon(onPressed: alert, icon: const Icon(Icons.groups_outlined), label: Text(s.alertFamily)),
+              child: OutlinedButton.icon(onPressed: alert, icon: const Icon(Icons.groups_outlined), label: FitLabel(Text(s.alertFamily))),
             ),
             const SizedBox(width: 8),
           ],
@@ -122,7 +123,7 @@ class CrisisSheet extends ConsumerWidget {
             child: OutlinedButton.icon(
               onPressed: () => openExternal(context, ref, 'tel:16263', fallbackCopy: '16263'),
               icon: const Icon(Icons.phone_outlined),
-              label: Text(s.call16263),
+              label: FitLabel(Text(s.call16263)),
             ),
           ),
         ]),

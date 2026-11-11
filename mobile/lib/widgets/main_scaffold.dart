@@ -5,11 +5,13 @@ import 'package:go_router/go_router.dart';
 import '../core/localization/app_strings.dart';
 import '../core/localization/locale_controller.dart';
 import '../core/theme/app_theme.dart';
+import '../features/auth/presentation/auth_controller.dart';
 import '../features/prescription/presentation/prescription_screen.dart';
 import '../router/app_router.dart';
 import 'connectivity_banner.dart';
 import 'double_back_to_exit.dart';
 import 'first_use_tips.dart';
+import 'nav_history.dart';
 
 /// Which bottom tab a location lives under. A screen always stays under the
 /// same tab: a caregiver's view of a member's medicines (`?for=`) belongs to
@@ -33,6 +35,15 @@ bool isTabRoot(Uri uri) {
   return const [AppRoutes.home, AppRoutes.family, AppRoutes.health].contains(uri.path);
 }
 
+/// The first-use tips of a tab root (Home has none in easy mode).
+TipsScreen? tipsScreenForRoot(Uri uri, {bool easyMode = false}) {
+  if (uri.path == AppRoutes.home) return easyMode ? null : TipsScreen.home;
+  if (uri.path == AppRoutes.medicines) return TipsScreen.medicines;
+  if (uri.path == AppRoutes.family) return TipsScreen.family;
+  if (uri.path == AppRoutes.health) return TipsScreen.health;
+  return null;
+}
+
 /// Round 14 (the demo's look): Home · Medicines · (+) · Family · Health,
 /// the round + in the middle opens "What would you like to add?", and the
 /// AI assistant is a round button above the bar on the tab roots.
@@ -49,6 +60,13 @@ class MainScaffold extends ConsumerWidget {
     final uri = GoRouterState.of(context).uri;
     final currentIndex = tabIndexForLocation(uri);
     final root = isTabRoot(uri);
+    final history = ref.read(navHistoryProvider)..visit(uri.toString());
+    // Round 17 follow-up: no AI button over a first-use tip (the tip card
+    // sits where the button floats, and the screen under it is dimmed).
+    final tips = ref.watch(tipsControllerProvider);
+    final easyMode = ref.watch(authControllerProvider.select((u) => u.value?.easyMode ?? false));
+    final tipScreen = root ? tipsScreenForRoot(uri, easyMode: easyMode) : null;
+    final tipShowing = tipScreen != null && tips != null && !tips.contains(tipScreen);
 
     final scaffold = Scaffold(
       body: SafeArea(
@@ -59,7 +77,7 @@ class MainScaffold extends ConsumerWidget {
           ],
         ),
       ),
-      floatingActionButton: root
+      floatingActionButton: root && !tipShowing
           ? Tooltip(
               message: strings.r14.aiButton,
               child: FloatingActionButton(
@@ -77,14 +95,16 @@ class MainScaffold extends ConsumerWidget {
       ),
     );
 
-    // Home: back twice to leave. Other tab roots: back goes to Home.
-    // Pushed screens pop normally (Home when there's nothing to pop to).
+    // Home: back twice to leave. Anywhere else back returns to the page you
+    // came from (owner 2026-11-12): a pushed page pops; a tab root or a page
+    // opened with `go` (inbox, notification) goes to the previous page in
+    // NavHistory, Home when there is none.
     if (uri.path == AppRoutes.home) return DoubleBackToExit(child: scaffold);
-    if (root || !GoRouter.of(context).canPop()) {
+    if (!GoRouter.of(context).canPop()) {
       return PopScope(
         canPop: false,
         onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) context.go(AppRoutes.home);
+          if (!didPop) context.go(history.previous());
         },
         child: scaffold,
       );

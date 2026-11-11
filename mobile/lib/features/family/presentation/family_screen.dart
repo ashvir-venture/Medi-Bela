@@ -109,7 +109,8 @@ class _FamilyContent extends ConsumerWidget {
 
     final viewerIsCaregiver = members.any((m) => m.userId == myId && m.role == 'CAREGIVER');
     return ListView.separated(
-      padding: const EdgeInsets.all(16),
+      // Bottom room for the AI button (tab root).
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       // header + members + (solo hint) + sharing note + invitations + activity
       itemCount: members.length + 5,
       separatorBuilder: (_, __) => const SizedBox(height: 8),

@@ -17,6 +17,7 @@ import '../../family/presentation/family_controller.dart';
 import '../../reminders/presentation/reminder_status_controller.dart';
 import '../../help/presentation/help_screens.dart';
 import 'account_dialogs.dart';
+import '../../../widgets/fit_label.dart';
 
 /// Settings, in five sections: Account; Reminders & notifications; Privacy &
 /// family; Appearance & language; Account actions (only Delete is red).
@@ -200,8 +201,8 @@ class _SettingsContentState extends ConsumerState<_SettingsContent> {
         const SizedBox(height: 8),
         SegmentedButton<String>(
           segments: const [
-            ButtonSegment(value: 'en', label: Text('English')),
-            ButtonSegment(value: 'bn', label: Text('বাংলা')),
+            ButtonSegment(value: 'en', label: FitLabel(Text('English'))),
+            ButtonSegment(value: 'bn', label: FitLabel(Text('বাংলা'))),
           ],
           selected: {locale.languageCode},
           onSelectionChanged: (selection) {
@@ -215,9 +216,9 @@ class _SettingsContentState extends ConsumerState<_SettingsContent> {
         const SizedBox(height: 8),
         SegmentedButton<ThemeMode>(
           segments: [
-            ButtonSegment(value: ThemeMode.system, label: Text(strings.themeSystem)),
-            ButtonSegment(value: ThemeMode.light, label: Text(strings.themeLight)),
-            ButtonSegment(value: ThemeMode.dark, label: Text(strings.themeDark)),
+            ButtonSegment(value: ThemeMode.system, label: FitLabel(Text(strings.themeSystem))),
+            ButtonSegment(value: ThemeMode.light, label: FitLabel(Text(strings.themeLight))),
+            ButtonSegment(value: ThemeMode.dark, label: FitLabel(Text(strings.themeDark))),
           ],
           selected: {ref.watch(themeModeControllerProvider)},
           onSelectionChanged: (selection) =>
@@ -228,9 +229,9 @@ class _SettingsContentState extends ConsumerState<_SettingsContent> {
         const SizedBox(height: 8),
         SegmentedButton<AppTextSize>(
           segments: [
-            ButtonSegment(value: AppTextSize.normal, label: Text(strings.r14.textNormal)),
-            ButtonSegment(value: AppTextSize.large, label: Text(strings.r14.textLarge)),
-            ButtonSegment(value: AppTextSize.larger, label: Text(strings.r14.textLarger)),
+            ButtonSegment(value: AppTextSize.normal, label: FitLabel(Text(strings.r14.textNormal))),
+            ButtonSegment(value: AppTextSize.large, label: FitLabel(Text(strings.r14.textLarge))),
+            ButtonSegment(value: AppTextSize.larger, label: FitLabel(Text(strings.r14.textLarger))),
           ],
           selected: {ref.watch(textSizeControllerProvider)},
           onSelectionChanged: (selection) =>

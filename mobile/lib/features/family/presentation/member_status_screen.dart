@@ -16,6 +16,7 @@ import '../../medicine_schedule/domain/dose_display_status.dart';
 import '../../medicine_schedule/domain/medicine_schedule_models.dart';
 import '../domain/family_models.dart';
 import 'family_controller.dart';
+import '../../../widgets/fit_label.dart';
 
 /// A family member's medicine status for today, online-only: name / time /
 /// status, On time / Late / Missed (the server decides what is shareable).
@@ -128,7 +129,7 @@ class _CaregiverShortcuts extends ConsumerWidget {
               child: OutlinedButton.icon(
                 onPressed: () => context.push(AppRoutes.medicinesPath(forUserId: userId, name: name)),
                 icon: const Icon(Icons.medication_outlined),
-                label: Text(strings.medicinesButton),
+                label: FitLabel(Text(strings.medicinesButton)),
               ),
             ),
             const SizedBox(width: 12),
@@ -136,7 +137,7 @@ class _CaregiverShortcuts extends ConsumerWidget {
               child: OutlinedButton.icon(
                 onPressed: () => context.push(AppRoutes.memberPrescriptionsPath(userId, name)),
                 icon: const Icon(Icons.description_outlined),
-                label: Text(strings.prescriptionsButton),
+                label: FitLabel(Text(strings.prescriptionsButton)),
               ),
             ),
           ],
@@ -149,7 +150,7 @@ class _CaregiverShortcuts extends ConsumerWidget {
               child: OutlinedButton.icon(
                 onPressed: () => context.push(AppRoutes.personalRemindersPath(forUserId: userId, name: name)),
                 icon: const Icon(Icons.alarm_add_outlined),
-                label: Text(strings.personalRemindersShort),
+                label: FitLabel(Text(strings.personalRemindersShort)),
               ),
             ),
             const SizedBox(width: 12),
@@ -157,7 +158,7 @@ class _CaregiverShortcuts extends ConsumerWidget {
               child: OutlinedButton.icon(
                 onPressed: () => context.push(AppRoutes.medicineBoxPath(forUserId: userId, name: name)),
                 icon: const Icon(Icons.inventory_2_outlined),
-                label: Text(strings.medicineBoxTitle),
+                label: FitLabel(Text(strings.medicineBoxTitle)),
               ),
             ),
           ],

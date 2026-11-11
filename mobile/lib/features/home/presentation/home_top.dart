@@ -17,6 +17,7 @@ import '../../medicine_schedule/presentation/medicine_schedule_controller.dart';
 import '../../prescription/presentation/prescription_screen.dart';
 import '../../reminders/presentation/reminder_status_controller.dart';
 import '../domain/day_slots.dart';
+import '../../../widgets/fit_label.dart';
 
 /// Round 14, the demo's Home: a navy band (avatar → Profile, greeting and
 /// name, EN | বাং, the bell), today's date and the reminder check, then the
@@ -228,7 +229,7 @@ class TodayHeroCard extends ConsumerWidget {
               child: FilledButton.icon(
                 onPressed: () => openPrescriptionEntryForm(context),
                 icon: const Icon(Icons.photo_camera_outlined),
-                label: Text(s.prescriptionShort),
+                label: FitLabel(Text(s.prescriptionShort)),
               ),
             ),
             const SizedBox(width: 10),
@@ -237,7 +238,7 @@ class TodayHeroCard extends ConsumerWidget {
                 style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
                 onPressed: () => context.push(AppRoutes.medicineForm),
                 icon: const Icon(Icons.add),
-                label: Text(s.addMedicineShort),
+                label: FitLabel(Text(s.addMedicineShort)),
               ),
             ),
           ],
@@ -437,7 +438,7 @@ class _NextSlot extends ConsumerWidget {
                     ),
                     onPressed: takeable.isEmpty ? null : () => takeDoses(ref, takeable),
                     icon: const Icon(Icons.check, size: 24),
-                    label: Text(strings.takenAction),
+                    label: FitLabel(Text(strings.takenAction)),
                   ),
                 ),
                 if (laterAllowed) ...[
@@ -452,7 +453,7 @@ class _NextSlot extends ConsumerWidget {
                         foregroundColor: p.onLater,
                       ),
                       onPressed: () => ref.read(notificationSchedulerProvider).snooze(at, stage),
-                      child: Text(strings.reminderLaterAction),
+                      child: FitLabel(Text(strings.reminderLaterAction)),
                     ),
                   ),
                 ],

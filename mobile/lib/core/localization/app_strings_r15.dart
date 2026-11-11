@@ -399,7 +399,7 @@ class Round15Strings {
   String get doctorVisits => _('Doctor visits', 'ডাক্তার দেখানো');
   String get upcomingTests => _('Upcoming tests', 'সামনের টেস্ট');
   String get remindMe => _('Remind', 'মনে করাবো');
-  String get doneAddResult => _('Done, add result', 'হয়ে গেছে, ফল লিখুন');
+  String get doneAddResult => _('Have result', 'ফলাফল আছে');
   String get testReports => _('Test reports', 'টেস্ট রিপোর্ট');
   String get prescriptions => _('Prescriptions', 'প্রেসক্রিপশন');
   String get keepRecord => _('Keep a record', 'রেকর্ডে রাখুন');
@@ -421,7 +421,7 @@ class Round15Strings {
   String get otherTest => _('Other', 'অন্য');
   String get testName => _('Test name', 'টেস্টের নাম');
   String get comingUpMode => _('Coming up', 'সামনে হবে');
-  String get doneMode => _('Done, have results', 'হয়ে গেছে, ফল আছে');
+  String get doneMode => _('Have result', 'ফলাফল আছে');
   String get whenWasIt => _('When was it?', 'কবে হয়েছে?');
   String get when => _('When?', 'কবে?');
   String get enterResults => _('Enter the results', 'ফলাফল লিখুন');

@@ -81,7 +81,7 @@ class HealthScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: Text(strings.health)),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(14, 0, 14, 24),
+        padding: const EdgeInsets.fromLTRB(14, 0, 14, 96),
         children: [
           Text(s.healthSub, style: TextStyle(color: p.muted)),
           const SizedBox(height: 14),

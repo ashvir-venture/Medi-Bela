@@ -8,6 +8,7 @@ import '../domain/care_models.dart';
 import 'care_providers.dart';
 import 'condition_screen.dart';
 import 'reading_screen.dart';
+import '../../../widgets/fit_label.dart';
 
 /// The member's health on the caregiver's member page (Rounds 15-16): their
 /// conditions (each opens its page for the member), log a reading, health
@@ -35,15 +36,15 @@ class MemberCareSection extends ConsumerWidget {
       for (final code in care.conditions)
         CareConditionTile(code: code, name: conditionName(code, lookups, s.bn), summary: careSummary(code, care, records, readings, s, lookups), who: who),
       Row(children: [
-        Expanded(child: OutlinedButton.icon(onPressed: () => context.push(readingPath(null, who)), icon: const Icon(Icons.monitor_heart_outlined), label: Text(s.logReading))),
+        Expanded(child: OutlinedButton.icon(onPressed: () => context.push(readingPath(null, who)), icon: const Icon(Icons.monitor_heart_outlined), label: FitLabel(Text(s.logReading)))),
         const SizedBox(width: 12),
-        Expanded(child: OutlinedButton.icon(onPressed: () => context.push(recordsPath(who)), icon: const Icon(Icons.folder_outlined), label: Text(s.healthRecords))),
+        Expanded(child: OutlinedButton.icon(onPressed: () => context.push(recordsPath(who)), icon: const Icon(Icons.folder_outlined), label: FitLabel(Text(s.healthRecords)))),
       ]),
       const SizedBox(height: 8),
       Row(children: [
-        Expanded(child: OutlinedButton.icon(onPressed: () => context.push(limitsPath(who)), icon: const Icon(Icons.track_changes), label: Text(s.targetsLimits))),
+        Expanded(child: OutlinedButton.icon(onPressed: () => context.push(limitsPath(who)), icon: const Icon(Icons.track_changes), label: FitLabel(Text(s.targetsLimits)))),
         const SizedBox(width: 12),
-        Expanded(child: OutlinedButton.icon(onPressed: () => context.push(myCarePath(who)), icon: const Icon(Icons.tune), label: Text(s.editConditions))),
+        Expanded(child: OutlinedButton.icon(onPressed: () => context.push(myCarePath(who)), icon: const Icon(Icons.tune), label: FitLabel(Text(s.editConditions)))),
       ]),
     ]);
   }

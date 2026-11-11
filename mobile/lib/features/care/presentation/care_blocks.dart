@@ -15,6 +15,7 @@ import 'care_actions.dart';
 import 'care_providers.dart';
 import 'care_widgets.dart';
 import 'reading_screen.dart';
+import '../../../widgets/fit_label.dart';
 
 /// What every condition block needs.
 class CareCtx {
@@ -101,7 +102,7 @@ class _DangerBlockState extends ConsumerState<DangerBlock> {
             style: FilledButton.styleFrom(backgroundColor: p.later, foregroundColor: p.onLater),
             onPressed: () => openExternal(context, ref, 'tel:999', fallbackCopy: '999'),
             icon: const Icon(Icons.phone, size: 18),
-            label: Text(s.call999),
+            label: FitLabel(Text(s.call999)),
           ),
         ),
         const SizedBox(width: 8),
@@ -109,7 +110,7 @@ class _DangerBlockState extends ConsumerState<DangerBlock> {
           child: OutlinedButton.icon(
             onPressed: () => openExternal(context, ref, 'tel:16263', fallbackCopy: '16263'),
             icon: const Icon(Icons.phone_outlined, size: 18),
-            label: Text(s.call16263),
+            label: FitLabel(Text(s.call16263)),
           ),
         ),
       ]),
@@ -290,7 +291,7 @@ class _SymptomsBlockState extends ConsumerState<SymptomsBlock> {
                     style: FilledButton.styleFrom(backgroundColor: p.later, foregroundColor: p.onLater),
                     onPressed: () => openExternal(context, ref, 'tel:999', fallbackCopy: '999'),
                     icon: const Icon(Icons.phone, size: 18),
-                    label: Text(s.call999),
+                    label: FitLabel(Text(s.call999)),
                   ),
                 ),
                 if (!c.who.isMember) ...[
@@ -307,7 +308,7 @@ class _SymptomsBlockState extends ConsumerState<SymptomsBlock> {
                         }
                       },
                       icon: const Icon(Icons.groups_outlined, size: 18),
-                      label: Text(s.alertFamily),
+                      label: FitLabel(Text(s.alertFamily)),
                     ),
                   ),
                 ],
@@ -317,9 +318,9 @@ class _SymptomsBlockState extends ConsumerState<SymptomsBlock> {
         ],
         const SizedBox(height: 10),
         Row(children: [
-          Expanded(child: OutlinedButton.icon(onPressed: () => _save(fine: true), icon: const Icon(Icons.sentiment_satisfied_alt, size: 18), label: Text(s.feelFine))),
+          Expanded(child: OutlinedButton.icon(onPressed: () => _save(fine: true), icon: const Icon(Icons.sentiment_satisfied_alt, size: 18), label: FitLabel(Text(s.feelFine)))),
           const SizedBox(width: 8),
-          Expanded(child: FilledButton(onPressed: _picked.isEmpty ? null : () => _save(fine: false), child: Text(s.save))),
+          Expanded(child: FilledButton(onPressed: _picked.isEmpty ? null : () => _save(fine: false), child: FitLabel(Text(s.save)))),
         ]),
       ],
     );
@@ -520,12 +521,12 @@ class NextVisitBlock extends ConsumerWidget {
       ),
       const SizedBox(height: 10),
       Row(children: [
-        Expanded(child: OutlinedButton.icon(onPressed: () => context.push('/health/records/pdf'), icon: const Icon(Icons.description_outlined, size: 18), label: Text(s.takeReport))),
+        Expanded(child: OutlinedButton.icon(onPressed: () => context.push('/health/records/pdf'), icon: const Icon(Icons.description_outlined, size: 18), label: FitLabel(Text(s.takeReport)))),
         const SizedBox(width: 8),
         Expanded(
           child: TextButton(
             onPressed: () => context.push(c.code == 'bp' ? limitsPath(c.who) : recordsPath(c.who)),
-            child: Text(c.code == 'bp' ? s.checkLimits : s.seeRecords),
+            child: FitLabel(Text(c.code == 'bp' ? s.checkLimits : s.seeRecords)),
           ),
         ),
       ]),

@@ -13,6 +13,7 @@ import '../../../providers/core_providers.dart';
 import '../../../router/app_router.dart';
 import '../../../widgets/state_views.dart';
 import '../domain/medicine_box_models.dart';
+import '../../../widgets/fit_label.dart';
 
 /// My box: the offline copy (refreshed on open). A member's box (caregiver,
 /// [forUserId]): online.
@@ -441,7 +442,7 @@ class MedicineBoxEmptyScreen extends ConsumerWidget {
                       if (context.mounted) await _leave(context, AppRoutes.home);
                     },
                     icon: const Icon(Icons.close, size: 28),
-                    label: Text(strings.boxIgnoreAction),
+                    label: FitLabel(Text(strings.boxIgnoreAction)),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -455,7 +456,7 @@ class MedicineBoxEmptyScreen extends ConsumerWidget {
                     ),
                     onPressed: () => _leave(context, AppRoutes.medicineBoxFormPath(routineId: routineId)),
                     icon: const Icon(Icons.add_shopping_cart, size: 28),
-                    label: Text(strings.boxRefillAction),
+                    label: FitLabel(Text(strings.boxRefillAction)),
                   ),
                 ),
               ],

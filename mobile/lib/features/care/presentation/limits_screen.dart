@@ -8,6 +8,7 @@ import '../domain/care_models.dart';
 import '../domain/reading_rules.dart';
 import 'care_providers.dart';
 import 'care_widgets.dart';
+import '../../../widgets/fit_label.dart';
 
 /// One limit box: its API field, label, unit, range and decimals.
 class _LimitSpec {
@@ -204,7 +205,7 @@ class _LimitsScreenState extends ConsumerState<LimitsScreen> {
         extra: Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: SegmentedButton<SugarUnit>(
-            segments: const [ButtonSegment(value: SugarUnit.mmol, label: Text('mmol/L')), ButtonSegment(value: SugarUnit.mgdl, label: Text('mg/dL'))],
+            segments: const [ButtonSegment(value: SugarUnit.mmol, label: FitLabel(Text('mmol/L'))), ButtonSegment(value: SugarUnit.mgdl, label: FitLabel(Text('mg/dL')))],
             selected: {_unit},
             onSelectionChanged: (v) => _switchUnit(v.first),
           ),

@@ -13,6 +13,7 @@ import 'care_widgets.dart';
 import 'condition_heroes.dart';
 import 'medicine_tag.dart';
 import 'reading_screen.dart';
+import '../../../widgets/fit_label.dart';
 
 /// One condition's page (Round 15 E), in the demo's order per condition:
 /// a hero with its graph and latest values, "When to act", habits, "How do
@@ -55,7 +56,7 @@ class _ConditionScreenState extends ConsumerState<ConditionScreen> {
               'diabetes' => [
                   // Sugar here; "Insulin and sites" opens the insulin log.
                   SegmentedButton<bool>(
-                    segments: [ButtonSegment(value: false, label: Text(s.sugarTab)), ButtonSegment(value: true, label: Text(s.insulinTab))],
+                    segments: [ButtonSegment(value: false, label: FitLabel(Text(s.sugarTab))), ButtonSegment(value: true, label: FitLabel(Text(s.insulinTab)))],
                     selected: const {false},
                     onSelectionChanged: (v) {
                       if (v.first) context.push(insulinPath(widget.who));
