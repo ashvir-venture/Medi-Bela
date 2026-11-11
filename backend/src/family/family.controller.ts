@@ -19,6 +19,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CaregiverAccessService } from './caregiver-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { ChangeHistoryService } from './change-history.service';
 
 @Controller('family')
 export class FamilyController {
@@ -27,6 +28,7 @@ export class FamilyController {
     private readonly caregivers: CaregiverAccessService,
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly changes: ChangeHistoryService,
   ) {}
 
   @Post()
@@ -71,6 +73,22 @@ export class FamilyController {
   @Get('events')
   events(@CurrentUser('id') userId: string, @Query('cursor') cursor?: string) {
     return this.familyService.listEvents(userId, cursor);
+  }
+
+  /** Round 17: what a caregiver changed for me, newest first, 10 per page. */
+  @Get('changes')
+  myChanges(@CurrentUser('id') userId: string, @Query('cursor') cursor?: string) {
+    return this.changes.mine(userId, cursor);
+  }
+
+  /** Round 17: the caregiver's view of what was changed for a member (404 for anyone else). */
+  @Get('members/:userId/changes')
+  memberChanges(
+    @CurrentUser('id') userId: string,
+    @Param('userId', ParseUUIDPipe) memberUserId: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    return this.changes.forMember(userId, memberUserId, cursor);
   }
 
   /**

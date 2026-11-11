@@ -1,7 +1,10 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_strings.dart';
 import '../../../core/localization/locale_controller.dart';
+import '../../../providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_mapper.dart';
 import '../../../widgets/load_more_list.dart';
@@ -36,7 +39,11 @@ class NoticesScreen extends ConsumerWidget {
               ),
             ],
           ),
-          data: (notices) {
+          data: (own) {
+            // Round 17: a notice shared by my family that my list doesn't have.
+            final missing = highlightId != null && !own.any((n) => n.id == highlightId);
+            final shared = missing ? ref.watch(sharedNoticeProvider(highlightId!)).valueOrNull : null;
+            final notices = [?shared, ...own];
             if (notices.isEmpty) {
               return ListView(
                 children: [
@@ -56,6 +63,8 @@ class NoticesScreen extends ConsumerWidget {
                 notice: ordered[index],
                 highlighted: ordered[index].id == highlightId,
                 sourceLabel: strings.noticeSource,
+                // Only notices of my own list can be passed on.
+                shareLabel: own.any((n) => n.id == ordered[index].id) ? strings.r17.shareWithFamily : null,
               ),
             );
           },
@@ -65,12 +74,46 @@ class NoticesScreen extends ConsumerWidget {
   }
 }
 
-class _NoticeCard extends StatelessWidget {
-  const _NoticeCard({required this.notice, required this.sourceLabel, this.highlighted = false});
+/// Round 17 C: sends the notice to the family's Family inbox and says how it went.
+Future<void> shareNoticeWithFamily(BuildContext context, WidgetRef ref, String noticeId) async {
+  final s = ref.read(stringsProvider).r17;
+  final messenger = ScaffoldMessenger.of(context);
+  String message;
+  try {
+    final r = await ref.read(noticesApiProvider).shareWithFamily(noticeId);
+    message = r.alreadyShared ? s.alreadyShared : s.sharedWith(r.sharedWith);
+  } on DioException catch (e) {
+    message = e.response?.statusCode == 404 ? s.shareNeedsFamily : friendlyErrorMessage(e);
+  }
+  messenger.showSnackBar(SnackBar(content: Text(message)));
+}
+
+class _NoticeCard extends ConsumerStatefulWidget {
+  const _NoticeCard({required this.notice, required this.sourceLabel, this.highlighted = false, this.shareLabel});
 
   final NoticeModel notice;
   final String sourceLabel;
   final bool highlighted;
+
+  /// Null: no Share button (a notice shared with me from another division).
+  final String? shareLabel;
+
+  @override
+  ConsumerState<_NoticeCard> createState() => _NoticeCardState();
+}
+
+class _NoticeCardState extends ConsumerState<_NoticeCard> {
+  bool _sharing = false;
+
+  NoticeModel get notice => widget.notice;
+  String get sourceLabel => widget.sourceLabel;
+  bool get highlighted => widget.highlighted;
+
+  Future<void> _share() async {
+    setState(() => _sharing = true);
+    await shareNoticeWithFamily(context, ref, notice.id);
+    if (mounted) setState(() => _sharing = false);
+  }
 
   static const _months = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -126,6 +169,18 @@ class _NoticeCard extends StatelessWidget {
                     .textTheme
                     .bodySmall
                     ?.copyWith(color: context.palette.subtle),
+              ),
+            ],
+            if (widget.shareLabel != null) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: OutlinedButton.icon(
+                  key: ValueKey('share-notice-${notice.id}'),
+                  onPressed: _sharing ? null : _share,
+                  icon: const Icon(Icons.family_restroom_outlined),
+                  label: Text(widget.shareLabel!),
+                ),
               ),
             ],
           ],

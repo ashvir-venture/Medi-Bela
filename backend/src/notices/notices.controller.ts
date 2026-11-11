@@ -18,6 +18,22 @@ export class NoticesController {
     return this.notices.listVisibleTo(userId, role);
   }
 
+  /** Round 17: send a live notice to my family's Family inbox. */
+  @Post('notices/:id/share-family')
+  shareWithFamily(
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: Role,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.notices.shareWithFamily(userId, role, id);
+  }
+
+  /** A notice my family shared with me (also outside my division). */
+  @Get('notices/shared/:id')
+  getShared(@CurrentUser('id') userId: string, @Param('id', ParseUUIDPipe) id: string) {
+    return this.notices.getShared(userId, id);
+  }
+
   // --- Staff -------------------------------------------------------------
   // Pharmacists draft and submit; admins approve, send back and publish.
 

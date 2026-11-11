@@ -86,6 +86,22 @@ class FamilyApi {
     );
   }
 
+  /// Round 17: what a caregiver changed, for me ([memberUserId] null) or,
+  /// as the caregiver, for a member. 10 per page.
+  Future<CaregiverChangesPage> listChanges({String? memberUserId, String? cursor}) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      memberUserId == null ? ApiEndpoints.familyChanges : ApiEndpoints.familyMemberChanges(memberUserId),
+      queryParameters: {if (cursor != null) 'cursor': cursor},
+    );
+    final data = response.data!;
+    return CaregiverChangesPage(
+      items: (data['items'] as List<dynamic>? ?? [])
+          .map((e) => CaregiverChange.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      nextCursor: data['nextCursor'] as String?,
+    );
+  }
+
   Future<Map<String, MemberStatusSummary>> getMembersStatus() async {
     final response = await _dio.get<Map<String, dynamic>>(
       ApiEndpoints.familyMembersStatus,

@@ -286,3 +286,28 @@ class FamilyEventsPage {
   final List<FamilyEvent> items;
   final String? nextCursor;
 }
+
+/// Round 17: one change a caregiver made for a member (from the audit log:
+/// the kind of change, who and when; never values or medicine names).
+class CaregiverChange {
+  const CaregiverChange({required this.id, required this.action, required this.createdAt, this.actor});
+
+  final String id;
+  final String action;
+  final DateTime createdAt;
+  final FamilyEventPerson? actor;
+
+  factory CaregiverChange.fromJson(Map<String, dynamic> json) => CaregiverChange(
+        id: json['id'] as String,
+        action: json['action'] as String,
+        createdAt: DateTime.parse(json['createdAt'] as String).toLocal(),
+        actor: FamilyEventPerson.fromJson(json['actor'] as Map<String, dynamic>?),
+      );
+}
+
+class CaregiverChangesPage {
+  const CaregiverChangesPage({required this.items, this.nextCursor});
+
+  final List<CaregiverChange> items;
+  final String? nextCursor;
+}

@@ -11,6 +11,7 @@ import '../../../notifications/notification_scheduler.dart';
 import '../../../providers/core_providers.dart';
 import '../../../router/app_router.dart';
 import '../../../widgets/details_fields.dart' show formatYmd;
+import '../../../widgets/first_use_tips.dart';
 import '../../health/domain/health_models.dart';
 import '../../medicine_schedule/domain/medicine_schedule_models.dart';
 import '../../prescription/presentation/confirm_prescription_screen.dart' show formatHhmm;
@@ -47,6 +48,8 @@ class DoseReminderScreen extends ConsumerWidget {
       alarm: alarm,
       doneLabel: strings.takenAction,
       body: [
+        // Round 17: a first-use tip in the page (never over the buttons).
+        const InlineFirstUseTips(screen: TipsScreen.reminder),
         for (final d in list)
           Card(
             child: ListTile(

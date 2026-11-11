@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/auth/presentation/auth_controller.dart';
 import '../features/auth/presentation/forgot_password_screen.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/reset_password_screen.dart';
@@ -12,6 +13,8 @@ import '../features/assistant/presentation/assistant_conversations_screen.dart';
 import '../features/assistant/presentation/assistant_screen.dart';
 import '../features/family/presentation/family_screen.dart';
 import '../features/family/presentation/member_status_screen.dart';
+import '../features/family/presentation/change_history_screen.dart';
+import '../widgets/first_use_tips.dart';
 import '../features/inbox/presentation/inbox_screen.dart';
 import '../features/care/presentation/care_providers.dart' show CareSubject;
 import '../features/care/presentation/condition_screen.dart';
@@ -133,6 +136,11 @@ class AppRoutes {
         queryParameters: {if (forUserId != null) 'for': forUserId},
       ).toString();
   static const memberPrescriptions = '/family/member/:userId/prescriptions';
+  // Round 17: change history (mine; the caregiver's view of a member).
+  static const familyChanges = '/family/changes';
+  static const memberChanges = '/family/member/:userId/changes';
+  static String memberChangesPath(String userId, String name) =>
+      Uri(path: '/family/member/$userId/changes', queryParameters: {'name': name}).toString();
   static String memberPrescriptionsPath(String userId, String name) =>
       Uri(path: '/family/member/$userId/prescriptions', queryParameters: {'name': name}).toString();
 }
@@ -243,11 +251,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: AppRoutes.home,
-            builder: (context, state) => const HomeScreen(),
+            // Round 17: first-use tips (easy mode has its own Home, no tips).
+            builder: (context, state) => const _HomeWithTips(),
           ),
           GoRoute(
             path: AppRoutes.family,
-            builder: (context, state) => const OnlineOnly(child: FamilyScreen()),
+            builder: (context, state) =>
+                const FirstUseTips(screen: TipsScreen.family, child: OnlineOnly(child: FamilyScreen())),
           ),
           GoRoute(
             path: AppRoutes.familyMember,
@@ -282,7 +292,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.health,
-            builder: (context, state) => const HealthScreen(),
+            builder: (context, state) => const FirstUseTips(screen: TipsScreen.health, child: HealthScreen()),
           ),
           GoRoute(
             path: AppRoutes.healthReminders,
@@ -443,7 +453,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   child: MyMedicinesScreen(forUserId: forUserId, memberName: state.uri.queryParameters['name']),
                 );
               }
-              return MedicinesTabScreen(segment: MedicinesSegment.parse(state.uri.queryParameters['tab']));
+              return FirstUseTips(
+                screen: TipsScreen.medicines,
+                child: MedicinesTabScreen(segment: MedicinesSegment.parse(state.uri.queryParameters['tab'])),
+              );
             },
           ),
           GoRoute(
@@ -469,6 +482,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               ),
             ),
           ),
+          GoRoute(
+            path: AppRoutes.familyChanges,
+            builder: (context, state) => const OnlineOnly(child: ChangeHistoryScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.memberChanges,
+            builder: (context, state) => OnlineOnly(
+              child: ChangeHistoryScreen(
+                memberId: state.pathParameters['userId'],
+                memberName: state.uri.queryParameters['name'],
+              ),
+            ),
+          ),
         ],
       ),
     ],
@@ -479,4 +505,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 Widget _careRoute(GoRouterState state, Widget Function(CareSubject who) build) {
   final who = subjectFromQuery(state.uri.queryParameters);
   return who.isMember ? OnlineOnly(child: build(who)) : build(who);
+}
+
+/// Home with its first-use tips, none in easy mode (its own simple Home).
+class _HomeWithTips extends ConsumerWidget {
+  const _HomeWithTips();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final easyMode = ref.watch(authControllerProvider.select((u) => u.value?.easyMode ?? false));
+    return FirstUseTips(screen: TipsScreen.home, enabled: !easyMode, child: const HomeScreen());
+  }
 }

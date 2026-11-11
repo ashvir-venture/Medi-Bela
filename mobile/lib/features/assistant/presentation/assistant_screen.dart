@@ -6,6 +6,7 @@ import '../../../core/localization/app_strings.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../router/app_router.dart';
+import '../data/voice_input.dart';
 import '../domain/assistant_models.dart';
 import 'assistant_controller.dart';
 import 'assistant_conversations_controller.dart';
@@ -29,14 +30,60 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
 
   late final _provider = assistantControllerProvider(widget.conversationId);
 
+  /// Round 17 B: listening for a spoken question (the words fill the box).
+  bool _listening = false;
+  bool _heardWords = false;
+  String _typedBefore = '';
+  late final VoiceInput _voice = ref.read(voiceInputProvider);
+
   @override
   void dispose() {
+    if (_listening) _voice.stop();
     _input.dispose();
     _scroll.dispose();
     super.dispose();
   }
 
+  Future<void> _toggleVoice() async {
+    if (_listening) {
+      await _voice.stop();
+      return;
+    }
+    final strings = ref.read(stringsProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    _typedBefore = _input.text.trim();
+    _heardWords = false;
+    final result = await _voice.start(
+      localeId: voiceLocaleFor(ref.read(localeControllerProvider).languageCode),
+      onWords: (words, isFinal) {
+        if (!mounted || words.isEmpty) return;
+        _heardWords = true;
+        final text = _typedBefore.isEmpty ? words : '$_typedBefore $words';
+        _input.value = TextEditingValue(
+          text: text.length > 500 ? text.substring(0, 500) : text,
+          selection: TextSelection.collapsed(offset: text.length > 500 ? 500 : text.length),
+        );
+      },
+      onStopped: () {
+        if (!mounted) return;
+        setState(() => _listening = false);
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(SnackBar(content: Text(_heardWords ? strings.r17.voiceCheck : strings.r17.voiceNotHeard)));
+      },
+    );
+    if (!mounted) return;
+    switch (result) {
+      case VoiceStart.started:
+        setState(() => _listening = true);
+      case VoiceStart.noPermission:
+        messenger.showSnackBar(SnackBar(content: Text(strings.r17.voiceNoPermission)));
+      case VoiceStart.unavailable:
+        messenger.showSnackBar(SnackBar(content: Text(strings.r17.voiceUnavailable)));
+    }
+  }
+
   void _submit(String text) {
+    if (_listening) _voice.stop();
     if (text.trim().isEmpty) return;
     ref.read(_provider.notifier).send(text);
     _input.clear();
@@ -278,14 +325,24 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
                             textInputAction: TextInputAction.send,
                             onSubmitted: _submit,
                             decoration: InputDecoration(
-                              hintText: strings.assistantHint,
+                              hintText: _listening ? strings.r17.listening : strings.assistantHint,
                               counterText: '',
                               border: const OutlineInputBorder(),
                               isDense: true,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 4),
+                        // Round 17 B: ask by voice (the words fill the box).
+                        IconButton(
+                          key: const ValueKey('assistant-voice'),
+                          tooltip: _listening ? strings.r17.stopListening : strings.r17.askByVoice,
+                          onPressed: canType || _listening ? _toggleVoice : null,
+                          iconSize: 28,
+                          color: _listening ? context.palette.later : null,
+                          icon: Icon(_listening ? Icons.stop_circle_outlined : Icons.mic_none),
+                        ),
+                        const SizedBox(width: 4),
                         IconButton.filled(
                           tooltip: strings.sendLabel,
                           onPressed: canType ? () => _submit(_input.text) : null,

@@ -164,6 +164,14 @@ class _CaregiverShortcuts extends ConsumerWidget {
         ),
         // Rounds 15-16: the member's conditions, readings and records.
         MemberCareSection(memberId: userId, memberName: name),
+        const SizedBox(height: 12),
+        // Round 17: what a caregiver changed for this member.
+        OutlinedButton.icon(
+          key: const ValueKey('member-change-history'),
+          onPressed: () => context.push(AppRoutes.memberChangesPath(userId, name)),
+          icon: const Icon(Icons.history),
+          label: Text(strings.r17.changeHistory),
+        ),
       ],
     );
   }

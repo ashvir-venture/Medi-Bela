@@ -27,3 +27,14 @@ final myNoticesProvider = FutureProvider<List<NoticeModel>>((ref) async {
   // cached copy that has expired since it was saved.
   return notices.where((n) => !n.isExpired).toList();
 });
+
+/// Round 17: a notice my family shared with me that my own list doesn't have
+/// (another division). Null when it is gone or not shared with me.
+final sharedNoticeProvider = FutureProvider.autoDispose.family<NoticeModel?, String>((ref, id) async {
+  try {
+    return await ref.watch(noticesApiProvider).getShared(id);
+  } on DioException catch (e) {
+    if (e.response?.statusCode == 404) return null;
+    rethrow;
+  }
+});

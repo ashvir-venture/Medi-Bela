@@ -79,6 +79,10 @@ String routeForNotificationData(Map<String, dynamic> data) {
       switch (data['kind']) {
         case 'family_invitation':
           return '/family';
+        // Round 17: a notice someone in the family shared.
+        case 'notice_shared':
+          final noticeId = data['noticeId'];
+          return noticeId is String ? '/notices?id=$noticeId' : '/notices';
         case 'medicine_box_empty':
           return member is String ? '/medicine-box?for=$member' : '/inbox';
         case 'personal_reminder_later':

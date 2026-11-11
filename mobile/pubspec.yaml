@@ -53,6 +53,9 @@ dependencies:
   # printed (owner approved 2026-11-10 / 2026-11-11).
   pdf: ^3.12.0
   printing: ^5.14.3
+  # Round 17: ask the assistant by voice (the phone's speech recognizer,
+  # bn-BD / en; owner approved 2026-11-10 / 2026-11-12).
+  speech_to_text: ^7.5.0
 
 dev_dependencies:
   flutter_test:

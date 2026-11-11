@@ -261,6 +261,76 @@ export class NoticesService {
     });
   }
 
+  /**
+   * Round 17 C (owner, 2026-11-12): share a live notice with my family. Every
+   * other member who shares with family and is active gets it in their
+   * Family inbox (SYSTEM, kind notice_shared, neutral push with the notice
+   * title). Once per notice per sharer: sharing again adds nobody twice.
+   */
+  async shareWithFamily(userId: string, role: Role, noticeId: string) {
+    const visible = await this.listVisibleTo(userId, role);
+    const notice = visible.find((n) => n.id === noticeId);
+    if (!notice) throw new NotFoundException('Notice not found');
+
+    const me = await this.prisma.familyMember.findUnique({
+      where: { userId },
+      select: { familyId: true, user: { select: { name: true } } },
+    });
+    if (!me) throw new NotFoundException('You are not part of a family yet');
+
+    const recipients = await this.prisma.familyMember.findMany({
+      where: {
+        familyId: me.familyId,
+        userId: { not: userId },
+        user: { accountStatus: AccountStatus.ACTIVE, role: Role.USER, profileVisibleToFamily: true },
+      },
+      select: { user: { select: { id: true, languagePreference: true } } },
+    });
+    const key = `notice_share:${noticeId}:${userId}`;
+    const already = await this.prisma.notification.count({
+      where: { type: NotificationType.SYSTEM, relatedEntityId: key },
+    });
+    await this.notifications.notify(
+      recipients.map(({ user }) => {
+        const copy = messages.noticeShared(user.languagePreference, me.user.name, notice.title);
+        return {
+          userId: user.id,
+          type: NotificationType.SYSTEM,
+          title: copy.title,
+          body: copy.body,
+          relatedEntityId: key,
+          data: { kind: 'notice_shared', noticeId },
+        };
+      }),
+    );
+    return { sharedWith: recipients.length, alreadyShared: already > 0 };
+  }
+
+  /**
+   * A notice someone in my family shared with me: readable even when its
+   * divisions don't include mine, while it is live and not expired.
+   */
+  async getShared(userId: string, noticeId: string) {
+    const share = await this.prisma.notification.findFirst({
+      where: { userId, type: NotificationType.SYSTEM, relatedEntityId: { startsWith: `notice_share:${noticeId}:` } },
+      select: { id: true },
+    });
+    const now = new Date();
+    const notice = share
+      ? await this.prisma.notice.findFirst({
+          where: {
+            id: noticeId,
+            status: NoticeStatus.PUBLISHED,
+            publishedAt: { not: null, lte: now },
+            OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+          },
+          select: USER_SELECT,
+        })
+      : null;
+    if (!notice) throw new NotFoundException('Notice not found');
+    return notice;
+  }
+
   // ---------------------------------------------------------------------
 
   /** Nationwide notices, plus those for this division (if the user has one). */

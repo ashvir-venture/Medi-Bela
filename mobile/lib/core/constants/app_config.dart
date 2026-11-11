@@ -54,4 +54,8 @@ class PrefsKeys {
   /// Mirror of the account's `medicineRemindersEnabled`, so reminders
   /// follow the switch offline and in background isolates.
   static const String medicineRemindersEnabled = 'pref_medicine_reminders_enabled';
+
+  /// Round 17: first-use tips seen on this phone, one bool per screen
+  /// (`pref_tips_seen_home`, ...; widgets/first_use_tips.dart).
+  static const String tipsSeenPrefix = 'pref_tips_seen_';
 }

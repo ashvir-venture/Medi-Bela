@@ -556,7 +556,15 @@ C. Test results: values (name, value, unit), findings, lab, photos (private Clou
 D. Prescriptions for the record only: photo(s), date, doctor, condition, note; never in the pharmacist queue, no medicines created.
 E. One-page PDF for the doctor (new package): doses on time / late / missed, readings, insulin, test results with photos; free. Pending SQL 015.
 
-Round 17: voice, sharing, history, tips
+Round 17 (2026-11-12): voice, sharing, history, tips - CODE DONE
+Owner decisions (2026-11-12):
+- Voice: the speech_to_text package (Android's recognizer, bn_BD / en_US by the app language); the words fill the message box, the user checks them and taps Send (never sent by itself; the safety filter runs as for typed text). RECORD_AUDIO asked only when the mic is tapped.
+- Share a notice: any family member, to every other member who shares with family and is active (Family inbox, neutral push "<name> shared a notice" + the notice title); once per notice per sharer.
+- Change history: only what a caregiver (the current one or an earlier one) changed for a member; the caregiver sees it on the member's page, the member under Family ("Changes made for you"); 10 per page, the kind of change, who and when (no values, no medicine names).
+- First-use tips: no package; Claude's EN/BN drafts for review.
+Built: no DB change. Backend: ChangeHistoryService (GET /family/changes, GET /family/members/:userId/changes via CaregiverAccessService; audit rows with a caregiver action, actor a USER other than the member), a caregiver's prescription upload is now audited (prescription.upload; before, only notified), POST /notices/:id/share-family and GET /notices/shared/:id (a notice shared with me opens even outside my division, while live). App: mic button on the assistant (features/assistant/data/voice_input.dart), Share with family on each notice, shared notices in the Family inbox tab and opened from /notices?id=, ChangeHistoryScreen (/family/changes, /family/member/:userId/changes), widgets/first_use_tips.dart (card over a dimmed screen on Home (not in easy mode), Medicines, Family, Health; an inline card on the reminder page and the + sheet so a ringing reminder's buttons are never covered; seen per screen in SharedPreferences pref_tips_seen_*; Settings → Help & about → Show tips again), strings in core/localization/app_strings_r17.dart.
+Checked: backend lint (old warnings only), build, 406 unit specs; DB-backed round17-flow 5/5 (Neon test DB, --runInBand); app analyze (no errors or warnings), 157 tests incl. test/round17 (tips, change history, voice with a fake recognizer, shared-notice routing; EN and BN), release APK (the one after all rounds). Not run on a phone; voice not tried with a real recognizer.
+Open: owner review of the tips texts and the Bengali voice / share / history lines; Play Console Data safety must mention the microphone (audio for voice typing, handled by the phone's recognizer, not stored by Medi-Bela); Bengali recognition depends on the phone's voice typing supporting bn-BD.
 A. (Ramadan mode: not now, owner 2026-11-10.)
 B. Assistant voice question (speech-to-text package); the text still goes through the safety filter.
 C. Share a notice with family (to their Family inbox).

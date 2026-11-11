@@ -165,14 +165,31 @@ export class PrescriptionsService {
     const imageUrl = await this.cloudinary.uploadPrescriptionImage(imageBuffer, originalFilename);
 
     try {
-      return await this.prisma.prescription.create({
-        data: {
-          userId,
-          imageUrl,
-          clientUploadId: clientId ?? null,
-          previousPrescriptionId: previousPrescriptionId ?? null,
-          uploadedById,
-        },
+      return await this.prisma.$transaction(async (tx) => {
+        const created = await tx.prescription.create({
+          data: {
+            userId,
+            imageUrl,
+            clientUploadId: clientId ?? null,
+            previousPrescriptionId: previousPrescriptionId ?? null,
+            uploadedById,
+          },
+        });
+        // A caregiver's upload is audited (Round 17: the member's change history).
+        if (uploadedById !== userId) {
+          await this.audit.record(
+            {
+              actorId: uploadedById,
+              subjectUserId: userId,
+              action: 'prescription.upload',
+              entityType: 'prescription',
+              entityId: created.id,
+              after: { status: created.status, byCaregiver: true },
+            },
+            tx,
+          );
+        }
+        return created;
       });
     } catch (e) {
       // Race: two near-simultaneous retries with the same clientId. The

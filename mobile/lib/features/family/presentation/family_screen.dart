@@ -6,6 +6,7 @@ import '../../../core/localization/app_strings.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../core/utils/phone.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../router/app_router.dart';
 import '../../../widgets/state_views.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../domain/family_models.dart';
@@ -158,9 +159,26 @@ class _FamilyContent extends ConsumerWidget {
           );
         }
         if (index == members.length + 4) {
-          return const Padding(
-            padding: EdgeInsets.only(top: 16),
-            child: _FamilyActivitySection(),
+          return Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Round 17: what a caregiver changed for me.
+                Card(
+                  child: ListTile(
+                    key: const ValueKey('family-my-changes'),
+                    leading: const Icon(Icons.history),
+                    title: Text(strings.r17.changesForMe),
+                    subtitle: Text(strings.r17.changesForMeSub),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(AppRoutes.familyChanges),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const _FamilyActivitySection(),
+              ],
+            ),
           );
         }
         final member = members[index - 1];

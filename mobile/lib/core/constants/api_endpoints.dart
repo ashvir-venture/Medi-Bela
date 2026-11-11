@@ -36,6 +36,9 @@ class ApiEndpoints {
   static String familyMember(String userId) => '/family/members/$userId';
   static const String familyLeave = '/family/leave';
   static const String familyEvents = '/family/events';
+  // Round 17: what a caregiver changed (mine / a member's).
+  static const String familyChanges = '/family/changes';
+  static String familyMemberChanges(String userId) => '/family/members/$userId/changes';
 
   // Notifications (Phase 4A)
   static const String notifications = '/notifications';
@@ -89,6 +92,9 @@ class ApiEndpoints {
   // Government/admin notices (Phase 4) — published, non-expired,
   // audience-matched only. See backend `NoticesController`.
   static const String noticesMine = '/notices/mine';
+  // Round 17: share a notice with my family; open one shared with me.
+  static String noticeShareFamily(String id) => '/notices/$id/share-family';
+  static String noticeShared(String id) => '/notices/shared/$id';
 
   // AI assistant (Phase 4B): Flutter -> NestJS -> AI provider.
   static const String assistantConversations = '/assistant/conversations';

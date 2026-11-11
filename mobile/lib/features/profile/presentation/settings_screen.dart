@@ -10,6 +10,7 @@ import '../../../core/theme/theme_mode_controller.dart';
 import '../../../features/auth/domain/user_model.dart';
 import '../../../providers/core_providers.dart';
 import '../../../router/app_router.dart';
+import '../../../widgets/first_use_tips.dart';
 import '../../../widgets/state_views.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../family/presentation/family_controller.dart';
@@ -258,6 +259,19 @@ class _SettingsContentState extends ConsumerState<_SettingsContent> {
           title: Text(ref.watch(helpContentProvider).aboutTitle),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => context.push(AppRoutes.aboutUs),
+        ),
+        // Round 17: first-use tips once more on every screen.
+        ListTile(
+          key: const ValueKey('show-tips-again'),
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.lightbulb_outline),
+          title: Text(strings.r17.showTipsAgain),
+          subtitle: Text(strings.r17.showTipsAgainSub),
+          onTap: () async {
+            await ref.read(tipsControllerProvider.notifier).showAgain();
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(strings.r17.tipsWillShow)));
+          },
         ),
 
         // ---- Account actions (only Delete is red) ---------------------------------

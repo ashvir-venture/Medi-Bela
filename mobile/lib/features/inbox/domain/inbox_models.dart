@@ -73,7 +73,7 @@ InboxTab inboxTabFor(InboxItem item) {
     case 'MISSED_DOSE_FAMILY_ALERT':
       return InboxTab.family;
     case 'SYSTEM':
-      return const {'family_invitation', 'caregiver_action', 'reading_alert', 'help_alert'}.contains(item.data['kind'])
+      return const {'family_invitation', 'caregiver_action', 'reading_alert', 'help_alert', 'notice_shared'}.contains(item.data['kind'])
           ? InboxTab.family
           : InboxTab.personal;
     default:

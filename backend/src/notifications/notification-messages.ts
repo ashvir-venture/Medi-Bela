@@ -248,6 +248,15 @@ export const messages = {
       : { title: 'Family update', body: `${name} is now the family caregiver.` };
   },
 
+  /** Round 17: a family member shared a notice. Notice titles are public text. */
+  noticeShared(lang: Language, sharerName: string, noticeTitle: string): MessageCopy {
+    const name = clip(sharerName, 40);
+    const title = clip(noticeTitle, 80);
+    return lang === Language.BN
+      ? { title: `${name} একটি নোটিশ শেয়ার করেছেন`, body: title }
+      : { title: `${name} shared a notice`, body: title };
+  },
+
   /** Notices are public, admin-authored text — safe to show as written. */
   notice(title: string, content: string): MessageCopy {
     return { title: clip(title, 80), body: clip(content.replace(/\s+/g, ' ').trim(), 120) };

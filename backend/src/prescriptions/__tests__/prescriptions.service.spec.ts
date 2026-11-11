@@ -182,6 +182,21 @@ describe('PrescriptionsService', () => {
       expect(reupload.previousPrescriptionId).toBe(rejected.id);
     });
 
+    it("audits a caregiver's upload (Round 17 change history), not the patient's own", async () => {
+      await service.create('user-1', Buffer.from('img'), 'own.jpg');
+      expect(fakeAudit.record).not.toHaveBeenCalled();
+      const forMember = await service.create('user-1', Buffer.from('img'), 'carer.jpg', undefined, undefined, 'carer-1');
+      expect(fakeAudit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorId: 'carer-1',
+          subjectUserId: 'user-1',
+          action: 'prescription.upload',
+          entityId: forMember.id,
+        }),
+        prisma,
+      );
+    });
+
     it("refuses a re-upload link to someone else's or a non-rejected prescription", async () => {
       const other = await service.create('user-2', Buffer.from('img'), 'x.jpg');
       await service.reject('pharm-1', other.id, 'Blurry photo');

@@ -9,6 +9,7 @@ import '../features/prescription/presentation/prescription_screen.dart';
 import '../router/app_router.dart';
 import 'connectivity_banner.dart';
 import 'double_back_to_exit.dart';
+import 'first_use_tips.dart';
 
 /// Which bottom tab a location lives under. A screen always stays under the
 /// same tab: a caregiver's view of a member's medicines (`?for=`) belongs to
@@ -289,6 +290,8 @@ class QuickAddSheet extends ConsumerWidget {
           children: [
             Text(s.whatToAdd, style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 14),
+            // Round 17: first-use tip.
+            const InlineFirstUseTips(screen: TipsScreen.quickAdd),
             Row(
               children: [
                 Expanded(
