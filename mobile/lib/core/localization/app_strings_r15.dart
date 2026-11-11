@@ -236,7 +236,14 @@ class Round15Strings {
   String get questions => _('Questions for my doctor', 'ডাক্তারকে যা জিজ্ঞেস করব');
   String get noQuestions => _('Nothing written yet', 'এখনো কিছু লেখা হয়নি');
   String get writeQuestion => _('Write a question', 'প্রশ্ন লিখুন');
-  String get medicinesForThis => _('Your medicines today', 'আজকের ওষুধ');
+  String get medicinesForThis => _('Medicines for this', 'এই রোগের ওষুধ');
+  String get medicineTile => _('Medicine', 'ওষুধ');
+  String get takeRegularly => _('Taking them regularly matters most. Last 7 days:', 'নিয়মিত খাওয়াই সবচেয়ে জরুরি। গত ৭ দিন:');
+  String allDosesDays(int ok, int known) => _('All doses on $ok of $known days', '${n(known)} দিনে ${n(ok)} দিন সব ডোজ');
+  String get noMedsForThis => _('No medicine tagged for this. Open a medicine and choose this condition under “For which condition”.', 'এই রোগের জন্য কোনো ওষুধ চিহ্নিত নেই। ওষুধ খুলে “কোন রোগের জন্য” থেকে এই রোগ বাছুন।');
+  String get medicineForCondition => _('For which condition', 'কোন রোগের জন্য');
+  String get medicineTagNote => _('Only a label for your own list; the app never suggests a medicine.', 'শুধু আপনার নিজের তালিকার জন্য; অ্যাপ কখনো ওষুধ বলে দেয় না।');
+  String get none => _('None', 'কোনোটি নয়');
   String get allMedicines => _('All', 'সব ওষুধ');
 
   // diabetes / insulin

@@ -515,6 +515,10 @@ model MedicineRoutine {
   formId                 Int?
   // Doses on every Nth day counted from startDate (1 = every day).
   intervalDays           Int           @default(1)
+  // Round 16 (owner, 2026-11-12): which of the user's conditions this
+  // medicine is for (a conditions.code), shown on that condition's page.
+  // A personal label only: never a recommendation. NULL = not tagged.
+  conditionCode          String?
   // "HH:mm" JSON array, e.g. ["08:00","20:00"]. Set => the rolling job keeps
   // doses generated ahead (up to endDate, or with no end when endDate is
   // null). Null on routines created before Round 4: all their doses exist.

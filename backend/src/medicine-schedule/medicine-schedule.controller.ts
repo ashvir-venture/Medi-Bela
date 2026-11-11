@@ -1,4 +1,4 @@
-import {
+import { Put,
   BadRequestException,
   Body,
   Controller,
@@ -14,7 +14,7 @@ import { MedicineScheduleService } from './medicine-schedule.service';
 import { RoutineManagementService } from './routine-management.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { MarkDoseTakenDto } from './dto/mark-dose-taken.dto';
-import { CreateRoutineDto, UpdateRoutineDto } from './dto/routine.dto';
+import { CreateRoutineDto, UpdateRoutineDto, SetRoutineConditionDto } from './dto/routine.dto';
 import { CaregiverAccessService } from '../family/caregiver-access.service';
 import { AuditService } from '../audit/audit.service';
 
@@ -61,6 +61,18 @@ export class MedicineScheduleController {
   ) {
     const acting = await this.caregivers.resolve(userId, forUserId);
     return this.routines.updateRoutine(acting, id, dto);
+  }
+
+  /** Round 16: which of the user's conditions this medicine is for. */
+  @Put('routines/:id/condition')
+  async setRoutineCondition(
+    @CurrentUser('id') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetRoutineConditionDto,
+    @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
+  ) {
+    const acting = await this.caregivers.resolve(userId, forUserId);
+    return this.routines.setCondition(acting, id, dto.conditionCode);
   }
 
   @Delete('routines/:id')

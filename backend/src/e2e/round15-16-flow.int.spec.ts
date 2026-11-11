@@ -243,4 +243,22 @@ d('Rounds 15-16: my care, readings, health records', () => {
     await http().delete(`/api/records/tests/${test.body.id}`).set(t).expect(200);
     expect(await prisma.recordPhoto.count({ where: { ownTestId: test.body.id } })).toBe(0);
   });
+
+  it('medicine condition tag: on add, changed later, by the caregiver; unknown or stranger refused', async () => {
+    const carer = await account('Rafi');
+    const abba = await account('Abba');
+    const stranger = await account('Stranger');
+    await family(carer, abba);
+    const add = await http().post('/api/medicine-schedule/routines').set(auth(abba.token)).send({
+      medicineName: 'Amdocal', timesPerDay: 1, scheduleTimes: ['08:00'], continuous: true, conditionCode: 'bp',
+    }).expect(201);
+    expect(add.body.conditionCode).toBe('bp');
+    const changed = await http().put(`/api/medicine-schedule/routines/${add.body.id}/condition?forUserId=${abba.id}`).set(auth(carer.token)).send({ conditionCode: 'heart' }).expect(200);
+    expect(changed.body.conditionCode).toBe('heart');
+    expect((await prisma.auditLog.findMany({ where: { action: 'routine.condition' } })).length).toBe(1);
+    await http().put(`/api/medicine-schedule/routines/${add.body.id}/condition`).set(auth(abba.token)).send({ conditionCode: 'malaria' }).expect(400);
+    await http().put(`/api/medicine-schedule/routines/${add.body.id}/condition`).set(auth(stranger.token)).send({ conditionCode: null }).expect(404);
+    const cleared = await http().put(`/api/medicine-schedule/routines/${add.body.id}/condition`).set(auth(abba.token)).send({ conditionCode: null }).expect(200);
+    expect(cleared.body.conditionCode).toBeNull();
+  });
 });

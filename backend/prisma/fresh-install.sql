@@ -2580,3 +2580,13 @@ ON CONFLICT ("testKindId", "code") DO NOTHING;
 INSERT INTO "medicine_forms" ("name") VALUES ('Insulin')
 ON CONFLICT ("name") DO NOTHING;
 
+
+-- ===== prisma/pending-sql/017_medicine_condition_tag.sql =====
+-- Round 16 (owner, 2026-11-12): tag a medicine with one of the user's
+-- conditions (conditions.code), shown on that condition's page. A personal
+-- label only. Additive; existing routines stay untagged (NULL).
+
+-- AlterTable
+ALTER TABLE "medicine_routines" ADD COLUMN     "conditionCode" TEXT;
+
+

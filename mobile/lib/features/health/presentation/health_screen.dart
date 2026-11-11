@@ -120,7 +120,7 @@ class HealthScreen extends ConsumerWidget {
             crossAxisSpacing: 10,
             childAspectRatio: 1.55,
             children: [
-              tracker(Icons.medication_outlined, ToneKind.navy, s.medicinesForThis, today.isEmpty ? '—' : '${s.n(done)}/${s.n(today.length)}', () => context.go(AppRoutes.medicinesTabPath('today'))),
+              tracker(Icons.medication_outlined, ToneKind.navy, s.medicineTile, today.isEmpty ? '—' : '${s.n(done)}/${s.n(today.length)}', () => context.go(AppRoutes.medicinesTabPath('today'))),
               tracker(Icons.speed_outlined, ToneKind.navy, s.tBp, bp == null ? '—' : s.n(bp.value), () => context.push(readingPath('BLOOD_PRESSURE'))),
               tracker(Icons.water_drop_outlined, ToneKind.primary, s.tSugar,
                   sugar?.numericValue == null ? '—' : '${s.n(sugarText(sugar!.numericValue!, unit))} ${sugarUnitText(unit)}', () => context.push(readingPath('BLOOD_SUGAR'))),

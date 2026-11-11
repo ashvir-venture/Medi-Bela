@@ -124,6 +124,7 @@ export class RoutineManagementService {
           doseAmount: dto.doseAmount || null,
           mealTimingId: dto.mealTimingId ?? null,
           formId: dto.formId ?? null,
+          conditionCode: await this.checkCondition(dto.conditionCode),
           intervalDays: dto.intervalDays ?? 1,
           scheduleTimes: JSON.stringify(dto.scheduleTimes),
           generatedUntil: plan.generatedUntil,
@@ -306,6 +307,41 @@ export class RoutineManagementService {
     if (!formId) return;
     const form = await this.prisma.medicineForm.findUnique({ where: { id: formId }, select: { id: true } });
     if (!form) throw new BadRequestException('Unknown medicine form');
+  }
+
+  /** Round 16: tag (or untag) any active medicine with a condition. */
+  async setCondition(acting: ActingFor, id: string, conditionCode: string | null) {
+    const routine = await this.prisma.medicineRoutine.findUnique({ where: { id } });
+    if (!routine || routine.userId !== acting.subjectId || !routine.active) throw new NotFoundException('Medicine not found');
+    const code = await this.checkCondition(conditionCode);
+    const saved = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.medicineRoutine.update({
+        where: { id },
+        data: { conditionCode: code },
+        include: { mealTiming: true, form: true },
+      });
+      await this.audit.record(
+        {
+          actorId: acting.actorId,
+          subjectUserId: acting.subjectId,
+          action: 'routine.condition',
+          entityType: 'routine',
+          entityId: id,
+          before: { conditionCode: routine.conditionCode },
+          after: { conditionCode: code, byCaregiver: acting.byCaregiver },
+        },
+        tx,
+      );
+      return row;
+    });
+    await this.caregivers.notifyMember(acting, 'routine_updated', `${id}:condition:${Date.now()}`);
+    return presentRoutine(saved);
+  }
+
+  private async checkCondition(code: string | null | undefined) {
+    if (!code) return null;
+    if (!(await this.prisma.condition.findUnique({ where: { code } }))) throw new BadRequestException('Unknown condition');
+    return code;
   }
 
   private async mealName(mealTimingId: number | null | undefined) {

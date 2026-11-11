@@ -14,6 +14,7 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 
 const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/; // HH:mm, 24h
@@ -59,6 +60,11 @@ export class CreateRoutineDto {
   @IsInt()
   @Min(1)
   mealTimingId?: number;
+
+  /** Round 16: the condition this medicine is for (a conditions.code). */
+  @IsOptional()
+  @Matches(/^[a-z0-9_]{1,40}$/)
+  conditionCode?: string;
 
   /** Required unless continuous. */
   @IsOptional()
@@ -155,4 +161,11 @@ export class UpdateRoutineDto {
   @IsInt()
   @Min(1)
   formId?: number | null;
+}
+
+/** Round 16: tag a medicine with one of the user's conditions (null = none). */
+export class SetRoutineConditionDto {
+  @ValidateIf((_o, v) => v !== null)
+  @Matches(/^[a-z0-9_]{1,40}$/)
+  conditionCode: string | null;
 }

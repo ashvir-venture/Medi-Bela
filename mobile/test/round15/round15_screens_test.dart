@@ -16,6 +16,9 @@ import 'package:mobile/features/care/presentation/my_care_screen.dart';
 import 'package:mobile/features/care/presentation/records_screens.dart';
 import 'package:mobile/features/health/domain/health_models.dart';
 import 'package:mobile/features/health/presentation/health_controller.dart';
+import 'package:mobile/features/medicine_schedule/domain/medicine_schedule_models.dart';
+import 'package:mobile/features/medicine_schedule/presentation/medicine_schedule_controller.dart';
+import 'package:mobile/features/medicine_schedule/presentation/my_medicines_screen.dart';
 import 'package:mobile/providers/core_providers.dart';
 
 const _lookups = CareLookups(conditions: [
@@ -23,7 +26,7 @@ const _lookups = CareLookups(conditions: [
   ConditionInfo(code: 'bp', nameEn: 'High blood pressure', nameBn: 'উচ্চ রক্তচাপ'),
 ]);
 
-Future<void> pump(WidgetTester tester, Widget child, {String lang = 'en', CareOverview care = CareOverview.empty, RecordsOverview records = RecordsOverview.empty}) async {
+Future<void> pump(WidgetTester tester, Widget child, {String lang = 'en', CareOverview care = CareOverview.empty, RecordsOverview records = RecordsOverview.empty, List<ManagedRoutine> routines = const [], List<MedicineDoseModel> week = const []}) async {
   SharedPreferences.setMockInitialValues({'pref_language_code': lang});
   tester.view.physicalSize = const Size(1080, 4200);
   tester.view.devicePixelRatio = 2.6;
@@ -34,6 +37,8 @@ Future<void> pump(WidgetTester tester, Widget child, {String lang = 'en', CareOv
     recordsOverviewProvider.overrideWith((ref) => Stream.value(records)),
     careLookupsProvider.overrideWith((ref) async => _lookups),
     healthRecordsProvider.overrideWith((ref) => Stream.value(const <HealthRecordModel>[])),
+    managedRoutinesProvider.overrideWith((ref, forUserId) async => routines),
+    lastWeekDosesProvider.overrideWith((ref) async => week),
   ]);
   addTearDown(container.dispose);
   await tester.runAsync(() async {
@@ -112,4 +117,32 @@ void main() {
       expect(find.text(s.recordsNote), findsOneWidget);
     });
   }
+
+  testWidgets('a medicine tagged for BP shows on its page with its 7 days; Normal is a choice', (tester) async {
+    final today = DateTime.now();
+    final at = DateTime(today.year, today.month, today.day).subtract(const Duration(days: 1)).add(const Duration(hours: 8));
+    await pump(
+      tester,
+      const ConditionScreen(code: 'bp'),
+      care: const CareOverview(conditions: ['bp']),
+      routines: [
+        ManagedRoutine(id: 'r1', medicineName: 'Amdocal 5 mg', dosage: '1 tablet', frequency: '1 time a day', startDate: DateTime(2026), selfAdded: true, conditionCode: 'bp'),
+        ManagedRoutine(id: 'r2', medicineName: 'Napa', dosage: '1 tablet', frequency: '1 time a day', startDate: DateTime(2026), selfAdded: true),
+      ],
+      week: [MedicineDoseModel(id: 'd1', routineId: 'r1', medicineName: 'Amdocal 5 mg', dosage: '1', scheduledAt: at, status: 'TAKEN', takenAt: at)],
+    );
+    expect(find.text(enStrings.r15.medicinesForThis), findsOneWidget);
+    expect(find.text('Amdocal 5 mg'), findsOneWidget);
+    expect(find.text('Napa'), findsNothing); // not tagged for BP
+    expect(find.text(enStrings.r15.allDosesDays(1, 1)), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Normal'), 300);
+    expect(find.text('Normal'), findsOneWidget);
+  });
+
+  testWidgets('[bn] cancer: the added habits and স্বাভাবিক in How do you feel', (tester) async {
+    await pump(tester, const ConditionScreen(code: 'cancer'), lang: 'bn', care: const CareOverview(conditions: ['cancer']));
+    expect(find.text('প্রোটিন খাবার খেয়েছি (ডিম, মাছ, ডাল)'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('স্বাভাবিক'), 300);
+    expect(find.text('স্বাভাবিক'), findsOneWidget);
+  });
 }

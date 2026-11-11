@@ -240,7 +240,11 @@ class _SymptomsBlockState extends ConsumerState<SymptomsBlock> {
     final ok = await runCareAction(
       context,
       ref,
-      () => CareActions(ref, widget.c.who).addLog(CareLogKind.symptoms, {'symptoms': fine ? <String>[] : _picked.toList(), 'fine': fine}, condition: widget.c.code),
+      () => CareActions(ref, widget.c.who).addLog(
+        CareLogKind.symptoms,
+        {'symptoms': fine ? <String>[] : _picked.toList(), 'fine': fine},
+        condition: widget.c.code,
+      ),
       done: s.saved,
     );
     if (ok && mounted) setState(_picked.clear);
@@ -249,8 +253,8 @@ class _SymptomsBlockState extends ConsumerState<SymptomsBlock> {
   @override
   Widget build(BuildContext context) {
     final c = widget.c;
-    final list = c.content.symptoms;
-    if (list.isEmpty) return const SizedBox.shrink();
+    if (c.content.symptoms.isEmpty) return const SizedBox.shrink();
+    final list = [normalSymptom, ...c.content.symptoms];
     final s = c.s;
     final p = context.palette;
     final urgent = list.any((x) => x.urgent && _picked.contains(x.key));

@@ -30,6 +30,7 @@ class ManagedRoutine {
     this.formId,
     this.formName,
     this.intervalDays = 1,
+    this.conditionCode,
   });
 
   final String id;
@@ -39,6 +40,8 @@ class ManagedRoutine {
   final DateTime startDate;
   final DateTime? endDate;
   final bool selfAdded;
+  /// Round 16: which of the user's conditions it is for (a label only).
+  final String? conditionCode;
   final ActedBy? addedBy;
   final ActedBy? editedBy;
   final String? strength;
@@ -77,6 +80,7 @@ class ManagedRoutine {
       formId: json['formId'] as int?,
       formName: form?['name'] as String?,
       intervalDays: json['intervalDays'] as int? ?? 1,
+      conditionCode: json['conditionCode'] as String?,
     );
   }
 }

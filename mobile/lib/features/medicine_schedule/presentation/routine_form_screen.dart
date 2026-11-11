@@ -13,6 +13,7 @@ import '../../../providers/core_providers.dart';
 import '../../../widgets/details_fields.dart' show formatYmd;
 import '../../../widgets/interval_field.dart';
 import '../../prescription/presentation/confirm_prescription_screen.dart' show formatHhmm, toHhmm;
+import '../../care/presentation/medicine_tag.dart';
 import '../domain/medicine_schedule_models.dart';
 import 'medicine_schedule_controller.dart';
 
@@ -49,6 +50,8 @@ class _RoutineFormScreenState extends ConsumerState<RoutineFormScreen> {
   int? _mealTimingId;
   int? _formId;
   int _intervalDays = 1;
+  /// Round 16: the condition this medicine is for (a label only).
+  String? _condition;
   bool _continuous = false;
   DateTime? _startDate;
   bool _saving = false;
@@ -66,6 +69,7 @@ class _RoutineFormScreenState extends ConsumerState<RoutineFormScreen> {
     super.initState();
     final r = _routine;
     if (r != null) {
+      _condition = r.conditionCode;
       _name.text = r.medicineName;
       _strength.text = r.strength ?? '';
       _doseAmount.text = r.doseAmount ?? '';
@@ -143,9 +147,13 @@ class _RoutineFormScreenState extends ConsumerState<RoutineFormScreen> {
         if (_mealTimingId == null) body.remove('mealTimingId');
         if (_medicineId != null) body['medicineId'] = _medicineId;
         if (_startDate != null) body['startDate'] = formatYmd(_startDate!);
+        if (_condition != null) body['conditionCode'] = _condition;
         await api.createRoutine(body, forUserId: widget.args.forUserId);
       } else {
         await api.updateRoutine(_routine!.id, body, forUserId: widget.args.forUserId);
+        if (_condition != _routine!.conditionCode) {
+          await api.setRoutineCondition(_routine!.id, _condition, forUserId: widget.args.forUserId);
+        }
       }
       await _afterChange();
     } on DioException catch (e) {
@@ -297,6 +305,13 @@ class _RoutineFormScreenState extends ConsumerState<RoutineFormScreen> {
               ),
               const SizedBox(height: 16),
             ],
+            // Round 16: which condition it is for (shown on that page).
+            ConditionTagField(
+              value: _condition,
+              forUserId: widget.args.forUserId,
+              enabled: !_saving,
+              onChanged: (c) => setState(() => _condition = c),
+            ),
             IntervalField(
               value: _intervalDays,
               strings: strings,

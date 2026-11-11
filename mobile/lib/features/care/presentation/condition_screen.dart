@@ -11,6 +11,7 @@ import 'care_blocks.dart';
 import 'care_providers.dart';
 import 'care_widgets.dart';
 import 'condition_heroes.dart';
+import 'medicine_tag.dart';
 import 'reading_screen.dart';
 
 /// One condition's page (Round 15 E), in the demo's order per condition:
@@ -62,13 +63,14 @@ class _ConditionScreenState extends ConsumerState<ConditionScreen> {
                   ),
                   DiabetesSugarHero(c),
                   DangerBlock(c),
+                  MedicinesForBlock(c),
                   HabitsBlock(c),
                   LearnBlock(c),
                   RegularTestsBlock(c),
                   NextVisitBlock(c),
                   QuestionsBlock(c),
                 ],
-              'bp' => [BpHero(c), DangerBlock(c), HabitsBlock(c), SymptomsBlock(c), LearnBlock(c), RegularTestsBlock(c), NextVisitBlock(c), QuestionsBlock(c)],
+              'bp' => [BpHero(c), DangerBlock(c), MedicinesForBlock(c), HabitsBlock(c), SymptomsBlock(c), LearnBlock(c), RegularTestsBlock(c), NextVisitBlock(c), QuestionsBlock(c)],
               'pregnancy' => [
                   PregnancyHero(c),
                   DangerBlock(c),
@@ -83,11 +85,11 @@ class _ConditionScreenState extends ConsumerState<ConditionScreen> {
                   LearnBlock(c),
                   QuestionsBlock(c),
                 ],
-              'heart' => [HeartHero(c), DangerBlock(c), HabitsBlock(c), SymptomsBlock(c), LearnBlock(c), RegularTestsBlock(c), NextVisitBlock(c), QuestionsBlock(c)],
-              'kidney' => [KidneyHero(c), DangerBlock(c), HabitsBlock(c), SymptomsBlock(c), LearnBlock(c), RegularTestsBlock(c), NextVisitBlock(c), QuestionsBlock(c)],
-              'asthma' => [AsthmaHero(c), DangerBlock(c), HabitsBlock(c), SymptomsBlock(c), LearnBlock(c), RegularTestsBlock(c), NextVisitBlock(c), QuestionsBlock(c)],
-              'thyroid' => [ThyroidHero(c), HabitsBlock(c), SymptomsBlock(c), LearnBlock(c), RegularTestsBlock(c), NextVisitBlock(c), DangerBlock(c), QuestionsBlock(c)],
-              'cancer' => [CancerHero(c), DangerBlock(c), HabitsBlock(c), SymptomsBlock(c), LearnBlock(c), RegularTestsBlock(c), NextVisitBlock(c), QuestionsBlock(c)],
+              'heart' => [HeartHero(c), DangerBlock(c), MedicinesForBlock(c), HabitsBlock(c), SymptomsBlock(c), LearnBlock(c), RegularTestsBlock(c), NextVisitBlock(c), QuestionsBlock(c)],
+              'kidney' => [KidneyHero(c), DangerBlock(c), MedicinesForBlock(c), HabitsBlock(c), SymptomsBlock(c), LearnBlock(c), RegularTestsBlock(c), NextVisitBlock(c), QuestionsBlock(c)],
+              'asthma' => [AsthmaHero(c), DangerBlock(c), MedicinesForBlock(c), HabitsBlock(c), SymptomsBlock(c), LearnBlock(c), RegularTestsBlock(c), NextVisitBlock(c), QuestionsBlock(c)],
+              'thyroid' => [ThyroidHero(c), MedicinesForBlock(c), HabitsBlock(c), SymptomsBlock(c), LearnBlock(c), RegularTestsBlock(c), NextVisitBlock(c), DangerBlock(c), QuestionsBlock(c)],
+              'cancer' => [CancerHero(c), DangerBlock(c), MedicinesForBlock(c), HabitsBlock(c), SymptomsBlock(c), LearnBlock(c), RegularTestsBlock(c), NextVisitBlock(c), QuestionsBlock(c)],
               // A condition the owner added without a page of its own.
               _ => [RegularTestsBlock(c), NextVisitBlock(c), QuestionsBlock(c)],
             },

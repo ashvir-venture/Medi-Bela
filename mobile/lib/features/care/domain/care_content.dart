@@ -64,6 +64,11 @@ const conditionFallbackNames = <String, Bi>{
   'pregnancy': ('Pregnancy', 'গর্ভাবস্থা'),
 };
 
+/// "Normal" (owner, 2026-11-12): one more choice in "How do you feel
+/// today?" on every condition, saved like the others.
+const normalSymptomKey = 'normal';
+const normalSymptom = CareItem(normalSymptomKey, ('Normal', 'স্বাভাবিক'));
+
 /// Habits anyone may add, on top of a condition's own.
 const habitPool = [
   CareItem('veg', ('Ate vegetables and fruit', 'শাকসবজি ও ফল খেয়েছি')),
@@ -381,6 +386,11 @@ const conditionContent = <String, ConditionContent>{
       CareItem('hands', ('Washed hands before eating', 'খাওয়ার আগে হাত ধুয়েছি')),
       CareItem('meal', ('Ate small meals through the day', 'সারা দিনে অল্প অল্প করে খেয়েছি')),
       CareItem('temp', ('Checked my temperature', 'জ্বর মেপেছি')),
+      CareItem('protein', ('Ate protein foods (egg, fish, lentils)', 'প্রোটিন খাবার খেয়েছি (ডিম, মাছ, ডাল)')),
+      CareItem('mouth', ('Kept my mouth clean (gentle brushing, rinsing)', 'মুখ পরিষ্কার রেখেছি (আলতো ব্রাশ, কুলি)')),
+      CareItem('rest', ('Rested when tired', 'ক্লান্ত লাগলে বিশ্রাম নিয়েছি')),
+      CareItem('move', ('Walked a little, as much as I could', 'যতটুকু পেরেছি একটু হেঁটেছি')),
+      CareItem('crowd', ('Avoided crowds and sick people', 'ভিড় ও অসুস্থ মানুষ এড়িয়েছি')),
     ],
     symptoms: [
       CareItem('nausea', ('Nausea or vomiting', 'বমি বা বমি বমি ভাব')),
@@ -395,12 +405,12 @@ const conditionContent = <String, ConditionContent>{
     ],
     tests: ['cbc', 'kidney'],
     danger: CareCard(('When to contact the hospital now', 'কখন এখনই হাসপাতালে জানাবেন'), [
-      ('Fever of 100.4°F or more, or shivering, during treatment: contact your treatment team or go to hospital now.', 'চিকিৎসা চলার সময় ১০০.৪°F বা বেশি জ্বর বা কাঁপুনি হলে এখনই চিকিৎসা দলকে জানান বা হাসপাতালে যান।'),
+      ('Fever of 100.4°F or more, or shivering, during treatment: contact your doctors or go to hospital now.', 'চিকিৎসা চলার সময় ১০০.৪°F বা বেশি জ্বর বা কাঁপুনি হলে এখনই চিকিৎসকদের জানান বা হাসপাতালে যান।'),
       ('Bleeding that does not stop, or many new bruises.', 'রক্তপাত না থামলে বা নতুন অনেক কালশিটে দেখা দিলে।'),
       ('Shortness of breath, chest pain, or vomiting so that you cannot keep water down.', 'শ্বাসকষ্ট, বুকে ব্যথা, বা এমন বমি যে পানিও পেটে থাকছে না।'),
     ], openByDefault: true),
     learn: CareCard(('During chemo', 'কেমো চলার সময়'), [
-      ('Keep your treatment team’s phone number with you and share it with family.', 'চিকিৎসা দলের ফোন নম্বর সাথে রাখুন, পরিবারকেও দিন।'),
+      ('Keep your doctors’ phone numbers with you and share them with family.', 'চিকিৎসকদের ফোন নম্বর সাথে রাখুন, পরিবারকেও দিন।'),
       ('Ask your doctor before taking any other medicine, including painkillers or herbal remedies.', 'ব্যথার ওষুধ বা কবিরাজি ওষুধসহ অন্য যেকোনো ওষুধের আগে ডাক্তারকে জিজ্ঞেস করুন।'),
       ('Stay away from people with a cough or fever when you can.', 'যতটা পারেন কাশি বা জ্বর আছে এমন মানুষ থেকে দূরে থাকুন।'),
     ]),

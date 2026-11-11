@@ -83,6 +83,16 @@ class MedicineScheduleApi {
     return ManagedRoutine.fromJson(response.data!);
   }
 
+  /// Round 16: tag a medicine with one of the user's conditions (null = none).
+  Future<ManagedRoutine> setRoutineCondition(String id, String? conditionCode, {String? forUserId}) async {
+    final response = await _dio.put<Map<String, dynamic>>(
+      '${ApiEndpoints.medicineRoutine(id)}/condition',
+      data: {'conditionCode': conditionCode},
+      queryParameters: {'forUserId': ?forUserId},
+    );
+    return ManagedRoutine.fromJson(response.data!);
+  }
+
   Future<void> removeRoutine(String id, {String? forUserId}) async {
     await _dio.delete(
       ApiEndpoints.medicineRoutine(id),
