@@ -1,8 +1,11 @@
-# Deploy runbook: fresh Neon database + Render redeploy
+# Deploy runbook: fresh Supabase database + Render redeploy
 
 For the 0.1.0 release. Render runs a pre-Round-1 build today; this replaces it
 and starts the database from empty (there are no real users, and a clean start
 avoids converting old test data).
+
+Since 2026-11-18 the database is Supabase (Postgres 17, region
+ap-southeast-1). Neon was used before; its project is kept as an archive.
 
 Rehearsed on a disposable local Postgres (2026-10-29): every step below in
 this order, then `prisma migrate diff` against `schema.prisma` showed no
@@ -10,38 +13,42 @@ differences.
 
 ## 0. Before you start
 
-- Have the Neon project open, the Render service's Environment page open, and
+- Have the Supabase project open, the Render service's Environment page open, and
   a terminal in `backend/` with `npm install` done.
 - Pick a quiet time: the API will be down between step 3 and step 6 (a few
   minutes). The app keeps working offline and syncs afterwards.
 - Keep the current Render env values somewhere safe (Render → Environment →
   copy), in case of rollback.
 
-## 1. Create the new database (Neon)
+## 1. Create the new database (Supabase)
 
-1. In Neon, create a new branch or a new database, e.g. `medibela_v010`.
-   Keep the old one untouched until step 8; it is the rollback.
-2. Copy its connection string. Use the **direct** (non-pooled) URL for the
-   steps below; the pooled one is fine for the running app.
+1. In Supabase, create a project (region Southeast Asia / Singapore). Keep the
+   old database untouched until step 8; it is the rollback.
+2. Project → Connect → copy the **Session pooler** string
+   (`postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres`)
+   and add `?sslmode=require`. Use it for the steps below and for the
+   running app. The direct `db.<ref>.supabase.co` host is IPv6 only, which
+   Render and many home networks can't reach; the Transaction pooler (port
+   6543) would need `pgbouncer=true` and is not needed for one API instance.
 
 ## 2. Build the schema
 
-In `backend/`, with `NEON_URL` set to the direct connection string.
+In `backend/`, with `DB_URL` set to the session-pooler connection string.
 
 Shortest way: one script with everything below (migrations, Prisma's
 migration history, phase4a_extra and every pending file):
 
 ```bash
-psql "$NEON_URL" -v ON_ERROR_STOP=1 -f prisma/fresh-install.sql
+psql "$DB_URL" -v ON_ERROR_STOP=1 -f prisma/fresh-install.sql
 ```
 
 Or step by step:
 
 ```bash
-DATABASE_URL="$NEON_URL" npx prisma migrate deploy
+DATABASE_URL="$DB_URL" npx prisma migrate deploy
 ```
 
-Then, in order, in the Neon SQL editor (or `psql "$NEON_URL" -f <file>`):
+Then, in order, in the Supabase SQL editor (or `psql "$DB_URL" -f <file>`):
 
 1. `migrations_phase4a/phase4a_extra.sql` (one pending invitation per family
    and phone, phone format, missed-dose backlog guard; safe to re-run)
@@ -51,20 +58,21 @@ Then, in order, in the Neon SQL editor (or `psql "$NEON_URL" -f <file>`):
 5. `prisma/pending-sql/004_round5_search_indexes.sql`
 6. `prisma/pending-sql/005_round6_caregiver.sql`
 7. `prisma/pending-sql/006_round7_notice_review_note.sql`
-8. `prisma/pending-sql/007_generic_names.sql`
+8. `prisma/pending-sql/007_generic_names.sql` ... through the last numbered file (022 today)
 
 Each must finish without an error before the next. On an empty database none
 of them converts data.
 
 Check: `SELECT count(*) FROM divisions;` returns 8, `SELECT count(*) FROM
-districts;` returns 64.
+districts;` returns 64, and the drift check is empty:
+`DATABASE_URL="$DB_URL" npx prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --script`.
 
 ## 3. Seed the staff accounts
 
 Set your own values (never the defaults in `prisma/seed.ts`):
 
 ```bash
-DATABASE_URL="$NEON_URL" SEED_ADMIN_PHONE="+8801XXXXXXXXX" SEED_ADMIN_PASSWORD="<strong password>" \
+DATABASE_URL="$DB_URL" SEED_ADMIN_PHONE="+8801XXXXXXXXX" SEED_ADMIN_PASSWORD="<strong password>" \
   SEED_PHARMACIST_PHONE="+8801XXXXXXXXX" SEED_PHARMACIST_PASSWORD="<strong password>" \
   npx ts-node prisma/seed.ts
 ```
@@ -79,7 +87,7 @@ for this release:
 
 | Variable | Value |
 |---|---|
-| `DATABASE_URL` | the new Neon URL (pooled is fine) |
+| `DATABASE_URL` | the Supabase session-pooler URL with `?sslmode=require` |
 | `JWT_ACCESS_SECRET` | a new long random value (old app sessions end; users sign in again) |
 | `PUSH_TOKEN_ENC_KEY` | `openssl rand -base64 32` (new database = no stored tokens to keep) |
 | `FIREBASE_SERVICE_ACCOUNT_BASE64` | the service account (without it, push is off) |
@@ -129,9 +137,9 @@ are `authenticated` and are not affected.
 
 ## 8. Afterwards
 
-- Keep the old Neon branch for a week, then delete it.
+- Keep the old Neon project for a week, then delete it.
 - After a few weeks of real use, run the index check in
-  `load-test-and-index-audit.md` against Neon before dropping anything.
+  `load-test-and-index-audit.md` against Supabase before dropping anything.
 
 ## Rollback
 
