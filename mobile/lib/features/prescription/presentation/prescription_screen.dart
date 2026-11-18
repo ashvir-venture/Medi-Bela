@@ -17,6 +17,7 @@ import '../../../widgets/state_views.dart';
 import '../domain/prescription_draft_model.dart';
 import '../domain/prescription_photo.dart';
 import 'member_prescriptions_screen.dart' show ServerPrescriptionTile;
+import 'prescription_camera_screen.dart';
 import 'prescription_controller.dart';
 
 class PrescriptionScreen extends ConsumerStatefulWidget {
@@ -98,12 +99,20 @@ class _PrescriptionScreenState extends ConsumerState<PrescriptionScreen> {
 }
 
 /// [rejectedServerId] set = re-upload of that rejected prescription.
-/// [autoCamera]: the camera opens at once (client point 2); off in widget tests.
-void openPrescriptionEntryForm(BuildContext context, {String? rejectedServerId, bool autoCamera = true}) {
-  showModalBottomSheet<void>(
+/// Owner 2026-11-18: the in-app camera opens first (with "Choose from
+/// gallery" on it, at most 2 photos); then the sheet with the note and Send.
+/// [autoCamera] off (widget tests) opens the sheet straight away.
+Future<void> openPrescriptionEntryForm(BuildContext context, {String? rejectedServerId, bool autoCamera = true}) async {
+  var pages = const <String>[];
+  if (autoCamera) {
+    final shot = await openPrescriptionCamera(context, max: _PrescriptionEntryFormState.maxPages);
+    if (shot == null || !context.mounted) return; // closed the camera
+    pages = shot;
+  }
+  await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    builder: (_) => _PrescriptionEntryForm(rejectedServerId: rejectedServerId, autoCamera: autoCamera),
+    builder: (_) => _PrescriptionEntryForm(rejectedServerId: rejectedServerId, initialPages: pages),
   );
 }
 
@@ -215,10 +224,10 @@ class _DraftTile extends ConsumerWidget {
 }
 
 class _PrescriptionEntryForm extends ConsumerStatefulWidget {
-  const _PrescriptionEntryForm({this.rejectedServerId, this.autoCamera = true});
+  const _PrescriptionEntryForm({this.rejectedServerId, this.initialPages = const []});
 
-  /// Opens the camera at once (client point 2); off in widget tests.
-  final bool autoCamera;
+  /// The photos taken on the camera screen.
+  final List<String> initialPages;
 
   /// Server id of the rejected prescription this re-uploads, if any.
   final String? rejectedServerId;
@@ -230,20 +239,11 @@ class _PrescriptionEntryForm extends ConsumerStatefulWidget {
 
 class _PrescriptionEntryFormState extends ConsumerState<_PrescriptionEntryForm> {
   final _noteController = TextEditingController();
-  /// Round 18 (client point 2): the pages, in order (up to [maxPages]).
-  final List<String> _pages = [];
+  /// Round 18 (client point 2): the pages, in order (owner 2026-11-18: at most 2 per prescription).
+  late final List<String> _pages = [...widget.initialPages];
   bool _isSaving = false;
 
-  static const maxPages = 5;
-
-  @override
-  void initState() {
-    super.initState();
-    // Client: tapping opens the camera straight away.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && widget.autoCamera) _camera();
-    });
-  }
+  static const maxPages = 2;
 
   @override
   void dispose() {
@@ -251,17 +251,15 @@ class _PrescriptionEntryFormState extends ConsumerState<_PrescriptionEntryForm> 
     super.dispose();
   }
 
+  /// The in-app camera for the rest (Retake replaces the last photo).
   Future<void> _camera({bool replaceLast = false}) async {
-    final file = await ImagePicker().pickImage(
-      source: ImageSource.camera,
-      maxWidth: prescriptionPhotoMaxSide,
-      maxHeight: prescriptionPhotoMaxSide,
-      imageQuality: prescriptionPhotoQuality,
-    );
-    if (file == null || !mounted) return;
+    final room = maxPages - _pages.length + (replaceLast && _pages.isNotEmpty ? 1 : 0);
+    if (room <= 0) return;
+    final shot = await openPrescriptionCamera(context, max: room);
+    if (shot == null || shot.isEmpty || !mounted) return;
     setState(() {
       if (replaceLast && _pages.isNotEmpty) _pages.removeLast();
-      if (_pages.length < maxPages) _pages.add(file.path);
+      _pages.addAll(shot.take(maxPages - _pages.length));
     });
   }
 
@@ -269,8 +267,9 @@ class _PrescriptionEntryFormState extends ConsumerState<_PrescriptionEntryForm> 
   Future<void> _gallery() async {
     final room = maxPages - _pages.length;
     if (room <= 0) return;
+    // pickMultiImage needs a limit of 2 or more; extra picks are dropped below.
     final files = await ImagePicker().pickMultiImage(
-      limit: room < 2 ? 2 : 2,
+      limit: 2,
       maxWidth: prescriptionPhotoMaxSide,
       maxHeight: prescriptionPhotoMaxSide,
       imageQuality: prescriptionPhotoQuality,

@@ -289,7 +289,11 @@ class Round18Strings {
   String get retake => _('Retake', 'আবার তুলুন');
   String get addPage => _('Add a page', 'আরেক পাতা যোগ করুন');
   String pagesN(int n, int max) => _('$n of $max pages', '${this.n(max)} পাতার ${this.n(n)}টি');
-  String get twoAtATime => _('Up to 2 photos at a time from the gallery', 'গ্যালারি থেকে একবারে সর্বোচ্চ ২টি ছবি');
+  String get twoAtATime => _('Up to 2 photos per prescription', 'প্রতি প্রেসক্রিপশনে সর্বোচ্চ ২টি ছবি');
+  String get fitPaper => _('Fit the whole paper in the frame', 'পুরো কাগজটি ফ্রেমের ভেতরে রাখুন');
+  String get cameraFull => _('2 photos taken. Tap ✓ to use them', '২টি ছবি হয়েছে। ব্যবহার করতে ✓ চাপুন');
+  String get usePhotos => _('Use photos', 'ছবি ব্যবহার করুন');
+  String get cameraUnavailable => _('The camera is not available. Choose from the gallery instead.', 'ক্যামেরা চালু হচ্ছে না। গ্যালারি থেকে বেছে নিন।');
   String get sendToPharmacist => _('Send to pharmacist', 'ফার্মাসিস্টের কাছে পাঠান');
   String get sentInBackground => _('Saved. It uploads in the background; you can leave this screen.', 'সেভ হয়েছে। পেছনে আপলোড হবে; আপনি এই পাতা ছেড়ে যেতে পারেন।');
 

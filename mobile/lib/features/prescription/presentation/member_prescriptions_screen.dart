@@ -2,7 +2,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../../core/localization/app_strings.dart';
 import '../../../core/localization/locale_controller.dart';
@@ -14,7 +13,7 @@ import '../../../widgets/caregiver_tag.dart';
 import '../../../widgets/load_more_list.dart';
 import '../../../widgets/state_views.dart';
 import '../domain/prescription_models.dart';
-import '../domain/prescription_photo.dart';
+import 'prescription_camera_screen.dart';
 import 'prescription_controller.dart';
 
 /// The caregiver's view of one family member's prescriptions: upload one
@@ -32,19 +31,16 @@ class MemberPrescriptionsScreen extends ConsumerStatefulWidget {
 class _MemberPrescriptionsScreenState extends ConsumerState<MemberPrescriptionsScreen> {
   bool _uploading = false;
 
-  Future<void> _upload(ImageSource source) async {
+  /// Owner 2026-11-18: the in-app camera opens directly (gallery on it, at
+  /// most 2 photos); the caregiver's upload is online, like their other screens.
+  Future<void> _upload() async {
     final strings = ref.read(stringsProvider);
     final messenger = ScaffoldMessenger.of(context);
-    final file = await ImagePicker().pickImage(
-      source: source,
-      maxWidth: prescriptionPhotoMaxSide,
-      maxHeight: prescriptionPhotoMaxSide,
-      imageQuality: prescriptionPhotoQuality,
-    );
-    if (file == null || !mounted) return;
+    final pages = await openPrescriptionCamera(context, max: 2);
+    if (pages == null || pages.isEmpty || !mounted) return;
     setState(() => _uploading = true);
     try {
-      await ref.read(prescriptionApiProvider).uploadForMember(forUserId: widget.userId, pages: [file.path]);
+      await ref.read(prescriptionApiProvider).uploadForMember(forUserId: widget.userId, pages: pages);
       ref.invalidate(serverPrescriptionsProvider(widget.userId));
       messenger.showSnackBar(SnackBar(content: Text(strings.uploadedForMember)));
     } on DioException catch (e) {
@@ -54,35 +50,7 @@ class _MemberPrescriptionsScreenState extends ConsumerState<MemberPrescriptionsS
     }
   }
 
-  void _chooseSource() {
-    final strings = ref.read(stringsProvider);
-    showModalBottomSheet<void>(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_camera_outlined),
-              title: Text(strings.takePhoto),
-              onTap: () {
-                Navigator.pop(ctx);
-                _upload(ImageSource.camera);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: Text(strings.attachImage),
-              onTap: () {
-                Navigator.pop(ctx);
-                _upload(ImageSource.gallery);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  void _chooseSource() => _upload();
 
   @override
   Widget build(BuildContext context) {

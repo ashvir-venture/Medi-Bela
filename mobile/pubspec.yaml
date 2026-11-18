@@ -57,6 +57,7 @@ dependencies:
   # bn-BD / en; owner approved 2026-11-10 / 2026-11-12).
   speech_to_text: ^7.5.0
   local_auth: ^3.0.2
+  camera: ^0.12.2
 
 dev_dependencies:
   flutter_test:

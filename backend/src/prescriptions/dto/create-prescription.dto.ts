@@ -36,7 +36,8 @@ export class CreatePrescriptionDto {
 export class CreatePrescriptionFromPagesDto extends CreatePrescriptionDto {
   @IsArray()
   @ArrayMinSize(1)
-  @ArrayMaxSize(5)
+  // Owner 2026-11-18: at most 2 photos per prescription.
+  @ArrayMaxSize(2)
   @IsString({ each: true })
   @MaxLength(200, { each: true })
   pages: string[];

@@ -404,7 +404,7 @@ model Prescription {
   // Round 18: page 1 (pageUrls holds every page).
   imageUrl               String?
   /// Round 18 (client point 2): every page of a long prescription, in order
-  /// (1-5 private Cloudinary references, uploaded from the phone directly).
+  /// (1-2 private Cloudinary references since 2026-11-18, uploaded from the phone directly).
   /// Empty for uploads from before Round 18 (imageUrl alone).
   pageUrls               String[]           @default([])
   status                 PrescriptionStatus @default(PENDING)
