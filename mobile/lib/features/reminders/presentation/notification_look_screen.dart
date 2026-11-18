@@ -30,7 +30,13 @@ class _NotificationLookScreenState extends ConsumerState<NotificationLookScreen>
   Future<void> _pickPhoto() async {
     final file = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 512, maxHeight: 512, imageQuality: 85);
     if (file == null) return;
-    await NotificationLook.setPhoto(file.path);
+    try {
+      // Copied into the app's own storage; the saved path is what every
+      // reminder and this page read.
+      await NotificationLook.setPhoto(file.path);
+    } catch (_) {
+      return;
+    }
     await _changed();
   }
 
@@ -181,12 +187,29 @@ class _NotificationLookScreenState extends ConsumerState<NotificationLookScreen>
                       borderRadius: BorderRadius.circular(16),
                       border: const Border(left: BorderSide(color: Color(0xFF2F7A3A), width: 4)),
                     ),
-                    child: Column(
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Medi-Bela · ${s.npMedicineTitle}',
-                            style: const TextStyle(color: Color(0xFF0F2137), fontWeight: FontWeight.w700)),
-                        Text(s.npMedicineSample, style: const TextStyle(color: Color(0xFF0F2137))),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Medi-Bela · ${s.npMedicineTitle}',
+                                  style: const TextStyle(color: Color(0xFF0F2137), fontWeight: FontWeight.w700)),
+                              Text(s.npMedicineSample, style: const TextStyle(color: Color(0xFF0F2137))),
+                            ],
+                          ),
+                        ),
+                        // The picked photo, read from the app's own storage
+                        // (NotificationLook), as the real notification shows it.
+                        if (look.photoPath != null) ...[
+                          const SizedBox(width: 10),
+                          CircleAvatar(
+                            key: const ValueKey('notif-preview-photo'),
+                            radius: 22,
+                            backgroundImage: FileImage(File(look.photoPath!)),
+                          ),
+                        ],
                       ],
                     ),
                   ),

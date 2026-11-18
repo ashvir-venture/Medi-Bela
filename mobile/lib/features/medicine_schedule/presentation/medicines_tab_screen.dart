@@ -54,7 +54,7 @@ class MedicinesTabScreen extends ConsumerWidget {
         MedicinesSegment.today => const MyMedicineScreen(),
         MedicinesSegment.prescriptions => const PrescriptionScreen(),
       },
-      // Round 13: the medicine box, a short amber button (room for the AI button) under Today and My medicines.
+      // Round 13: the medicine box, a short amber button, bottom middle (side room keeps it clear of the AI button), under Today and My medicines.
       bottomNavigationBar: segment == MedicinesSegment.prescriptions ? null : const MedicineBoxButton(),
     );
   }

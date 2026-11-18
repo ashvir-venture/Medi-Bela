@@ -611,9 +611,9 @@ class MedicineBoxIcon extends StatelessWidget {
   }
 }
 
-/// The medicine box button under Today / My medicines (where it always
-/// was): amber like the box everywhere, and short, left-aligned, so the AI
-/// button on the right never covers it (owner 2026-11-18).
+/// The medicine box button under Today / My medicines: amber like the box
+/// everywhere, short, at the bottom middle; equal side room keeps the AI
+/// button on the right from ever covering it (owner 2026-11-18).
 class MedicineBoxButton extends ConsumerWidget {
   const MedicineBoxButton({super.key});
 
@@ -621,25 +621,33 @@ class MedicineBoxButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final strings = ref.watch(stringsProvider);
     final p = context.palette;
+    // Bottom middle. A bottomNavigationBar is laid out with loose, full-height
+    // constraints, so the button sits in a shrink-wrapped Column: a bare
+    // Align would grow to the whole body and centre the button vertically.
+    // Equal room on both sides (88 = the AI button's 56 + its margin + gap)
+    // keeps the centred button clear of the AI button at the right.
     return SafeArea(
       top: false,
       child: Padding(
-        // Right: room for the AI button (56 + its margin).
-        padding: const EdgeInsets.fromLTRB(16, 4, 88, 8),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: FilledButton.icon(
-            key: const ValueKey('medicine-box-button'),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size(0, 44),
-              backgroundColor: p.warnContainer,
-              foregroundColor: p.onWarnContainer,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.fromLTRB(88, 4, 88, 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: FilledButton.icon(
+                key: const ValueKey('medicine-box-button'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(0, 44),
+                  backgroundColor: p.warnContainer,
+                  foregroundColor: p.onWarnContainer,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                ),
+                onPressed: () => context.push(AppRoutes.medicineBox),
+                icon: const Icon(Icons.inventory_2_outlined, size: 20),
+                label: FitLabel(Text(strings.medicineBoxTitle)),
+              ),
             ),
-            onPressed: () => context.push(AppRoutes.medicineBox),
-            icon: const Icon(Icons.inventory_2_outlined, size: 20),
-            label: FitLabel(Text(strings.medicineBoxTitle)),
-          ),
+          ],
         ),
       ),
     );

@@ -27,7 +27,6 @@ class Round15Strings {
   String get later => _('Later', 'পরে করব');
   String get whatCare => _('What care do you need?', 'কোন যত্ন দরকার?');
   String get whatCareSub => _('Each one you pick gets its own card on Home. You can change this any time.', 'যা বাছবেন, হোমে তার আলাদা কার্ড আসবে। পরে যেকোনো সময় বদলানো যাবে।');
-  String get noneForNow => _('None for now', 'এখন কোনোটি নয়');
   String get homeWillShow => _('Your Home will show', 'আপনার হোমে আসবে');
   String get homeWillShowNone => _('Today’s medicine, services and an “add a care plan” card', 'আজকের ওষুধ, সেবা আর একটি “যত্ন যোগ করুন” কার্ড');
   String get carePrivate => _('This stays private. Your caregiver sees it unless you hide from family.', 'এই তথ্য শুধু আপনার। “পরিবার থেকে লুকান” চালু না থাকলে আপনার পরিচর্যাকারী দেখতে পাবেন।');

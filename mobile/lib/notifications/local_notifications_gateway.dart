@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show File;
 import 'dart:ui' show Color;
 
 import 'package:flutter/foundation.dart';
@@ -163,6 +164,11 @@ class FlutterLocalNotificationsGateway implements LocalNotificationsGateway {
     );
     // Each kind its own colour in the shade (owner 2026-11-18).
     final color = reminderColor(reminder.payload);
+    // The photo the user picked (kept in the app's own storage by
+    // NotificationLook), on the ringing alert, its silent copy and the
+    // banner reminders; a reminder's own photoPath wins.
+    final photoPath = reminder.photoPath ?? NotificationLook.current.photoPath;
+    final largeIcon = photoPath == null || !File(photoPath).existsSync() ? null : FilePathAndroidBitmap(photoPath);
     final android = switch (reminder.style) {
       // Ongoing while it rings: a swipe can't clear it; only a button or a
       // tap on it (which opens the reminder page) does.
@@ -172,7 +178,7 @@ class FlutterLocalNotificationsGateway implements LocalNotificationsGateway {
           alarmChannelName,
           enableVibration: NotificationLook.current.vibrate,
           color: color,
-          largeIcon: reminder.photoPath == null ? null : FilePathAndroidBitmap(reminder.photoPath!),
+          largeIcon: largeIcon,
           channelDescription: alarmChannelDescription,
           importance: Importance.max,
           priority: Priority.max,
@@ -194,6 +200,7 @@ class FlutterLocalNotificationsGateway implements LocalNotificationsGateway {
           androidChannelName,
           channelDescription: androidChannelDescription,
           color: color,
+          largeIcon: largeIcon,
           importance: Importance.high,
           priority: Priority.high,
           silent: true,
@@ -207,6 +214,7 @@ class FlutterLocalNotificationsGateway implements LocalNotificationsGateway {
           androidChannelName,
           channelDescription: androidChannelDescription,
           color: color,
+          largeIcon: largeIcon,
           importance: Importance.high,
           priority: Priority.high,
           category: AndroidNotificationCategory.reminder,

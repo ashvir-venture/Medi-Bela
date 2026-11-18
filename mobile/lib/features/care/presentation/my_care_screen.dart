@@ -110,12 +110,6 @@ class _MyCareScreenState extends ConsumerState<MyCareScreen> {
                 ),
             ],
           ),
-          const SizedBox(height: 10),
-          PillButton(
-            label: s.noneForNow,
-            selected: picked.isEmpty,
-            onTap: () => setState(() => _picked = {}),
-          ),
           const SizedBox(height: 14),
           Container(
             padding: const EdgeInsets.all(12),
