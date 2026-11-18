@@ -12,6 +12,7 @@ import '../../../core/utils/error_mapper.dart';
 import '../../../providers/core_providers.dart';
 import '../../../router/app_router.dart';
 import '../../../widgets/pill_icon.dart';
+import '../../../widgets/tile_grid.dart';
 import '../../../widgets/state_views.dart';
 import '../domain/medicine_box_models.dart';
 import '../../../widgets/fit_label.dart';
@@ -131,27 +132,38 @@ class _MedicineBoxScreenState extends ConsumerState<MedicineBoxScreen> {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Text(strings.boxNoMedicines, style: TextStyle(color: context.palette.muted)),
                   ),
-                for (final item in box.items)
-                  _ItemCard(
-                    item: item,
-                    strings: strings,
-                    pendingTaken: mine
-                        ? ref.watch(_pendingTakenProvider((item.routineId, item.countedAt))).valueOrNull ?? 0
-                        : 0,
-                    onRefill: () => _openForm(routineId: item.routineId),
-                  ),
-                const SizedBox(height: 12),
+                // The demo's 3-column tile grid.
+                TileGrid(children: [
+                  for (final item in box.items)
+                    _ItemCard(
+                      item: item,
+                      strings: strings,
+                      pendingTaken: mine
+                          ? ref.watch(_pendingTakenProvider((item.routineId, item.countedAt))).valueOrNull ?? 0
+                          : 0,
+                      onRefill: () => _openForm(routineId: item.routineId),
+                    ),
+                ]),
+                const SizedBox(height: 16),
                 Text(s.careSupplies, style: Theme.of(context).textTheme.titleMedium),
                 Text(s.careSuppliesSub, style: TextStyle(color: context.palette.muted, fontSize: AppType.small)),
                 const SizedBox(height: 8),
-                for (final x in box.extras)
-                  _ExtraCard(item: x, strings: strings, onChanged: _afterExtra, forUserId: widget.forUserId),
-                OutlinedButton.icon(
-                  key: const ValueKey('box-add-item'),
-                  onPressed: () => _addExtra(context),
-                  icon: const Icon(Icons.add_rounded),
-                  label: Text(s.addItem),
-                ),
+                TileGrid(children: [
+                  for (final x in box.extras)
+                    _ExtraCard(item: x, strings: strings, onChanged: _afterExtra, forUserId: widget.forUserId),
+                  BoxTile(
+                    key: const ValueKey('box-add-item'),
+                    dashed: true,
+                    leading: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(color: context.palette.primaryContainer, borderRadius: BorderRadius.circular(12)),
+                      child: Icon(Icons.add_rounded, color: context.palette.onPrimaryContainer),
+                    ),
+                    title: s.addItem,
+                    onTap: () => _addExtra(context),
+                  ),
+                ]),
               ],
             );
           },
@@ -201,49 +213,111 @@ class _ItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
     final left = item.remainingWith(pendingTaken);
     final doses = item.dosesLeftWith(pendingTaken);
+    final days = item.daysLeftWith(pendingTaken);
     final alert = stockAlertFor(doses);
     final color = switch (alert) {
       StockAlert.empty => Theme.of(context).colorScheme.error,
-      StockAlert.low => context.palette.warningStrong,
-      StockAlert.none => context.palette.success,
+      StockAlert.low => p.warningStrong,
+      StockAlert.none => p.onOkContainer,
     };
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            PillIcon(color: item.pillColor, shape: item.pillShape, formName: item.formName, size: 40),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(item.medicineName, style: Theme.of(context).textTheme.titleMedium),
-                  Text([item.formName, item.dosage].whereType<String>().where((s) => s.isNotEmpty).join(' • ')),
-                  const SizedBox(height: 4),
-                  Text(
-                    left == null
-                        ? strings.notCountedYet
-                        // Round 18: in the box's own unit (ml for a syrup) and days left.
-                        : [
-                            strings.r18.leftAmount('${formatUnits(left)} ${strings.r18.unitName(item.unit ?? 'dose')}'),
-                            if (item.daysLeftWith(pendingTaken) != null) strings.r18.daysLeftTag(item.daysLeftWith(pendingTaken)!)
-                            else strings.dosesLeft(doses ?? 0),
-                          ].join(' · '),
-                    style: TextStyle(color: item.counted ? color : context.palette.muted, fontWeight: FontWeight.w600),
-                  ),
-                ],
+    final low = item.counted && alert != StockAlert.none;
+    return BoxTile(
+      key: ValueKey('box-item-${item.routineId}'),
+      low: low,
+      leading: PillIcon(color: item.pillColor, shape: item.pillShape, formName: item.formName, size: 44),
+      title: item.medicineName,
+      line: left == null
+          ? strings.notCountedYet
+          // Round 18: days left, else what is left in the box's own unit (ml for a syrup).
+          : days != null
+              ? strings.r18.daysLeftTag(days)
+              : strings.r18.leftAmount('${formatUnits(left)} ${strings.r18.unitName(item.unit ?? 'dose')}'),
+      lineColor: item.counted ? color : p.muted,
+      fill: days == null ? null : (days / 30).clamp(0.0, 1.0).toDouble(),
+      action: item.counted ? strings.boxRefillAction : strings.countAction,
+      onTap: onRefill,
+    );
+  }
+}
+
+/// One tile of the box: picture, name (2 lines), how long it lasts, a small
+/// bar, and an orange edge when it runs low.
+class BoxTile extends StatelessWidget {
+  const BoxTile({
+    super.key,
+    required this.leading,
+    required this.title,
+    required this.onTap,
+    this.line,
+    this.lineColor,
+    this.fill,
+    this.action,
+    this.low = false,
+    this.dashed = false,
+  });
+
+  final Widget leading;
+  final String title;
+  final String? line;
+  final Color? lineColor;
+  final double? fill;
+  final String? action;
+  final bool low;
+  final bool dashed;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+      side: low
+          ? BorderSide(color: p.warning, width: 2)
+          : dashed
+              ? BorderSide(color: p.line2, width: 1.5)
+              : BorderSide.none,
+    );
+    return Material(
+      color: dashed ? Colors.transparent : p.surface,
+      shape: shape,
+      child: InkWell(
+        customBorder: shape,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(6, 12, 6, 10),
+          child: Column(children: [
+            leading,
+            const SizedBox(height: 6),
+            Text(title,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: AppType.small, color: p.ink, height: 1.3)),
+            if (line != null) ...[
+              const SizedBox(height: 4),
+              Text(line!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: AppType.tiny, color: lineColor ?? p.muted)),
+            ],
+            const Spacer(),
+            if (fill != null) ...[
+              const SizedBox(height: 6),
+              FractionallySizedBox(
+                widthFactor: 0.8,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(value: fill, minHeight: 5, color: low ? p.warning : p.success, backgroundColor: p.track),
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            FilledButton.tonal(
-              onPressed: onRefill,
-              child: Text(item.counted ? strings.boxRefillAction : strings.countAction),
-            ),
-          ],
+            ],
+            if (action != null) ...[
+              const SizedBox(height: 6),
+              Text(action!, textAlign: TextAlign.center, style: TextStyle(color: p.link, fontWeight: FontWeight.w700, fontSize: AppType.tiny)),
+            ],
+          ]),
         ),
       ),
     );
@@ -596,40 +670,60 @@ class _ExtraCard extends ConsumerWidget {
     }
   }
 
+  /// Tapping the tile: Bought or Remove.
+  Future<void> _actions(BuildContext context, WidgetRef ref) async {
+    final s = strings.r18;
+    final pick = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: const Icon(Icons.add_shopping_cart_outlined),
+            title: Text(s.bought),
+            onTap: () => Navigator.pop(ctx, 'bought'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete_outline_rounded),
+            title: Text(s.removeItem),
+            onTap: () => Navigator.pop(ctx, 'remove'),
+          ),
+        ]),
+      ),
+    );
+    if (!context.mounted) return;
+    if (pick == 'bought') {
+      await _bought(context, ref);
+    } else if (pick == 'remove') {
+      await _remove(context, ref);
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = strings.r18;
     final p = context.palette;
     final low = item.low;
-    return Card(
+    return BoxTile(
       key: ValueKey('box-extra-${item.id}'),
-      margin: const EdgeInsets.only(bottom: 12),
-      color: low ? p.warnContainer : null,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-        child: Row(children: [
-          Icon(item.isSupply ? Icons.medical_services_outlined : Icons.medication_outlined, color: low ? p.onWarnContainer : p.head),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(item.name, style: Theme.of(context).textTheme.titleMedium),
-              Text(
-                [
-                  s.leftAmount('${formatUnits(item.remaining)} ${s.unitName(item.unit ?? 'piece')}'),
-                  if (item.daysLeft != null) s.daysLeftTag(item.daysLeft!),
-                  if (!item.isSupply) s.noReminder,
-                ].join(' · '),
-                style: TextStyle(color: low ? p.onWarnContainer : p.muted, fontSize: AppType.small, fontWeight: FontWeight.w600),
-              ),
-            ]),
-          ),
-          FilledButton.tonal(onPressed: () => _bought(context, ref), child: Text(s.bought)),
-          PopupMenuButton<String>(
-            onSelected: (_) => _remove(context, ref),
-            itemBuilder: (_) => [PopupMenuItem(value: 'remove', child: Text(s.removeItem))],
-          ),
-        ]),
+      low: low,
+      leading: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(color: low ? p.warnContainer : p.navyContainer, borderRadius: BorderRadius.circular(12)),
+        child: Icon(item.isSupply ? Icons.medical_services_outlined : Icons.medication_outlined,
+            color: low ? p.onWarnContainer : p.onNavyContainer),
       ),
+      title: item.name,
+      line: [
+        item.daysLeft != null
+            ? s.daysLeftTag(item.daysLeft!)
+            : s.leftAmount('${formatUnits(item.remaining)} ${s.unitName(item.unit ?? 'piece')}'),
+        if (!item.isSupply) s.noReminder,
+      ].join(' · '),
+      lineColor: low ? p.warningStrong : p.muted,
+      action: s.bought,
+      onTap: () => _actions(context, ref),
     );
   }
 }

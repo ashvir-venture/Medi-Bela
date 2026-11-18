@@ -9,17 +9,22 @@ import '../../../notifications/notification_scheduler.dart';
 import '../../../providers/core_providers.dart';
 import '../../../router/app_router.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../family/domain/family_models.dart';
 import '../../family/presentation/family_controller.dart';
 import '../../inbox/presentation/inbox_controller.dart';
 import '../../medicine_schedule/domain/dose_display_status.dart';
 import '../../medicine_schedule/domain/medicine_schedule_models.dart';
 import '../../medicine_schedule/presentation/medicine_schedule_controller.dart';
+import '../../medicine_schedule/presentation/my_medicines_screen.dart';
 import '../../prescription/presentation/prescription_screen.dart';
 import '../../reminders/presentation/reminder_status_controller.dart';
 import '../domain/day_slots.dart';
 import '../../../widgets/word_safe_text.dart';
 import '../../../widgets/fit_label.dart';
 import '../../../core/utils/clock_label.dart';
+import '../../../widgets/motion.dart';
+import '../../../widgets/pill_icon.dart';
+import '../../../widgets/slot_style.dart';
 
 /// Round 14, the demo's Home: a navy band (avatar → Profile, greeting and
 /// name, EN | বাং, the bell), today's date and the reminder check, then the
@@ -278,7 +283,9 @@ class TodayHeroCard extends ConsumerWidget {
             for (var i = 0; i < doses.length; i++) ...[
               if (i > 0) const SizedBox(width: 4),
               Expanded(
-                child: Container(
+                child: AnimatedContainer(
+                  duration: motionDuration(context, ref),
+                  curve: Curves.easeOut,
                   height: 8,
                   decoration: BoxDecoration(color: segColor(doses[i]), borderRadius: BorderRadius.circular(999)),
                 ),
@@ -288,12 +295,15 @@ class TodayHeroCard extends ConsumerWidget {
         ),
       ),
       const SizedBox(height: 12),
-      if (next == null)
-        Container(
+      AnimatedSwitcher(
+        duration: motionDuration(context, ref, Motion.quick),
+        child: next == null
+        ? Container(
+          key: const ValueKey('all-done'),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(color: p.okContainer, borderRadius: BorderRadius.circular(16)),
           child: Row(children: [
-            Icon(Icons.check_circle, color: p.onOkContainer, size: 32),
+            CheckPop(child: Icon(Icons.check_circle, color: p.onOkContainer, size: 32)),
             const SizedBox(width: 12),
             Expanded(
               child: Text(s.allDoneToday,
@@ -301,8 +311,8 @@ class TodayHeroCard extends ConsumerWidget {
             ),
           ]),
         )
-      else
-        _NextSlot(view: next),
+        : _NextSlot(key: ValueKey('slot-${next.slot.name}-${next.open.length}'), view: next),
+      ),
       const SizedBox(height: 12),
       Row(
         children: [
@@ -340,7 +350,14 @@ class _SlotStripItem extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(slotLabel(s, view.slot), style: TextStyle(color: p.muted, fontSize: AppType.small)),
+        Row(children: [
+          Icon(slotStyle(context, view.slot).icon, size: 16, color: slotStyle(context, view.slot).fg),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(slotLabel(s, view.slot),
+                overflow: TextOverflow.ellipsis, style: TextStyle(color: p.muted, fontSize: AppType.small)),
+          ),
+        ]),
         Row(children: [
           if (icon != null) Icon(icon, size: 18, color: color),
           Flexible(
@@ -355,7 +372,7 @@ class _SlotStripItem extends ConsumerWidget {
 }
 
 class _NextSlot extends ConsumerWidget {
-  const _NextSlot({required this.view});
+  const _NextSlot({super.key, required this.view});
 
   final SlotView view;
 
@@ -372,6 +389,8 @@ class _NextSlot extends ConsumerWidget {
     final at = view.firstOpenAt;
     final stage = at == null ? 0 : currentStage(at, now);
     final laterAllowed = due && at != null && stage < maxReminderStage && now.isBefore(ReminderGroup(at, const []).lastRingAt);
+    // The tablet's own picture when known (online list; the form icon otherwise).
+    final routines = {for (final r in ref.watch(managedRoutinesProvider(null)).valueOrNull ?? const <ManagedRoutine>[]) r.id: r};
 
     final chip = switch (view.state) {
       SlotState.now => (s.statusNow, p.warnContainer, p.onWarnContainer),
@@ -379,7 +398,10 @@ class _NextSlot extends ConsumerWidget {
       _ => (s.statusLater, p.navyContainer, p.onNavyContainer),
     };
 
-    return Container(
+    return DuePulse(
+      active: due,
+      color: p.warning,
+      child: Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(color: p.surface2, borderRadius: BorderRadius.circular(16)),
       child: Column(
@@ -387,8 +409,8 @@ class _NextSlot extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.schedule_outlined, color: p.link, size: 22),
-              const SizedBox(width: 8),
+              SlotTile(slot: view.slot, size: 32),
+              const SizedBox(width: 10),
               Expanded(child: Text(at == null ? '' : _time(context, at), style: theme.textTheme.titleLarge)),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
@@ -401,11 +423,11 @@ class _NextSlot extends ConsumerWidget {
             const SizedBox(height: 10),
             Row(
               children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(color: p.primaryContainer, borderRadius: BorderRadius.circular(12)),
-                  child: Icon(Icons.medication_outlined, color: p.onPrimaryContainer),
+                PillIcon(
+                  color: routines[d.routineId]?.pillColor,
+                  shape: routines[d.routineId]?.pillShape,
+                  formName: routines[d.routineId]?.formName,
+                  size: 48,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -463,6 +485,7 @@ class _NextSlot extends ConsumerWidget {
             ),
         ],
       ),
+    ),
     );
   }
 }
@@ -592,18 +615,43 @@ class HomeFamilyCard extends ConsumerWidget {
             ? s.familyDue(missed.first.name)
             : s.familyAllGood;
     final sub = members.isEmpty ? s.addFamilySub : s.familySee;
+    Widget avatar(MemberStatusSummary m, int i) {
+      final late = m.shared && m.missed > 0;
+      final (bg, fg) = late
+          ? (p.warnContainer, p.onWarnContainer)
+          : i == 0
+              ? (p.primaryContainer, p.onPrimaryContainer)
+              : (p.navyContainer, p.onNavyContainer);
+      final t = m.name.trim();
+      return Container(
+        width: 42,
+        height: 42,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: bg, shape: BoxShape.circle, border: Border.all(color: p.surface, width: 2)),
+        child: Text(t.isEmpty ? '?' : t.characters.first.toUpperCase(),
+            style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: AppType.title)),
+      );
+    }
+
+    final shown = members.take(3).toList();
     return Card(
       child: ListTile(
-        leading: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: missed.isNotEmpty ? p.warnContainer : p.navyContainer,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(members.isEmpty ? Icons.group_add_outlined : Icons.groups_outlined,
-              color: missed.isNotEmpty ? p.onWarnContainer : p.onNavyContainer),
-        ),
+        leading: members.isEmpty
+            ? Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(color: p.navyContainer, borderRadius: BorderRadius.circular(12)),
+                child: Icon(Icons.group_add_outlined, color: p.onNavyContainer),
+              )
+            : ExcludeSemantics(
+                child: SizedBox(
+                  width: 42.0 + 28 * (shown.length - 1),
+                  height: 42,
+                  child: Stack(children: [
+                    for (var i = 0; i < shown.length; i++) Positioned(left: 28.0 * i, child: avatar(shown[i], i)),
+                  ]),
+                ),
+              ),
         title: Text(title),
         subtitle: Text(sub),
         trailing: const Icon(Icons.chevron_right),

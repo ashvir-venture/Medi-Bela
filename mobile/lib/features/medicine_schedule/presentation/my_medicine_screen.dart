@@ -9,6 +9,7 @@ import '../../../core/utils/clock_label.dart';
 import '../../../core/utils/error_mapper.dart';
 import '../../../providers/core_providers.dart';
 import '../../../router/app_router.dart';
+import '../../../widgets/motion.dart';
 import '../../../widgets/pill_icon.dart';
 import '../../../widgets/state_views.dart';
 import '../../home/presentation/home_top.dart' show DoseOutcomeChip;
@@ -93,10 +94,22 @@ class _MyMedicineScreenState extends ConsumerState<MyMedicineScreen> {
               icon: const Icon(Icons.chevron_right_rounded),
             ),
           ]),
-          doses.when(
-            loading: () => const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator())),
-            error: (e, _) => ErrorView(message: friendlyErrorMessage(e), retryLabel: strings.retry, onRetry: () => ref.invalidate(dayDosesProvider(_day))),
-            data: (list) => _DayDoses(doses: list, strings: strings, isToday: _day == today),
+          // A gentle fade when the day changes with the arrows.
+          AnimatedSwitcher(
+            duration: motionDuration(context, ref, Motion.quick),
+            child: KeyedSubtree(
+              key: ValueKey(_day),
+              child: doses.when(
+                loading: () => const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator())),
+                error: (e, _) => ErrorView(message: friendlyErrorMessage(e), retryLabel: strings.retry, onRetry: () => ref.invalidate(dayDosesProvider(_day))),
+                data: (list) => _DayDoses(
+                  doses: list,
+                  strings: strings,
+                  isToday: _day == today,
+                  routines: {for (final r in routines ?? const <ManagedRoutine>[]) r.id: r},
+                ),
+              ),
+            ),
           ),
           if (routines != null && routines.any((r) => r.asNeeded)) ...[
             const SizedBox(height: 16),
@@ -135,9 +148,10 @@ class _MyMedicineScreenState extends ConsumerState<MyMedicineScreen> {
 
 /// One day's doses grouped by morning / afternoon / night.
 class _DayDoses extends ConsumerWidget {
-  const _DayDoses({required this.doses, required this.strings, required this.isToday});
+  const _DayDoses({required this.doses, required this.strings, required this.isToday, this.routines = const {}});
 
   final List<MedicineDoseModel> doses;
+  final Map<String, ManagedRoutine> routines;
   final AppStrings strings;
   final bool isToday;
 
@@ -157,24 +171,48 @@ class _DayDoses extends ConsumerWidget {
       (groups[slotOf(_hhmm(d.scheduledAt))] ??= []).add(d);
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text(s.dosesOfDay(taken, doses.length), textAlign: TextAlign.center, style: TextStyle(color: p.muted, fontSize: AppType.small)),
-      const SizedBox(height: 8),
+      // The demo's "Today x of y doses" with a bar that fills up.
+      Row(children: [
+        Text(s.dosesOfDay(taken, doses.length), style: const TextStyle(fontWeight: FontWeight.w700)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(end: taken / doses.length),
+              duration: motionDuration(context, ref),
+              curve: Curves.easeOut,
+              builder: (context, v, _) => LinearProgressIndicator(value: v, minHeight: 8, color: p.success, backgroundColor: p.track),
+            ),
+          ),
+        ),
+      ]),
+      const SizedBox(height: 12),
       for (final slot in DaySlot.values)
         if (groups[slot] != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: Card(
+            child: DuePulse(
+              active: isToday && groups[slot]!.any((d) => !d.isTaken && d.canMarkTakenAt(DateTime.now()) && !d.scheduledAt.isAfter(DateTime.now())),
+              color: p.warning,
+              radius: 12,
+              child: Card(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   Row(children: [
                     SlotBadge(hhmm: _hhmm(groups[slot]!.first.scheduledAt), size: 30),
                     const SizedBox(width: 10),
-                    Text(slotName(s, _hhmm(groups[slot]!.first.scheduledAt)), style: const TextStyle(fontWeight: FontWeight.w700)),
+                    Expanded(
+                      child: Text(slotName(s, _hhmm(groups[slot]!.first.scheduledAt)), style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                    if (groups[slot]!.every((d) => d.isTaken))
+                      CheckPop(child: Icon(Icons.check_circle_rounded, color: p.taken, size: 22)),
                   ]),
-                  for (final d in groups[slot]!) _DoseRow(dose: d, strings: strings),
+                  for (final d in groups[slot]!) _DoseRow(dose: d, strings: strings, routine: routines[d.routineId]),
                 ]),
               ),
+            ),
             ),
           ),
     ]);
@@ -184,9 +222,10 @@ class _DayDoses extends ConsumerWidget {
 }
 
 class _DoseRow extends ConsumerWidget {
-  const _DoseRow({required this.dose, required this.strings});
+  const _DoseRow({required this.dose, required this.strings, this.routine});
 
   final MedicineDoseModel dose;
+  final ManagedRoutine? routine;
   final AppStrings strings;
 
   @override
@@ -198,6 +237,8 @@ class _DoseRow extends ConsumerWidget {
       decoration: BoxDecoration(border: Border(top: BorderSide(color: p.line3))),
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(children: [
+        PillIcon(color: routine?.pillColor, shape: routine?.pillShape, formName: routine?.formName, size: 40),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(dose.medicineName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -216,7 +257,7 @@ class _DoseRow extends ConsumerWidget {
         else if (outcome != null)
           DoseOutcomeChip(outcome: outcome)
         else if (dose.isTaken)
-          Icon(Icons.check_circle_rounded, color: p.taken)
+          CheckPop(child: Icon(Icons.check_circle_rounded, color: p.taken))
         else
           Icon(Icons.schedule_rounded, color: p.muted),
       ]),

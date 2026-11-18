@@ -320,7 +320,8 @@ class _SectionHeader extends StatelessWidget {
         header: true,
         child: Text(
           title,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).colorScheme.primary),
+          // The demo's section label: small, bold, muted.
+          style: TextStyle(color: context.palette.muted, fontWeight: FontWeight.w700, fontSize: AppType.label),
         ),
       ),
     );

@@ -14,7 +14,10 @@ import '../../../core/utils/error_mapper.dart';
 import '../../../providers/core_providers.dart';
 import '../../../widgets/details_fields.dart' show formatYmd;
 import '../../../widgets/fit_label.dart';
+import '../../../widgets/motion.dart';
 import '../../../widgets/pill_icon.dart';
+import '../../../widgets/slot_style.dart';
+import '../../home/domain/day_slots.dart' as home;
 import '../../care/presentation/care_widgets.dart' show PillButton;
 import '../../care/presentation/medicine_tag.dart';
 import '../../medicine_box/domain/medicine_box_models.dart' show boxUnitsPerDoseOf;
@@ -747,7 +750,12 @@ class _RoutineFormScreenState extends ConsumerState<RoutineFormScreen> {
           Icon(_more ? Icons.expand_less_rounded : Icons.expand_more_rounded),
         ]),
       ),
-      if (_more) ...[
+      // Opens with a short slide instead of jumping (off in easy mode / no animations).
+      AnimatedSize(
+        duration: motionDuration(context, ref),
+        curve: Curves.easeOut,
+        alignment: Alignment.topCenter,
+        child: !_more ? const SizedBox(width: double.infinity) : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         const SizedBox(height: 12),
         if (pill) _lookPicker(s),
         const SizedBox(height: 12),
@@ -770,7 +778,8 @@ class _RoutineFormScreenState extends ConsumerState<RoutineFormScreen> {
           maxLength: 300,
           decoration: InputDecoration(labelText: s.note, hintText: s.noteHint),
         ),
-      ],
+      ]),
+      ),
     ]);
   }
 
@@ -869,12 +878,13 @@ class SlotBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = context.palette;
-    final (icon, bg, fg) = switch (slotOf(hhmm)) {
-      DaySlot.morning => (Icons.wb_sunny_outlined, p.warnContainer, p.onWarnContainer),
-      DaySlot.afternoon => (Icons.light_mode_outlined, p.primaryContainer, p.onPrimaryContainer),
-      DaySlot.night => (Icons.nightlight_outlined, p.navyContainer, p.onNavyContainer),
-    };
+    // The shared part-of-day colours (widgets/slot_style.dart).
+    final st = slotStyle(context, switch (slotOf(hhmm)) {
+      DaySlot.morning => home.DaySlot.morning,
+      DaySlot.afternoon => home.DaySlot.noon,
+      DaySlot.night => home.DaySlot.night,
+    });
+    final (icon, bg, fg) = (st.icon, st.bg, st.fg);
     return Container(
       width: size,
       height: size,

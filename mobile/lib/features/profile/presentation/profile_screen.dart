@@ -96,12 +96,13 @@ class _ProfileContent extends ConsumerWidget {
             padding: const EdgeInsets.all(20),
             child: Row(
               children: [
+                // The demo's navy avatar with the first letter.
                 CircleAvatar(
                   radius: 32,
-                  backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.12),
+                  backgroundColor: context.palette.head,
                   child: Text(
                     user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                    style: TextStyle(fontSize: AppType.display, color: theme.colorScheme.primary),
+                    style: TextStyle(fontSize: AppType.display, color: context.palette.surface, fontWeight: FontWeight.w700),
                   ),
                 ),
                 const SizedBox(width: 16),

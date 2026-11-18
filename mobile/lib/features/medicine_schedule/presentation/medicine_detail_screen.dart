@@ -9,9 +9,11 @@ import '../../../core/utils/clock_label.dart';
 import '../../../core/utils/error_mapper.dart';
 import '../../../providers/core_providers.dart';
 import '../../../router/app_router.dart';
+import '../../../widgets/motion.dart';
 import '../../../widgets/pill_icon.dart';
 import '../../../widgets/state_views.dart';
 import '../../medicine_box/domain/medicine_box_models.dart';
+import '../../prescription/presentation/confirm_prescription_screen.dart' show toHhmm;
 import '../domain/medicine_schedule_models.dart';
 import 'medicine_schedule_controller.dart';
 import 'my_medicine_screen.dart' show AsNeededCard;
@@ -144,7 +146,7 @@ class _Body extends ConsumerWidget {
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Row(children: [
-              PillIcon(color: r.pillColor, shape: r.pillShape, formName: r.formName, size: 64),
+              PillIcon(color: r.pillColor, shape: r.pillShape, formName: r.formName, size: 72),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -202,6 +204,8 @@ class _Body extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Row(children: [
+                      SlotBadge(hhmm: toHhmm(TimeOfDay.fromDateTime(d.scheduledAt)), size: 30),
+                      const SizedBox(width: 10),
                       Expanded(child: Text(TimeOfDay.fromDateTime(d.scheduledAt).label(context))),
                       if (d.canMarkTakenAt(DateTime.now()))
                         FilledButton(
@@ -209,8 +213,10 @@ class _Body extends ConsumerWidget {
                           onPressed: () => ref.read(markDoseTakenProvider)(d.id),
                           child: Text(strings.takenAction),
                         )
+                      else if (d.isTaken)
+                        CheckPop(child: Icon(Icons.check_circle_rounded, color: p.taken))
                       else
-                        Icon(d.isTaken ? Icons.check_circle_rounded : Icons.schedule_rounded, color: d.isTaken ? p.taken : p.muted),
+                        Icon(Icons.schedule_rounded, color: p.muted),
                     ]),
                   ),
               ]),

@@ -271,14 +271,9 @@ class _MemberTile extends ConsumerWidget {
         onTap: isMe
             ? null
             : () => context.push('/family/member/${member.userId}'),
-        leading: CircleAvatar(
-          backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.12),
-          child: Text(
-            member.name.isNotEmpty ? member.name[0].toUpperCase() : '?',
-            style: TextStyle(color: theme.colorScheme.primary),
-          ),
-        ),
-        title: Text(member.name),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        leading: FamilyAvatar(name: member.name, summary: paused ? null : summary, paused: paused),
+        title: Text(member.name, style: const TextStyle(fontWeight: FontWeight.w700)),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -335,22 +330,36 @@ class _SummaryChips extends ConsumerWidget {
         style: TextStyle(color: context.palette.subtle, fontSize: AppType.tiny),
       );
     }
-    return Wrap(
-      spacing: 6,
-      children: [
-        Text('${strings.doseTaken}: ${summary.taken}/${summary.total}',
-            style: const TextStyle(fontSize: AppType.tiny)),
-        if (summary.missed > 0)
-          Text(
-            '${strings.doseMissed}: ${summary.missed}',
-            style: TextStyle(
-              fontSize: AppType.tiny,
-              fontWeight: FontWeight.w700,
-              color: Theme.of(context).colorScheme.error,
+    final p = context.palette;
+    // The demo's line: taken x of y with a small bar; missed in red.
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Wrap(
+        spacing: 6,
+        children: [
+          Text('${strings.doseTaken}: ${summary.taken}/${summary.total}',
+              style: TextStyle(fontSize: AppType.tiny, fontWeight: FontWeight.w700, color: p.onOkContainer)),
+          if (summary.missed > 0)
+            Text(
+              '${strings.doseMissed}: ${summary.missed}',
+              style: TextStyle(
+                fontSize: AppType.tiny,
+                fontWeight: FontWeight.w700,
+                color: Theme.of(context).colorScheme.error,
+              ),
             ),
-          ),
-      ],
-    );
+        ],
+      ),
+      const SizedBox(height: 4),
+      ClipRRect(
+        borderRadius: BorderRadius.circular(999),
+        child: LinearProgressIndicator(
+          value: summary.taken / summary.total,
+          minHeight: 6,
+          color: summary.missed > 0 ? p.warning : p.success,
+          backgroundColor: p.track,
+        ),
+      ),
+    ]);
   }
 }
 
@@ -651,6 +660,44 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
               : Text(strings.inviteMember),
         ),
       ],
+    );
+  }
+}
+
+/// A family member's round initial, as in the demo: its ring is green when
+/// every dose so far is taken, orange when one was missed; grey when paused.
+class FamilyAvatar extends StatelessWidget {
+  const FamilyAvatar({super.key, required this.name, this.summary, this.paused = false, this.size = 52});
+
+  final String name;
+  final MemberStatusSummary? summary;
+  final bool paused;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final m = summary;
+    final missed = m != null && m.shared && m.missed > 0;
+    final allTaken = m != null && m.shared && m.total > 0 && m.taken == m.total;
+    final (bg, fg) = paused
+        ? (p.surface2, p.muted)
+        : missed
+            ? (p.warnContainer, p.onWarnContainer)
+            : (p.primaryContainer, p.onPrimaryContainer);
+    final ring = missed
+        ? p.warning
+        : allTaken
+            ? p.success
+            : Colors.transparent;
+    final t = name.trim();
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(color: bg, shape: BoxShape.circle, border: Border.all(color: ring, width: 2.5)),
+      child: Text(t.isEmpty ? '?' : t.characters.first.toUpperCase(),
+          style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: size * 0.38)),
     );
   }
 }

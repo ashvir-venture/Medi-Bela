@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../router/app_router.dart';
+import '../../../widgets/tile_grid.dart';
 import '../../care/domain/care_models.dart';
 import '../../care/domain/reading_rules.dart';
 import '../../care/presentation/care_providers.dart';
@@ -49,20 +50,25 @@ class HealthScreen extends ConsumerWidget {
     final todayStart = dateOnly(DateTime.now());
     final insulinToday = readings.where((r) => r.type == 'INSULIN' && !r.recordedAt.toLocal().isBefore(todayStart)).length;
 
-    Widget tracker(IconData icon, ToneKind tone, String title, String value, VoidCallback onTap) => InkWell(
+    // The demo's tracker tile: icon, name in bold, the latest value under it.
+    Widget tracker(IconData icon, ToneKind tone, String title, String value, VoidCallback onTap) => Material(
+          color: p.surface,
           borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: p.surface, borderRadius: BorderRadius.circular(12)),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              IconTile(icon, tone: tone, size: 36),
-              const SizedBox(height: 6),
-              Text(title, style: TextStyle(color: p.muted, fontSize: AppType.small)),
-              Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: AppType.body)),
-            ]),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                IconTile(icon, tone: tone, size: 36),
+                const SizedBox(height: 6),
+                Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: AppType.small)),
+                Text(value, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.muted, fontSize: AppType.tiny)),
+              ]),
+            ),
           ),
         );
+    Widget heading(String t) => Text(t, style: Theme.of(context).textTheme.titleLarge);
     Widget row(IconData icon, ToneKind tone, String title, String? sub, VoidCallback onTap) => ListTile(
           leading: IconTile(icon, tone: tone),
           title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -85,18 +91,17 @@ class HealthScreen extends ConsumerWidget {
         children: [
           Text(s.healthSub, style: TextStyle(color: p.muted)),
           const SizedBox(height: 14),
-          Text(s.myCare, style: TextStyle(color: p.muted, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 6),
+          heading(s.myCare),
+          const SizedBox(height: 8),
           for (final code in care.conditions)
             CareConditionTile(code: code, name: conditionName(code, lookups, s.bn), summary: careSummary(code, care, records, readings, s, lookups)),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: () => context.push(myCarePath()),
-              icon: const Icon(Icons.add),
-              label: Text(care.conditions.isEmpty ? s.addCarePlan : s.addAnotherCarePlan),
-            ),
+          const SizedBox(height: 4),
+          OutlinedButton.icon(
+            onPressed: () => context.push(myCarePath()),
+            icon: const Icon(Icons.add),
+            label: Text(care.conditions.isEmpty ? s.addCarePlan : s.addAnotherCarePlan),
           ),
+          const SizedBox(height: 10),
           Card(
             child: ListTile(
               leading: const IconTile(Icons.track_changes_outlined, tone: ToneKind.ok),
@@ -109,16 +114,10 @@ class HealthScreen extends ConsumerWidget {
               onTap: () => context.push(limitsPath()),
             ),
           ),
-          const SizedBox(height: 14),
-          Text(s.measureAndLog, style: TextStyle(color: p.muted, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 6),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 1.55,
+          const SizedBox(height: 18),
+          heading(s.measureAndLog),
+          const SizedBox(height: 8),
+          TileGrid(
             children: [
               tracker(Icons.medication_outlined, ToneKind.navy, s.medicineTile, today.isEmpty ? '—' : '${s.n(done)}/${s.n(today.length)}', () => context.go(AppRoutes.medicinesTabPath('today'))),
               tracker(Icons.speed_outlined, ToneKind.navy, s.tBp, bp == null ? '—' : s.n(bp.value), () => context.push(readingPath('BLOOD_PRESSURE'))),

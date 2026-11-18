@@ -18,6 +18,9 @@ import '../domain/family_models.dart';
 import 'family_controller.dart';
 import '../../../widgets/fit_label.dart';
 import '../../../core/utils/clock_label.dart';
+import '../../../widgets/slot_style.dart';
+import '../../home/domain/day_slots.dart' as home;
+import 'family_screen.dart' show FamilyAvatar;
 
 /// A family member's medicine status for today, online-only: name / time /
 /// status, On time / Late / Missed (the server decides what is shareable).
@@ -73,9 +76,50 @@ class MemberStatusScreen extends ConsumerWidget {
                 ),
               ]);
             }
+            final today = MemberStatusSummary(
+              userId: detail.userId,
+              name: detail.name,
+              shared: true,
+              total: detail.doses.length,
+              taken: detail.doses.where((d) => d.status == 'TAKEN').length,
+              missed: detail.doses.where((d) => d.status == 'MISSED').length,
+            );
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                // The demo's top card: who, and how today is going.
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(children: [
+                      FamilyAvatar(name: detail.name, summary: today, size: 60),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(detail.name, style: Theme.of(context).textTheme.titleLarge),
+                          const SizedBox(height: 4),
+                          if (today.total == 0)
+                            Text(strings.noDosesToday, style: TextStyle(color: context.palette.muted, fontSize: AppType.small))
+                          else ...[
+                            Text('${strings.doseTaken}: ${today.taken}/${today.total}',
+                                style: TextStyle(fontWeight: FontWeight.w700, color: context.palette.onOkContainer)),
+                            const SizedBox(height: 6),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(999),
+                              child: LinearProgressIndicator(
+                                value: today.taken / today.total,
+                                minHeight: 8,
+                                color: today.missed > 0 ? context.palette.warning : context.palette.success,
+                                backgroundColor: context.palette.track,
+                              ),
+                            ),
+                          ],
+                        ]),
+                      ),
+                    ]),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 // Round 18: only what the member allows (View / Manage).
                 if (iAmCaregiver && detail.permissions != null && !detail.permissions!.view) ...[
                   _PermissionNote(text: strings.r18.memberNoView(detail.name), icon: Icons.lock_outline),
@@ -360,6 +404,8 @@ class _DoseTileState extends ConsumerState<_DoseTile> {
           children: [
             Row(
               children: [
+                SlotTile(slot: home.slotOf(dose.scheduledAt), size: 36),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

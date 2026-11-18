@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../router/app_router.dart';
 import '../../../widgets/app_logo.dart';
@@ -96,21 +97,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         child: LanguageSwitcher(),
                       ),
                       const SizedBox(height: 8),
-                      Center(
-                        child: AppLogo(
-                          height: 72,
-                          fallback: Icon(
-                            Icons.favorite_outlined,
-                            size: 56,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
+                      // The demo's soft panel behind the logo and name.
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(16, 20, 16, 22),
+                        decoration: BoxDecoration(
+                          color: context.palette.surface2,
+                          borderRadius: BorderRadius.circular(20),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        strings.appName,
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.headlineMedium,
+                        child: Column(children: [
+                          AppLogo(
+                            height: 88,
+                            fallback: Icon(
+                              Icons.favorite_outlined,
+                              size: 56,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            strings.appName,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: context.palette.head, fontWeight: FontWeight.w700),
+                          ),
+                        ]),
                       ),
                       if (showVisual) ...[
                         const SizedBox(height: 24),
