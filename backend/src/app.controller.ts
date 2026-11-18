@@ -12,9 +12,27 @@ export class AppController {
   @Public()
   @SkipThrottle()
   @Get('health')
-  getHealth() {
+  async getHealth() {
+    // One ping keeps both awake: a tiny query counts as database activity
+    // (Supabase free projects pause after a week idle). Always 200, so a
+    // paused or slow database never makes Render restart a healthy server.
+    let db: 'ok' | 'down' = 'ok';
+    let timer: NodeJS.Timeout | undefined;
+    try {
+      await Promise.race([
+        this.prisma.$queryRaw`SELECT 1`,
+        new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error('timeout')), 5000);
+        }),
+      ]);
+    } catch {
+      db = 'down';
+    } finally {
+      clearTimeout(timer);
+    }
     return {
       status: 'ok',
+      db,
       service: 'medi-bela backend',
       timestamp: new Date().toISOString(),
     };
