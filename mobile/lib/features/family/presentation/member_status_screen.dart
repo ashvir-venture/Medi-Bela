@@ -21,6 +21,9 @@ import '../../../core/utils/clock_label.dart';
 import '../../../widgets/slot_style.dart';
 import '../../home/domain/day_slots.dart' as home;
 import 'family_screen.dart' show FamilyAvatar;
+import '../../../core/lookups/lookups.dart';
+import '../../../core/utils/error_mapper.dart';
+import '../../../widgets/labeled_field.dart';
 
 /// A family member's medicine status for today, online-only: name / time /
 /// status, On time / Late / Missed (the server decides what is shareable).
@@ -87,6 +90,8 @@ class MemberStatusScreen extends ConsumerWidget {
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                _RelationshipRow(userId: userId, current: detail.relationship),
+                const SizedBox(height: 8),
                 // The demo's top card: who, and how today is going.
                 Card(
                   child: Padding(
@@ -96,7 +101,10 @@ class MemberStatusScreen extends ConsumerWidget {
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(detail.name, style: Theme.of(context).textTheme.titleLarge),
+                          // Owner 2026-11-18: "বাবা" (what I call them), the name under it.
+                          Text(detail.label(strings.r18.bn), style: Theme.of(context).textTheme.titleLarge),
+                          if (detail.relationship != null)
+                            Text(detail.name, style: TextStyle(color: context.palette.muted, fontSize: AppType.small)),
                           const SizedBox(height: 4),
                           if (today.total == 0)
                             Text(strings.noDosesToday, style: TextStyle(color: context.palette.muted, fontSize: AppType.small))
@@ -449,3 +457,46 @@ class _DoseTileState extends ConsumerState<_DoseTile> {
     );
   }
 }
+
+/// "What you call them" (owner 2026-11-18): Baba, Ma, ... seen by you only,
+/// in place of the name. Set at the invitation, changed here.
+class _RelationshipRow extends ConsumerWidget {
+  const _RelationshipRow({required this.userId, required this.current});
+
+  final String userId;
+  final BiOption? current;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final strings = ref.watch(stringsProvider);
+    final s = strings.r18;
+    final options = ref.watch(lookupsProvider).valueOrNull?.relationships ?? const <BiOption>[];
+    if (options.isEmpty) return const SizedBox.shrink();
+    return LabeledField(
+      label: s.relationshipSet,
+      hint: s.relationshipHint,
+      child: DropdownButtonFormField<int?>(
+        key: const ValueKey('member-relationship'),
+        initialValue: current?.id,
+        isExpanded: true,
+        items: [
+          DropdownMenuItem<int?>(value: null, child: Text(s.relationshipNone)),
+          for (final r in options) DropdownMenuItem<int?>(value: r.id, child: Text(r.name(s.bn))),
+        ],
+        onChanged: (id) async {
+          final messenger = ScaffoldMessenger.of(context);
+          try {
+            await ref.read(familyApiProvider).setRelationship(userId, id);
+            messenger.showSnackBar(SnackBar(content: Text(s.relationshipSaved)));
+          } catch (e) {
+            messenger.showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
+          }
+          ref.invalidate(memberStatusProvider(userId));
+          ref.invalidate(familyStatusSummaryProvider);
+          await ref.read(familyMembersControllerProvider.notifier).refresh();
+        },
+      ),
+    );
+  }
+}
+

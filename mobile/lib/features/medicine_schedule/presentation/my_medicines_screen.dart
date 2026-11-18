@@ -13,11 +13,19 @@ import '../../../widgets/state_views.dart';
 import '../../prescription/presentation/confirm_prescription_screen.dart' show formatHhmm;
 import '../domain/medicine_schedule_models.dart';
 import 'routine_form_screen.dart';
+import '../data/pill_looks.dart';
+import '../../../widgets/pill_icon.dart';
 
 /// Active medicines with their labels, from the server. [forUserId] = the
 /// caregiver managing a family member's medicines.
-final managedRoutinesProvider = FutureProvider.autoDispose.family<List<ManagedRoutine>, String?>((ref, forUserId) {
-  return ref.watch(medicineScheduleApiProvider).getManagedRoutines(forUserId: forUserId);
+final managedRoutinesProvider = FutureProvider.autoDispose.family<List<ManagedRoutine>, String?>((ref, forUserId) async {
+  final list = await ref.watch(medicineScheduleApiProvider).getManagedRoutines(forUserId: forUserId);
+  // My own medicines: keep their looks for reminder pages opened offline.
+  if (forUserId == null) {
+    await PillLooks.save(list);
+    ref.invalidate(pillLooksProvider);
+  }
+  return list;
 });
 
 class MyMedicinesScreen extends ConsumerWidget {
@@ -119,7 +127,7 @@ class _RoutineCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              const Icon(Icons.medication_outlined, size: 32),
+              PillIcon(color: routine.pillColor, shape: routine.pillShape, formName: routine.formName, size: 40),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

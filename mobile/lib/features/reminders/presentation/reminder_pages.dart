@@ -20,6 +20,9 @@ import '../../prescription/presentation/confirm_prescription_screen.dart' show f
 import '../../../widgets/fit_label.dart';
 import '../../../core/utils/clock_label.dart';
 import '../../../notifications/notification_look.dart';
+import '../../../widgets/notification_tone.dart';
+import '../../../widgets/pill_icon.dart';
+import '../../medicine_schedule/data/pill_looks.dart';
 
 /// The medicines due at [at] with large Later (red) and Taken (green)
 /// buttons, which work like the notification's own (Taken marks the whole
@@ -43,8 +46,10 @@ class DoseReminderScreen extends ConsumerWidget {
     final pending = list.where((d) => d.status == 'PENDING' || d.status == 'MISSED').toList();
     final group = ReminderGroup(at, const []);
     final laterAllowed = open.isNotEmpty && !group.isLastRing(stage, now) && now.isBefore(group.lastRingAt);
+    final looks = ref.watch(pillLooksProvider).valueOrNull ?? const <String, PillLook>{};
 
     return _ReminderScaffold(
+      kind: NoteKind.medicine,
       icon: Icons.medication_outlined,
       image: 'assets/images/medicine_image.png',
       title: strings.reminderTitle,
@@ -58,10 +63,16 @@ class DoseReminderScreen extends ConsumerWidget {
         for (final d in list)
           Card(
             child: ListTile(
-              leading: Icon(
-                d.isTaken ? Icons.check_circle : Icons.medication_outlined,
-                color: d.isTaken ? context.palette.success : null,
-              ),
+              // The strip colour / form the user picked (owner 2026-11-18),
+              // a tick once taken.
+              leading: d.isTaken
+                  ? Icon(Icons.check_circle, size: 40, color: context.palette.success)
+                  : PillIcon(
+                      color: looks[d.routineId]?.color,
+                      shape: looks[d.routineId]?.shape,
+                      formName: looks[d.routineId]?.formName,
+                      size: 44,
+                    ),
               title: Text(d.medicineName, style: Theme.of(context).textTheme.titleMedium),
               subtitle: Text(
                 d.isTaken ? '${d.dosage} • ${strings.doseTaken}' : d.dosage,
@@ -118,6 +129,7 @@ class TestReminderScreen extends ConsumerWidget {
     final testDay = reminder?.testDayAt(now);
 
     return _ReminderScaffold(
+      kind: NoteKind.test,
       icon: Icons.biotech_outlined,
       image: 'assets/images/medical_test.png',
       title: reminder?.title ?? strings.testReminderTitle,
@@ -191,6 +203,7 @@ Future<void> _close(BuildContext context, bool alarm) async {
 /// Close button appears instead.
 class _ReminderScaffold extends StatelessWidget {
   const _ReminderScaffold({
+    required this.kind,
     required this.icon,
     required this.title,
     required this.when,
@@ -203,6 +216,9 @@ class _ReminderScaffold extends StatelessWidget {
     required this.image,
     this.alarm = false,
   });
+
+  /// Its colour: the page is tinted with the kind's colour (owner 2026-11-18).
+  final NoteKind kind;
 
   /// The picture on top (assets/images/...).
   final String image;
@@ -223,12 +239,16 @@ class _ReminderScaffold extends StatelessWidget {
     final palette = context.palette;
     const big = Size(0, 72);
     final nothingToDo = onDone == null && onLater == null;
+    final tone = noteStyle(context, kind);
     return PopScope(
       canPop: !alarm,
       child: Scaffold(
+        backgroundColor: tone.bg,
         appBar: alarm
             ? null
             : AppBar(
+                backgroundColor: tone.bg,
+                foregroundColor: tone.fg,
                 leading: IconButton(
                   icon: const Icon(Icons.close),
                   tooltip: strings.close,
@@ -261,13 +281,14 @@ class _ReminderScaffold extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              Text(title, textAlign: TextAlign.center, style: theme.textTheme.headlineSmall),
+              Text(title,
+                  textAlign: TextAlign.center, style: theme.textTheme.headlineSmall?.copyWith(color: tone.fg, fontWeight: FontWeight.w700)),
               if (when.isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Text(
                   when,
                   textAlign: TextAlign.center,
-                  style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+                  style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700, color: tone.fg),
                 ),
               ],
               const SizedBox(height: 20),
@@ -331,7 +352,7 @@ class _Notice extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(top: 12),
-        child: Text(text, textAlign: TextAlign.center, style: TextStyle(color: context.palette.muted, fontSize: AppType.body)),
+        child: Text(text, textAlign: TextAlign.center, style: TextStyle(color: context.palette.ink, fontSize: AppType.body)),
       );
 }
 

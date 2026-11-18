@@ -14,6 +14,7 @@ import '../core/constants/api_endpoints.dart';
 import '../core/storage/secure_storage_service.dart';
 import '../features/auth/data/device_session_wipe.dart';
 import 'reminder_actions.dart' show backstopTime;
+import '../widgets/notification_tone.dart';
 
 /// Android channel used for every server-generated (FCM) notification. Must
 /// match `ANDROID_CHANNEL_ID` in the backend's push.service.ts.
@@ -338,14 +339,16 @@ class PushService {
             0x7FFFFFFF,
         n.title,
         n.body,
-        const NotificationDetails(
+        NotificationDetails(
           android: AndroidNotificationDetails(
             alertsChannelId,
             _alertsChannelName,
             importance: Importance.high,
             priority: Priority.high,
+            // Each kind its own colour (owner 2026-11-18).
+            color: noteAndroidColor(noteKindOf('${message.data['type'] ?? ''}', message.data)),
           ),
-          iOS: DarwinNotificationDetails(),
+          iOS: const DarwinNotificationDetails(),
         ),
         payload: jsonEncode(message.data),
       );

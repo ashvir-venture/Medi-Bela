@@ -62,7 +62,13 @@ const conditionFallbackNames = <String, Bi>{
   'asthma': ('Asthma', 'শ্বাসকষ্ট, অ্যাজমা'),
   'thyroid': ('Thyroid', 'থাইরয়েড'),
   'pregnancy': ('Pregnancy', 'গর্ভাবস্থা'),
+  otherConditionCode: ('Other', 'অন্যান্য'),
 };
+
+/// "Other" in "For which condition" on Add / edit medicine (owner
+/// 2026-11-18): not a condition of its own (no page, not in My care); the
+/// server accepts it by this code (OTHER_CONDITION_CODE).
+const otherConditionCode = 'other';
 
 /// "Normal" (owner, 2026-11-12): one more choice in "How do you feel
 /// today?" on every condition, saved like the others.

@@ -319,7 +319,7 @@ class _InsulinScreenState extends ConsumerState<InsulinScreen> {
           if (penInfo != null)
             SectionCard(children: [
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const IconTile(Icons.inventory_2_outlined),
+                const IconTile(Icons.inventory_2_outlined, tone: ToneKind.warn),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -339,7 +339,7 @@ class _InsulinScreenState extends ConsumerState<InsulinScreen> {
           else
             Card(
               child: ListTile(
-                leading: const IconTile(Icons.inventory_2_outlined),
+                leading: const IconTile(Icons.inventory_2_outlined, tone: ToneKind.warn),
                 title: Text(s.penAdd + s.optional),
                 subtitle: Text(s.penAddSub),
                 trailing: const Icon(Icons.chevron_right),

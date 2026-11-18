@@ -10,6 +10,7 @@ import '../../../core/utils/error_mapper.dart';
 import '../../../providers/core_providers.dart';
 import '../../../router/app_router.dart';
 import '../../../widgets/motion.dart';
+import '../../medicine_box/presentation/medicine_box_screens.dart' show MedicineBoxIcon;
 import '../../../widgets/pill_icon.dart';
 import '../../../widgets/state_views.dart';
 import '../../medicine_box/domain/medicine_box_models.dart';
@@ -266,7 +267,7 @@ class _BoxCard extends StatelessWidget {
       color: low ? p.warnContainer : null,
       child: ListTile(
         key: const ValueKey('detail-box'),
-        leading: Icon(Icons.inventory_2_outlined, color: low ? p.onWarnContainer : p.head),
+        leading: const MedicineBoxIcon(size: 40),
         title: Text(strings.medicineBoxTitle),
         subtitle: Text(
           i == null || !i.counted

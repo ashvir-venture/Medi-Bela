@@ -6,6 +6,7 @@ import { NotificationsService, NewNotification } from '../notifications/notifica
 import { messages } from '../notifications/notification-messages';
 import { missedGraceMinutes } from './lib/dose-status.util';
 import { reminderTiming } from '../common/config/reminder-timing';
+import { MemberRelation, memberLabel, RELATION_SELECT } from '../family/lib/relationship-label';
 
 const BATCH_SIZE = 200;
 /** A run (every minute) stops taking new batches after this long; the next run continues. */
@@ -226,6 +227,8 @@ export class MissedDoseAlertService {
     // on (reminders off means no family alerts either). Otherwise the dose is
     // still claimed (so it is not re-evaluated) but nobody is told.
     let recipients: Array<{ id: string; languagePreference: 'EN' | 'BN' }> = [];
+    // Owner 2026-11-18: the relative who chose a word for this member ("Baba") reads it.
+    let relation: MemberRelation = { relationToUserId: null, relationship: null };
     if (
       dose.user.profileVisibleToFamily &&
       dose.user.medicineRemindersEnabled &&
@@ -233,9 +236,10 @@ export class MissedDoseAlertService {
     ) {
       const membership = await this.prisma.familyMember.findUnique({
         where: { userId: dose.userId },
-        select: { familyId: true },
+        select: { familyId: true, ...RELATION_SELECT },
       });
       if (membership) {
+        relation = membership;
         const others = await this.prisma.familyMember.findMany({
           where: {
             familyId: membership.familyId,
@@ -256,7 +260,10 @@ export class MissedDoseAlertService {
       if (claim.count === 0) return []; // another run got it, or it was marked taken meanwhile
 
       const rows: NewNotification[] = recipients.map((r) => {
-        const copy = messages.missedDoseFamily(r.languagePreference, dose.user.name);
+        const copy = messages.missedDoseFamily(
+          r.languagePreference,
+          memberLabel(relation, dose.user.name, r.id, r.languagePreference as Language),
+        );
         return {
           userId: r.id,
           type: NotificationType.MISSED_DOSE_FAMILY_ALERT,

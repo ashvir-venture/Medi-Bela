@@ -1,10 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { AccountStatus, FamilyRole, HealthReminderStatus, NotificationType } from '@prisma/client';
+import { AccountStatus, FamilyRole, HealthReminderStatus, Language, NotificationType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { messages } from '../notifications/notification-messages';
 import { reminderTiming } from '../common/config/reminder-timing';
+import { MemberRelation, memberLabel, RELATION_SELECT } from '../family/lib/relationship-label';
 
 const DAY_MS = 24 * 60 * 60_000;
 const BATCH_SIZE = 200;
@@ -105,13 +106,16 @@ export class TestReminderJob {
     now: Date,
   ): Promise<number> {
     let caregiver: { id: string; languagePreference: 'EN' | 'BN' } | null = null;
+    // Owner 2026-11-18: "Baba" instead of the name when the caregiver chose it.
+    let relation: MemberRelation = { relationToUserId: null, relationship: null };
     const { user } = reminder;
     if (user.profileVisibleToFamily && user.medicineRemindersEnabled && user.accountStatus === AccountStatus.ACTIVE) {
       const membership = await this.prisma.familyMember.findUnique({
         where: { userId: reminder.userId },
-        select: { familyId: true },
+        select: { familyId: true, ...RELATION_SELECT },
       });
       if (membership) {
+        relation = membership;
         const row = await this.prisma.familyMember.findFirst({
           where: {
             familyId: membership.familyId,
@@ -131,7 +135,10 @@ export class TestReminderJob {
         data: { caregiverAlertedAt: now },
       });
       if (claim.count === 0 || !caregiver) return [];
-      const copy = messages.testPendingCaregiver(caregiver.languagePreference, user.name);
+      const copy = messages.testPendingCaregiver(
+        caregiver.languagePreference,
+        memberLabel(relation, user.name, caregiver.id, caregiver.languagePreference as Language),
+      );
       return this.notifications.createMany(
         [
           {

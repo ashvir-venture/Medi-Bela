@@ -112,6 +112,8 @@ class HomeBand extends ConsumerWidget {
                   child: Container(
                     width: 44,
                     height: 44,
+                    // The bell sits in the middle of its circle (owner's screenshot 2026-11-18).
+                    alignment: Alignment.center,
                     decoration: BoxDecoration(color: p.band2, shape: BoxShape.circle),
                     child: Badge(
                       isLabelVisible: unread > 0,
@@ -581,11 +583,11 @@ class HomeServices extends ConsumerWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            item(Icons.inventory_2_outlined, p.primaryContainer, p.onPrimaryContainer, strings.medicineBoxTitle,
+            item(Icons.inventory_2_outlined, p.warnContainer, p.onWarnContainer, strings.medicineBoxTitle,
                 () => context.push(AppRoutes.medicineBox)),
             item(Icons.description_outlined, p.navyContainer, p.onNavyContainer, s.svcPrescriptions,
                 () => context.go(AppRoutes.medicinesTabPath('prescriptions'))),
-            item(Icons.campaign_outlined, p.warnContainer, p.onWarnContainer, s.svcNotices,
+            item(Icons.campaign_outlined, p.violetContainer, p.onVioletContainer, s.svcNotices,
                 () => context.push(AppRoutes.notices)),
             item(Icons.monitor_heart_outlined, p.okContainer, p.onOkContainer, s.svcRecords,
                 () => context.go(AppRoutes.healthRecords)),

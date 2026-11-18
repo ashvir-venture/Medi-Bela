@@ -43,8 +43,8 @@ class FamilyMembersController
     return result;
   }
 
-  Future<Result<void>> inviteMember(String phone) {
-    return _repository.inviteMember(phone);
+  Future<Result<void>> inviteMember(String phone, {int? relationshipId}) {
+    return _repository.inviteMember(phone, relationshipId: relationshipId);
   }
 
   Future<Result<void>> acceptInvitation(String invitationId) async {

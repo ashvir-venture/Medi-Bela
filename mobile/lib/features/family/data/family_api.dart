@@ -36,10 +36,18 @@ class FamilyApi {
         .toList();
   }
 
-  Future<void> inviteMember(String phone) async {
+  Future<void> inviteMember(String phone, {int? relationshipId}) async {
     await _dio.post(
       ApiEndpoints.familyInvitations,
-      data: {'phone': phone},
+      data: {'phone': phone, 'relationshipId': ?relationshipId},
+    );
+  }
+
+  /// Owner 2026-11-18: what I call this member (null clears it).
+  Future<void> setRelationship(String memberUserId, int? relationshipId) async {
+    await _dio.put(
+      '${ApiEndpoints.familyMembers}/$memberUserId/relationship',
+      data: {'relationshipId': relationshipId},
     );
   }
 

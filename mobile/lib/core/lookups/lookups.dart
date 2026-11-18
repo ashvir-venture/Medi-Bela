@@ -23,6 +23,28 @@ class LookupOption {
   }
 }
 
+/// A lookup row with English and Bengali names (owner-edited, like the
+/// conditions): family relationships (owner 2026-11-18).
+class BiOption {
+  const BiOption({required this.id, required this.code, required this.nameEn, required this.nameBn});
+
+  final int id;
+  final String code;
+  final String nameEn;
+  final String nameBn;
+
+  String name(bool bn) => bn ? nameBn : nameEn;
+
+  static BiOption? fromJson(Map<String, dynamic>? json) => json == null
+      ? null
+      : BiOption(
+          id: json['id'] as int,
+          code: json['code'] as String,
+          nameEn: json['nameEn'] as String,
+          nameBn: json['nameBn'] as String,
+        );
+}
+
 class Lookups {
   const Lookups({
     required this.genders,
@@ -30,6 +52,7 @@ class Lookups {
     required this.districts,
     required this.mealTimings,
     this.medicineForms = const [],
+    this.relationships = const [],
   });
 
   final List<LookupOption> genders;
@@ -38,6 +61,8 @@ class Lookups {
   final List<LookupOption> mealTimings;
   /// Tablet, Syrup... (Add / edit medicine).
   final List<LookupOption> medicineForms;
+  /// Baba, Ma, ... (Invite to the family; owner 2026-11-18).
+  final List<BiOption> relationships;
 
   factory Lookups.fromJson(Map<String, dynamic> json) {
     List<LookupOption> list(String key, {String? parentKey}) => (json[key] as List<dynamic>? ?? [])
@@ -49,6 +74,9 @@ class Lookups {
       districts: list('districts', parentKey: 'divisionId'),
       mealTimings: list('mealTimings'),
       medicineForms: list('medicineForms'),
+      relationships: (json['relationships'] as List<dynamic>? ?? [])
+          .map((e) => BiOption.fromJson(e as Map<String, dynamic>)!)
+          .toList(),
     );
   }
 

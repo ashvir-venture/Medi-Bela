@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../domain/reading_rules.dart';
+import '../../../widgets/fit_label.dart';
 
 /// Small building blocks of the Round 15-16 screens, in the demo's look
 /// (rounded tiles, pill chips, cards with a bold heading). Colours only from
@@ -24,6 +25,18 @@ enum ToneKind { primary, navy, ok, warn, violet, error, neutral }
     ToneKind.neutral => (p.surface2, p.muted2),
   };
 }
+
+/// Each condition its own colour (the same tones as the notification kinds,
+/// widgets/notification_tone.dart), on the sign-up "My care" tiles, Home's
+/// care cards and Health's condition rows (owner 2026-11-18).
+ToneKind conditionTone(String code) => switch (code) {
+      'heart' => ToneKind.error,
+      'cancer' => ToneKind.violet,
+      'thyroid' => ToneKind.ok,
+      'pregnancy' => ToneKind.warn,
+      'bp' || 'kidney' => ToneKind.navy,
+      _ => ToneKind.primary,
+    };
 
 class IconTile extends StatelessWidget {
   const IconTile(this.icon, {super.key, this.tone = ToneKind.primary, this.size = 44});
@@ -150,8 +163,15 @@ class PillButton extends StatelessWidget {
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             if (icon != null) ...[Icon(icon, size: 18, color: fg), const SizedBox(width: 6)],
             Flexible(
-              child: Text(label,
-                  style: TextStyle(color: fg, fontWeight: selected ? FontWeight.w800 : FontWeight.w600, fontSize: AppType.body)),
+              // A square tile sits in a grid cell of fixed height: one line that
+              // shrinks a little ("Only when needed" was cut in half, owner's
+              // screenshot 2026-11-18). A round chip may wrap between words.
+              child: square
+                  ? FitLabel(Text(label,
+                      maxLines: 1,
+                      style: TextStyle(color: fg, fontWeight: selected ? FontWeight.w800 : FontWeight.w600, fontSize: AppType.body)))
+                  : Text(label,
+                      style: TextStyle(color: fg, fontWeight: selected ? FontWeight.w800 : FontWeight.w600, fontSize: AppType.body)),
             ),
           ]),
         ),

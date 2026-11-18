@@ -15,6 +15,7 @@ import {
   planSchedule,
 } from '../prescriptions/lib/routine-generation.service';
 import { CreateRoutineDto, UpdateRoutineDto } from './dto/routine.dto';
+import { OTHER_CONDITION_CODE } from './lib/other-condition';
 
 type Who = 'YOU' | 'CAREGIVER' | null;
 
@@ -615,6 +616,8 @@ export class RoutineManagementService {
 
   private async checkCondition(code: string | null | undefined) {
     if (!code) return null;
+    // "Other" (owner 2026-11-18): a medicine for something not in the list.
+    if (code === OTHER_CONDITION_CODE) return code;
     if (!(await this.prisma.condition.findUnique({ where: { code } }))) throw new BadRequestException('Unknown condition');
     return code;
   }

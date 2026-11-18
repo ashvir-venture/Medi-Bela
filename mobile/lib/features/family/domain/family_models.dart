@@ -1,3 +1,5 @@
+import '../../../core/lookups/lookups.dart' show BiOption;
+
 class FamilyMemberModel {
   const FamilyMemberModel({
     required this.familyMemberId,
@@ -8,6 +10,7 @@ class FamilyMemberModel {
     this.address,
     required this.joinedAt,
     this.paused = false,
+    this.relationship,
   });
 
   final String familyMemberId;
@@ -22,6 +25,12 @@ class FamilyMemberModel {
   /// server only (the offline cache doesn't keep it).
   final bool paused;
 
+  /// What I call this member ("Baba"), when I chose it (owner 2026-11-18).
+  final BiOption? relationship;
+
+  /// "বাবা" for the one who chose it, otherwise the name.
+  String label(bool bn) => relationship?.name(bn) ?? name;
+
   /// Parses the shape returned by `GET /family/members`
   /// (`{ familyMemberId, role, joinedAt, user: { id, name, phone, address } }`).
   factory FamilyMemberModel.fromMembersListJson(Map<String, dynamic> json) {
@@ -35,6 +44,7 @@ class FamilyMemberModel {
       address: user['address'] as String?,
       joinedAt: DateTime.parse(json['joinedAt'] as String),
       paused: user['paused'] as bool? ?? false,
+      relationship: BiOption.fromJson(json['relationship'] as Map<String, dynamic>?),
     );
   }
 
@@ -50,6 +60,7 @@ class FamilyMemberModel {
       role: json['role'] as String,
       address: user['address'] as String?,
       joinedAt: DateTime.parse(json['joinedAt'] as String),
+      relationship: BiOption.fromJson(json['relationship'] as Map<String, dynamic>?),
     );
   }
 }
@@ -133,10 +144,13 @@ class MemberStatusSummary {
     this.taken = 0,
     this.missed = 0,
     this.pending = 0,
+    this.relationship,
   });
 
   final String userId;
   final String name;
+  /// What I call them ("Baba"), when I chose it.
+  final BiOption? relationship;
   final bool shared;
   /// Deactivated or banned: no medicine data, "Account paused".
   final bool paused;
@@ -156,6 +170,7 @@ class MemberStatusSummary {
       taken: today?['taken'] as int? ?? 0,
       missed: today?['missed'] as int? ?? 0,
       pending: today?['pending'] as int? ?? 0,
+      relationship: BiOption.fromJson(json['relationship'] as Map<String, dynamic>?),
     );
   }
 }
@@ -208,12 +223,17 @@ class MemberStatusDetail {
     this.paused = false,
     this.easyMode,
     this.permissions,
+    this.relationship,
   });
 
   final String userId;
   final String name;
   final bool shared;
   final List<MemberDoseStatus> doses;
+  /// What I call them ("Baba"), when I chose it (owner 2026-11-18).
+  final BiOption? relationship;
+
+  String label(bool bn) => relationship?.name(bn) ?? name;
   final bool paused;
   /// Round 18: what the member allows the caregiver (only sent to the caregiver).
   final MemberGrant? permissions;
@@ -232,6 +252,7 @@ class MemberStatusDetail {
       paused: member['paused'] as bool? ?? false,
       easyMode: member['easyMode'] as bool?,
       permissions: MemberGrant.fromJson(member['permissions'] as Map<String, dynamic>?),
+      relationship: BiOption.fromJson(member['relationship'] as Map<String, dynamic>?),
       doses: (json['doses'] as List<dynamic>? ?? [])
           .map((d) => MemberDoseStatus.fromJson(d as Map<String, dynamic>))
           .toList(),

@@ -13,6 +13,8 @@ import '../../auth/presentation/auth_controller.dart';
 import '../domain/family_models.dart';
 import 'caregiver_permissions.dart';
 import 'family_controller.dart';
+import '../../../core/lookups/lookups.dart';
+import '../../../widgets/labeled_field.dart';
 
 class FamilyScreen extends ConsumerWidget {
   const FamilyScreen({super.key});
@@ -257,6 +259,7 @@ class _MemberTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final strings = ref.watch(stringsProvider);
+    final bn = strings.r18.bn;
     final theme = Theme.of(context);
     final isCaregiver = member.role == 'CAREGIVER';
     // Summary failures (offline, etc.) must never break the member list: the
@@ -273,10 +276,12 @@ class _MemberTile extends ConsumerWidget {
             : () => context.push('/family/member/${member.userId}'),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         leading: FamilyAvatar(name: member.name, summary: paused ? null : summary, paused: paused),
-        title: Text(member.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+        // Owner 2026-11-18: "বাবা" (what I call them) with the name under it.
+        title: Text(member.label(bn), style: const TextStyle(fontWeight: FontWeight.w700)),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (member.relationship != null) Text(member.name),
             Text(member.phone),
             if (paused)
               Text(strings.accountPaused, style: TextStyle(color: context.palette.warningStrong))
@@ -576,6 +581,7 @@ class _InviteMemberDialog extends ConsumerStatefulWidget {
 
 class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
   final _phoneController = TextEditingController();
+  int? _relationshipId;
   bool _isSubmitting = false;
   String? _errorMessage;
 
@@ -604,7 +610,7 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
 
     final result = await ref
         .read(familyMembersControllerProvider.notifier)
-        .inviteMember(phone);
+        .inviteMember(phone, relationshipId: _relationshipId);
 
     if (!mounted) return;
     setState(() => _isSubmitting = false);
@@ -622,9 +628,12 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
   @override
   Widget build(BuildContext context) {
     final strings = ref.watch(stringsProvider);
+    final s = strings.r18;
+    final relationships = ref.watch(lookupsProvider).valueOrNull?.relationships ?? const <BiOption>[];
 
     return AlertDialog(
       title: Text(strings.inviteMember),
+      scrollable: true,
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -642,6 +651,25 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
             decoration: InputDecoration(hintText: strings.invitePhoneHint),
             autofocus: true,
           ),
+          // Owner 2026-11-18: what you call them ("Baba"), seen by you only.
+          if (relationships.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            LabeledField(
+              label: s.relationshipOptional,
+              hint: s.relationshipHint,
+              child: DropdownButtonFormField<int?>(
+                key: const ValueKey('invite-relationship'),
+                initialValue: _relationshipId,
+                isExpanded: true,
+                items: [
+                  DropdownMenuItem<int?>(value: null, child: Text(s.relationshipNone)),
+                  for (final r in relationships)
+                    DropdownMenuItem<int?>(value: r.id, child: Text(r.name(s.bn))),
+                ],
+                onChanged: _isSubmitting ? null : (v) => setState(() => _relationshipId = v),
+              ),
+            ),
+          ],
         ],
       ),
       actions: [

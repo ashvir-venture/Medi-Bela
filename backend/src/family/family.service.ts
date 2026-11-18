@@ -17,6 +17,7 @@ import { DELETED_USER_NAME } from '../users/lib/deleted-user';
 import { FamilyMembershipService } from './family-membership.service';
 import { CreateFamilyDto } from './dto/create-family.dto';
 import { InviteMemberDto } from './dto/invite-member.dto';
+import { presentRelationship, RELATION_SELECT, relationshipFor } from './lib/relationship-label';
 
 const INVITATION_TTL_DAYS = 7;
 /** Spam/abuse guard: a caregiver cannot stack unlimited open invitations. */
@@ -110,15 +111,15 @@ export class FamilyService {
 
   async getMyFamily(userId: string) {
     const membership = await this.requireMembership(userId);
-    return this.loadFamily(membership.familyId);
+    return this.loadFamily(membership.familyId, userId);
   }
 
-  private async loadFamily(familyId: string) {
+  private async loadFamily(familyId: string, viewerId?: string) {
     const family = await this.prisma.family.findUnique({
       where: { id: familyId },
       include: {
         members: {
-          include: { user: { select: MEMBER_USER_SELECT } },
+          include: { user: { select: MEMBER_USER_SELECT }, relationship: RELATION_SELECT.relationship },
           orderBy: { joinedAt: 'asc' },
         },
       },
@@ -133,6 +134,8 @@ export class FamilyService {
         role: m.role,
         joinedAt: m.joinedAt,
         user: presentUser(m.user),
+        // Owner 2026-11-18: what the viewer calls this member, if they chose it.
+        relationship: viewerId ? presentRelationship(relationshipFor(m, viewerId)) : null,
       })),
     };
   }
@@ -141,7 +144,7 @@ export class FamilyService {
     const membership = await this.requireMembership(userId);
     const members = await this.prisma.familyMember.findMany({
       where: { familyId: membership.familyId },
-      include: { user: { select: MEMBER_USER_SELECT } },
+      include: { user: { select: MEMBER_USER_SELECT }, relationship: RELATION_SELECT.relationship },
       orderBy: { joinedAt: 'asc' },
     });
     // Round 18: the caregiver sees what each member allows them.
@@ -151,6 +154,7 @@ export class FamilyService {
       role: m.role,
       joinedAt: m.joinedAt,
       user: presentUser(m.user),
+      relationship: presentRelationship(relationshipFor(m, userId)),
       ...(viewerIsCaregiver && m.userId !== userId ? { permissions: permissionsOf(m) } : {}),
     }));
   }
@@ -170,6 +174,7 @@ export class FamilyService {
       where: { familyId: membership.familyId, userId: { not: userId } },
       include: {
         user: { select: { id: true, name: true, profileVisibleToFamily: true, accountStatus: true, familyAlertMinutes: true } },
+        relationship: RELATION_SELECT.relationship,
       },
       orderBy: { joinedAt: 'asc' },
     });
@@ -188,11 +193,14 @@ export class FamilyService {
     return {
       date: start.toISOString(),
       members: members.map((m) => {
+        // Only when the caller chose one (keeps the hidden / paused shape as before).
+        const rel = presentRelationship(relationshipFor(m, userId));
+        const relationship = rel ? { relationship: rel } : {};
         if (isPaused(m.user.accountStatus)) {
-          return { userId: m.userId, name: m.user.name, shared: false as const, paused: true };
+          return { userId: m.userId, name: m.user.name, ...relationship, shared: false as const, paused: true };
         }
         if (!m.user.profileVisibleToFamily) {
-          return { userId: m.userId, name: m.user.name, shared: false as const, paused: false };
+          return { userId: m.userId, name: m.user.name, ...relationship, shared: false as const, paused: false };
         }
         const mine = doses
           .filter((d) => d.userId === m.userId)
@@ -200,6 +208,7 @@ export class FamilyService {
         return {
           userId: m.userId,
           name: m.user.name,
+          ...relationship,
           shared: true as const,
           paused: false,
           today: this.summarize(mine),
@@ -229,6 +238,7 @@ export class FamilyService {
             easyMode: true,
           },
         },
+        relationship: RELATION_SELECT.relationship,
       },
     });
     if (!target) throw new NotFoundException('Family member not found');
@@ -242,6 +252,7 @@ export class FamilyService {
     const member = {
       userId: target.userId,
       name: target.user.name,
+      relationship: presentRelationship(relationshipFor(target, userId)),
       paused,
       ...(asCaregiver && !paused && target.user.profileVisibleToFamily ? { easyMode: target.user.easyMode } : {}),
       // Round 18: what the member allows the caregiver (the caregiver's view only).
@@ -374,6 +385,7 @@ export class FamilyService {
 
     const phone = cleanPhone(dto.phone);
     const variants = phoneVariants(phone);
+    const relationshipId = await this.checkRelationship(dto.relationshipId);
     const inviter = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { phone: true, name: true },
@@ -410,7 +422,8 @@ export class FamilyService {
     let invitation;
     try {
       invitation = await this.prisma.familyInvitation.create({
-        data: { familyId: membership.familyId, invitedPhone: phone, invitedById: userId, expiresAt },
+        data: { familyId: membership.familyId, invitedPhone: phone, invitedById: userId, expiresAt, relationshipId },
+        include: { relationship: RELATION_SELECT.relationship },
       });
     } catch (err) {
       // Partial unique index (family, phone) WHERE status = 'PENDING' — concurrent double submit.
@@ -483,6 +496,7 @@ export class FamilyService {
         status: InvitationStatus.PENDING,
         OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
       },
+      include: { relationship: RELATION_SELECT.relationship },
       orderBy: { createdAt: 'desc' },
     });
     return rows.map((r) => this.presentSent(r));
@@ -513,7 +527,15 @@ export class FamilyService {
         if (claimed.count === 0) throw new ConflictException('This invitation is no longer pending');
 
         await tx.familyMember.create({
-          data: { familyId: invitation.familyId, userId, role: FamilyRole.MEMBER },
+          data: {
+            familyId: invitation.familyId,
+            userId,
+            role: FamilyRole.MEMBER,
+            // The inviter's word for this member, theirs to see.
+            ...(invitation.relationshipId
+              ? { relationshipId: invitation.relationshipId, relationToUserId: invitation.invitedById }
+              : {}),
+          },
         });
         await tx.familyEvent.create({
           data: { familyId: invitation.familyId, kind: FamilyEventKind.JOINED, subjectUserId: userId, actorUserId: userId },
@@ -560,7 +582,15 @@ export class FamilyService {
     return invitation;
   }
 
-  private presentSent(r: { id: string; familyId: string; invitedPhone: string; status: InvitationStatus; createdAt: Date; expiresAt: Date | null }) {
+  private presentSent(r: {
+    id: string;
+    familyId: string;
+    invitedPhone: string;
+    status: InvitationStatus;
+    createdAt: Date;
+    expiresAt: Date | null;
+    relationship?: { id: number; code: string; nameEn: string; nameBn: string } | null;
+  }) {
     return {
       id: r.id,
       familyId: r.familyId,
@@ -568,6 +598,43 @@ export class FamilyService {
       status: r.status,
       createdAt: r.createdAt,
       expiresAt: r.expiresAt,
+      relationship: presentRelationship(r.relationship ?? null),
     };
+  }
+
+  // ---------------------------------------------------------------------
+  // Relationship (owner 2026-11-18)
+  // ---------------------------------------------------------------------
+
+  private async checkRelationship(id: number | null | undefined): Promise<number | null> {
+    if (id == null) return null;
+    const row = await this.prisma.relationship.findUnique({ where: { id }, select: { id: true } });
+    if (!row) throw new BadRequestException('Unknown relationship');
+    return row.id;
+  }
+
+  /**
+   * What the caller calls another member of their family ("Baba"). Each
+   * member has one such word, owned by whoever chose it (the inviter); that
+   * person changes or clears it; anyone may set it while there is none.
+   */
+  async setRelationship(userId: string, memberUserId: string, relationshipId: number | null | undefined) {
+    const membership = await this.requireMembership(userId);
+    if (memberUserId === userId) throw new BadRequestException('Choose this for another member');
+    const target = await this.prisma.familyMember.findFirst({
+      where: { userId: memberUserId, familyId: membership.familyId },
+      select: { id: true, relationToUserId: true, relationshipId: true },
+    });
+    if (!target) throw new NotFoundException('Family member not found');
+    if (target.relationshipId != null && target.relationToUserId && target.relationToUserId !== userId) {
+      throw new ForbiddenException('Another member chose this relationship');
+    }
+    const id = await this.checkRelationship(relationshipId);
+    const row = await this.prisma.familyMember.update({
+      where: { id: target.id },
+      data: { relationshipId: id, relationToUserId: id == null ? null : userId },
+      select: RELATION_SELECT,
+    });
+    return { userId: memberUserId, relationship: presentRelationship(relationshipFor(row, userId)) };
   }
 }

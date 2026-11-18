@@ -16,6 +16,7 @@ import '../../../widgets/tile_grid.dart';
 import '../../../widgets/state_views.dart';
 import '../domain/medicine_box_models.dart';
 import '../../../widgets/fit_label.dart';
+import '../../../widgets/notification_tone.dart';
 
 /// My box: the offline copy (refreshed on open). A member's box (caregiver,
 /// [forUserId]): online.
@@ -186,7 +187,7 @@ class _StartView extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       children: [
         const SizedBox(height: 24),
-        Icon(Icons.inventory_2_outlined, size: 72, color: theme.colorScheme.primary),
+        const Center(child: MedicineBoxIcon(size: 96)),
         const SizedBox(height: 16),
         Text(strings.startMedicineBox, textAlign: TextAlign.center, style: theme.textTheme.headlineSmall),
         const SizedBox(height: 12),
@@ -496,10 +497,13 @@ class MedicineBoxEmptyScreen extends ConsumerWidget {
     final box = ref.watch(_myBoxProvider).valueOrNull;
     final item = box?.item(routineId);
     const big = Size(0, 72);
+    // The box's own light yellow, as everywhere (owner 2026-11-18).
+    final tone = noteStyle(context, NoteKind.box);
 
     return PopScope(
       canPop: !alarm,
       child: Scaffold(
+        backgroundColor: tone.bg,
         body: SafeArea(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
@@ -511,15 +515,19 @@ class MedicineBoxEmptyScreen extends ConsumerWidget {
                   'assets/images/buying_medicine.png',
                   height: 200,
                   fit: BoxFit.contain,
-                  errorBuilder: (_, _, _) => Icon(Icons.inventory_2_outlined, size: 96, color: theme.colorScheme.error),
+                  errorBuilder: (_, _, _) => const Center(child: MedicineBoxIcon(size: 96)),
                 ),
               ),
               const SizedBox(height: 16),
               Text(
                 item == null ? strings.boxEmptyTitle : strings.boxRanOut(item.medicineName),
                 textAlign: TextAlign.center,
-                style: theme.textTheme.headlineSmall,
+                style: theme.textTheme.headlineSmall?.copyWith(color: tone.fg, fontWeight: FontWeight.w700),
               ),
+              if (item != null) ...[
+                const SizedBox(height: 12),
+                Center(child: PillIcon(color: item.pillColor, shape: item.pillShape, formName: item.formName, size: 56)),
+              ],
               if (item != null) ...[
                 const SizedBox(height: 4),
                 Text(
@@ -584,41 +592,55 @@ class MedicineBoxEmptyScreen extends ConsumerWidget {
   }
 }
 
-/// The Home card and the long button under Today / My medicines.
-class MedicineBoxButton extends ConsumerWidget {
-  const MedicineBoxButton({super.key, this.card = false});
+/// The medicine box's own look, the same everywhere (owner 2026-11-18): the
+/// box icon on a light yellow tile (palette warnContainer / onWarnContainer).
+class MedicineBoxIcon extends StatelessWidget {
+  const MedicineBoxIcon({super.key, this.size = 44});
 
-  /// Home: a small card; elsewhere a long button.
-  final bool card;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(color: p.warnContainer, borderRadius: BorderRadius.circular(size >= 44 ? 12 : 10)),
+      child: Icon(Icons.inventory_2_outlined, size: size * 0.55, color: p.onWarnContainer),
+    );
+  }
+}
+
+/// The medicine box button under Today / My medicines (where it always
+/// was): amber like the box everywhere, and short, left-aligned, so the AI
+/// button on the right never covers it (owner 2026-11-18).
+class MedicineBoxButton extends ConsumerWidget {
+  const MedicineBoxButton({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final strings = ref.watch(stringsProvider);
-    void open() => context.push(AppRoutes.medicineBox);
-    if (!card) {
-      return SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-          child: OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
-            onPressed: open,
-            icon: const Icon(Icons.inventory_2_outlined),
-            label: Text(strings.medicineBoxTitle),
+    final p = context.palette;
+    return SafeArea(
+      top: false,
+      child: Padding(
+        // Right: room for the AI button (56 + its margin).
+        padding: const EdgeInsets.fromLTRB(16, 4, 88, 8),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            key: const ValueKey('medicine-box-button'),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 44),
+              backgroundColor: p.warnContainer,
+              foregroundColor: p.onWarnContainer,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+            ),
+            onPressed: () => context.push(AppRoutes.medicineBox),
+            icon: const Icon(Icons.inventory_2_outlined, size: 20),
+            label: FitLabel(Text(strings.medicineBoxTitle)),
           ),
         ),
-      );
-    }
-    return Card(
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
-          child: Icon(Icons.inventory_2_outlined, color: Theme.of(context).colorScheme.primary),
-        ),
-        title: Text(strings.medicineBoxTitle, style: Theme.of(context).textTheme.titleMedium),
-        subtitle: Text(strings.medicineBoxCardSubtitle),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: open,
       ),
     );
   }

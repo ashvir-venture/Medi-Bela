@@ -16,6 +16,8 @@ export interface PushMessage {
    * database already shows the dose taken). title/body travel in `data`.
    */
   dataOnly?: boolean;
+  /** Android accent colour (#RRGGBB) of the shown notification, by kind. */
+  color?: string;
 }
 
 export interface PushSendResult {
@@ -93,7 +95,7 @@ export class PushService implements OnModuleInit {
             android: {
               priority: 'high',
               collapseKey: message.collapseKey,
-              notification: { channelId: ANDROID_CHANNEL_ID, tag: message.collapseKey },
+              notification: { channelId: ANDROID_CHANNEL_ID, tag: message.collapseKey, color: message.color },
             },
             apns: {
               headers: { 'apns-collapse-id': message.collapseKey.slice(0, 64) },

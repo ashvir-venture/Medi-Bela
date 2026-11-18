@@ -63,9 +63,9 @@ class FamilyRepository {
     }
   }
 
-  Future<Result<void>> inviteMember(String phone) async {
+  Future<Result<void>> inviteMember(String phone, {int? relationshipId}) async {
     try {
-      await _api.inviteMember(phone);
+      await _api.inviteMember(phone, relationshipId: relationshipId);
       return const Result.success(null);
     } on DioException catch (e) {
       return Result.failure(friendlyErrorMessage(e));

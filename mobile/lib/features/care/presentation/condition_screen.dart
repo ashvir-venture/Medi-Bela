@@ -169,14 +169,7 @@ class CareConditionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
-        leading: IconTile(conditionIcon(code), tone: switch (code) {
-          'heart' => ToneKind.error,
-          'cancer' => ToneKind.violet,
-          'thyroid' => ToneKind.ok,
-          'pregnancy' => ToneKind.warn,
-          'bp' || 'kidney' => ToneKind.navy,
-          _ => ToneKind.primary,
-        }),
+        leading: IconTile(conditionIcon(code), tone: conditionTone(code)),
         title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
         subtitle: Text(summary, maxLines: 2, overflow: TextOverflow.ellipsis),
         trailing: const Icon(Icons.chevron_right),

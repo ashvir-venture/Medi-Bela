@@ -326,6 +326,14 @@ class Round18Strings {
     if (diff == 1) return yesterday;
     return dateOf(d);
   }
+
+  // Family relationship (owner 2026-11-18).
+  String get relationship => _('Relationship', 'সম্পর্ক');
+  String get relationshipOptional => _('Relationship (optional)', 'সম্পর্ক (ঐচ্ছিক)');
+  String get relationshipHint => _('Only you see it, in place of the name', 'নামের জায়গায় শুধু আপনি দেখবেন');
+  String get relationshipNone => _('Not set', 'বাছা হয়নি');
+  String get relationshipSet => _('What you call them', 'আপনি তাঁকে কী বলে ডাকেন');
+  String get relationshipSaved => _('Saved', 'সংরক্ষিত');
 }
 
 extension Round18StringsOf on AppStrings {

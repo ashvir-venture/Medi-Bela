@@ -23,6 +23,7 @@ export class LookupsService {
       testCategories,
       conditions,
       testKinds,
+      relationships,
     ] = await Promise.all([
       this.prisma.gender.findMany({ orderBy: { id: 'asc' } }),
       this.prisma.division.findMany({ orderBy: BY_NAME }),
@@ -39,6 +40,8 @@ export class LookupsService {
         orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
         include: { fields: { orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] } },
       }),
+      // Owner 2026-11-18: family relationships for the invitation, EN/BN.
+      this.prisma.relationship.findMany({ orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] }),
     ]);
     return {
       genders,
@@ -51,6 +54,7 @@ export class LookupsService {
       testCategories,
       conditions,
       testKinds,
+      relationships,
     };
   }
 

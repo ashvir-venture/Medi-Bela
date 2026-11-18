@@ -10,10 +10,12 @@ import '../domain/care_models.dart';
 import 'care_blocks.dart';
 import 'care_providers.dart';
 import 'care_widgets.dart';
+import '../../../widgets/pill_icon.dart';
+import '../domain/care_content.dart' show otherConditionCode;
 
 /// "For which condition" on Add / edit medicine (owner, 2026-11-12): a
-/// label from the user's own conditions, shown on that condition's page.
-/// Hidden when the user has picked no conditions.
+/// label from the user's own conditions, shown on that condition's page,
+/// or "Other" (owner 2026-11-18; always offered, also with no conditions).
 class ConditionTagField extends ConsumerWidget {
   const ConditionTagField({super.key, required this.value, required this.onChanged, this.forUserId, this.enabled = true});
 
@@ -28,8 +30,7 @@ class ConditionTagField extends ConsumerWidget {
     final p = context.palette;
     final care = watchCareOf(ref, CareSubject(memberId: forUserId)).valueOrNull;
     final lookups = ref.watch(careLookupsProvider).valueOrNull;
-    final codes = care?.conditions ?? const <String>[];
-    if (codes.isEmpty) return const SizedBox.shrink();
+    final codes = [...?care?.conditions, otherConditionCode];
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -38,6 +39,7 @@ class ConditionTagField extends ConsumerWidget {
         Wrap(spacing: 6, runSpacing: 6, children: [
           for (final code in codes)
             PillButton(
+              key: ValueKey('condition-tag-$code'),
               label: conditionName(code, lookups, s.bn),
               selected: value == code,
               onTap: enabled ? () => onChanged(value == code ? null : code) : () {},
@@ -92,7 +94,7 @@ class MedicinesForBlock extends ConsumerWidget {
               decoration: BoxDecoration(border: Border(top: BorderSide(color: p.line3))),
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Row(children: [
-                const IconTile(Icons.medication_outlined, tone: ToneKind.navy, size: 36),
+                PillIcon(color: r.pillColor, shape: r.pillShape, formName: r.formName, size: 36),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

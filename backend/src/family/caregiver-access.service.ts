@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CaregiverAction, messages } from '../notifications/notification-messages';
 import { ErrorCode, withCode } from '../common/filters/error-codes';
+import { memberLabel, RELATION_SELECT } from './lib/relationship-label';
 
 /** Round 18: a read needs the member's View permission, a change their Manage permission. */
 export type CaregiverNeed = 'view' | 'manage';
@@ -76,6 +77,7 @@ export class CaregiverAccessService {
       select: {
         familyId: true,
         user: { select: { name: true, profileVisibleToFamily: true, accountStatus: true } },
+        ...RELATION_SELECT,
       },
     });
     if (!member || !member.user.profileVisibleToFamily || member.user.accountStatus !== AccountStatus.ACTIVE) {
@@ -90,7 +92,10 @@ export class CaregiverAccessService {
       },
       select: { user: { select: { id: true, languagePreference: true } } },
     });
-    return caregiver ? { ...caregiver.user, memberName: member.user.name } : null;
+    if (!caregiver) return null;
+    // Owner 2026-11-18: "Baba" instead of the name when the caregiver chose it.
+    const memberName = memberLabel(member, member.user.name, caregiver.user.id, caregiver.user.languagePreference);
+    return { ...caregiver.user, memberName };
   }
 
   /**

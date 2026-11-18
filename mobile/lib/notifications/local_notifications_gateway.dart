@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:ui' show Color;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -6,6 +9,7 @@ import 'full_screen_alarms.dart';
 import 'reminder_timing.dart';
 import 'push_service.dart' show alarmRouteForPayload;
 import 'notification_look.dart';
+import '../widgets/notification_tone.dart';
 
 /// Quiet/plain reminders (health reminders, the silent re-post of a medicine
 /// reminder once it has stopped ringing).
@@ -157,6 +161,8 @@ class FlutterLocalNotificationsGateway implements LocalNotificationsGateway {
       contentTitle: '<b>${reminder.title}</b>',
       htmlFormatContentTitle: true,
     );
+    // Each kind its own colour in the shade (owner 2026-11-18).
+    final color = reminderColor(reminder.payload);
     final android = switch (reminder.style) {
       // Ongoing while it rings: a swipe can't clear it; only a button or a
       // tap on it (which opens the reminder page) does.
@@ -165,6 +171,7 @@ class FlutterLocalNotificationsGateway implements LocalNotificationsGateway {
           NotificationLook.current.vibrate ? alarmChannelId : alarmQuietVibrationChannelId,
           alarmChannelName,
           enableVibration: NotificationLook.current.vibrate,
+          color: color,
           largeIcon: reminder.photoPath == null ? null : FilePathAndroidBitmap(reminder.photoPath!),
           channelDescription: alarmChannelDescription,
           importance: Importance.max,
@@ -186,6 +193,7 @@ class FlutterLocalNotificationsGateway implements LocalNotificationsGateway {
           androidChannelId,
           androidChannelName,
           channelDescription: androidChannelDescription,
+          color: color,
           importance: Importance.high,
           priority: Priority.high,
           silent: true,
@@ -198,6 +206,7 @@ class FlutterLocalNotificationsGateway implements LocalNotificationsGateway {
           androidChannelId,
           androidChannelName,
           channelDescription: androidChannelDescription,
+          color: color,
           importance: Importance.high,
           priority: Priority.high,
           category: AndroidNotificationCategory.reminder,
@@ -205,10 +214,11 @@ class FlutterLocalNotificationsGateway implements LocalNotificationsGateway {
           autoCancel: true,
           actions: actions,
         ),
-      ReminderStyle.plain => const AndroidNotificationDetails(
+      ReminderStyle.plain => AndroidNotificationDetails(
           androidChannelId,
           androidChannelName,
           channelDescription: androidChannelDescription,
+          color: color,
           importance: Importance.high,
           priority: Priority.high,
         ),
@@ -228,5 +238,15 @@ class FlutterLocalNotificationsGateway implements LocalNotificationsGateway {
         AndroidFlutterLocalNotificationsPlugin>();
     if (android == null) return true;
     return await android.canScheduleExactNotifications() ?? false;
+  }
+}
+
+/// The shade colour of a local reminder, from its payload's type.
+Color reminderColor(String? payload) {
+  try {
+    final data = jsonDecode(payload ?? '') as Map<String, dynamic>;
+    return noteAndroidColor(noteKindOf(data['type'] as String? ?? '', data));
+  } catch (_) {
+    return noteAndroidColor(NoteKind.other);
   }
 }

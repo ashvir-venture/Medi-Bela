@@ -12,6 +12,8 @@ import '../../reminders/presentation/reminder_status_banner.dart';
 import '../domain/dose_display_status.dart';
 import '../domain/medicine_schedule_models.dart';
 import 'medicine_schedule_controller.dart';
+import '../../../widgets/pill_icon.dart';
+import '../data/pill_looks.dart';
 
 /// Minimal date/time formatting without pulling in `intl` as a new
 /// dependency — matches the project's existing "small, hand-rolled i18n"
@@ -196,19 +198,20 @@ class _DoseTile extends ConsumerWidget {
   }
 }
 
-class _RoutineTile extends StatelessWidget {
+class _RoutineTile extends ConsumerWidget {
   const _RoutineTile({required this.routine});
 
   final MedicineRoutineModel routine;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final look = (ref.watch(pillLooksProvider).valueOrNull ?? const <String, PillLook>{})[routine.id];
     final range = routine.endDate == null
         ? _formatDate(routine.startDate)
         : '${_formatDate(routine.startDate)} – ${_formatDate(routine.endDate!)}';
     return Card(
       child: ListTile(
-        leading: const Icon(Icons.medication_liquid_outlined),
+        leading: PillIcon(color: look?.color, shape: look?.shape, formName: look?.formName, size: 40),
         title: Text(routine.medicineName),
         subtitle: Text('${routine.dosage} • ${routine.frequency}\n$range'),
         isThreeLine: true,

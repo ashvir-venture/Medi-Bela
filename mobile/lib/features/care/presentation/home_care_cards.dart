@@ -73,7 +73,7 @@ class HomeCareCards extends ConsumerWidget {
                 padding: const EdgeInsets.all(14),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   Row(children: [
-                    IconTile(conditionIcon(code)),
+                    IconTile(conditionIcon(code), tone: conditionTone(code)),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

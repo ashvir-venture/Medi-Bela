@@ -10,6 +10,7 @@ import '../../../core/localization/locale_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/core_providers.dart';
 import '../../prescription/domain/prescription_photo.dart';
+import '../../../widgets/fit_label.dart';
 
 /// Round 18 (client point 1d): photo of the strip / pack. Camera or gallery;
 /// the upload happens after Save (PackPhotoUploader).
@@ -39,7 +40,8 @@ class PackPhotoField extends ConsumerWidget {
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(children: [
+          // Icon level with the title, not centred on two lines of text.
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Icon(has ? Icons.check_circle_outline_rounded : Icons.photo_camera_outlined, color: p.head),
             const SizedBox(width: 10),
             Expanded(
@@ -55,7 +57,7 @@ class PackPhotoField extends ConsumerWidget {
               child: OutlinedButton.icon(
                 onPressed: () => _pick(ImageSource.camera),
                 icon: const Icon(Icons.photo_camera_outlined),
-                label: Text(ref.watch(stringsProvider).r15.takePhoto),
+                label: FitLabel(Text(ref.watch(stringsProvider).r15.takePhoto)),
               ),
             ),
             const SizedBox(width: 8),
@@ -63,7 +65,7 @@ class PackPhotoField extends ConsumerWidget {
               child: OutlinedButton.icon(
                 onPressed: () => _pick(ImageSource.gallery),
                 icon: const Icon(Icons.image_outlined),
-                label: Text(ref.watch(stringsProvider).r15.fromGallery),
+                label: FitLabel(Text(ref.watch(stringsProvider).r15.fromGallery)),
               ),
             ),
           ]),

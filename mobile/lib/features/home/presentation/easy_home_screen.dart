@@ -16,6 +16,8 @@ import '../../reminders/presentation/reminder_status_controller.dart';
 import '../domain/day_slots.dart';
 import 'home_top.dart';
 import '../../../core/utils/clock_label.dart';
+import '../../../widgets/pill_icon.dart';
+import '../../medicine_schedule/data/pill_looks.dart';
 
 /// Round 14: easy mode for elders (the demo's easy home). Large text, today's
 /// medicine with one big Taken, the morning / afternoon / night list, a call
@@ -71,6 +73,7 @@ class EasyHomeBody extends ConsumerWidget {
     final p = context.palette;
     final theme = Theme.of(context);
     final isBangla = ref.watch(localeControllerProvider).languageCode == 'bn';
+    final looks = ref.watch(pillLooksProvider).valueOrNull ?? const <String, PillLook>{};
     final now = DateTime.now();
     final slots = daySlots(doses, now);
     final next = nextSlot(slots);
@@ -131,11 +134,12 @@ class EasyHomeBody extends ConsumerWidget {
             for (final d in open) ...[
               const SizedBox(height: 12),
               Row(children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(color: p.primaryContainer, borderRadius: BorderRadius.circular(16)),
-                  child: Icon(Icons.medication_outlined, size: 34, color: p.onPrimaryContainer),
+                // The strip colour the user picked (owner 2026-11-18).
+                PillIcon(
+                  color: looks[d.routineId]?.color,
+                  shape: looks[d.routineId]?.shape,
+                  formName: looks[d.routineId]?.formName,
+                  size: 64,
                 ),
                 const SizedBox(width: 14),
                 Expanded(

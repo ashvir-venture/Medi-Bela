@@ -367,9 +367,17 @@ model FamilyMember {
   /// When the member answered the permission question (NULL = ask: the
   /// pop-up after joining, and again after a caregiver handover).
   caregiverPermissionAt DateTime?
+  /// Owner 2026-11-18: what the inviter (the caregiver who sent the
+  /// invitation) calls this member ("Baba", "Ma", ...), a relationships row,
+  /// and who that is. Shown to relationToUserId only (the app's family list,
+  /// alerts to them: "Baba missed a medicine"); everyone else sees the name.
+  /// relationToUserId has no foreign key: users rows are never deleted.
+  relationshipId        Int?
+  relationToUserId      String?    @db.Uuid
 
-  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  family       Family        @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  relationship Relationship? @relation(fields: [relationshipId], references: [id], onDelete: SetNull)
 
   @@unique([familyId, userId])
   // A user belongs to at most ONE family. Enforced here (not just in
@@ -379,18 +387,22 @@ model FamilyMember {
 }
 
 model FamilyInvitation {
-  id           String           @id @default(uuid()) @db.Uuid
-  familyId     String           @db.Uuid
-  invitedPhone String
-  invitedById  String           @db.Uuid
-  status       InvitationStatus @default(PENDING)
-  respondedAt  DateTime?
-  expiresAt    DateTime?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  id             String           @id @default(uuid()) @db.Uuid
+  familyId       String           @db.Uuid
+  invitedPhone   String
+  invitedById    String           @db.Uuid
+  /// Owner 2026-11-18: the inviter's word for the invitee (optional);
+  /// copied to family_members on accept.
+  relationshipId Int?
+  status         InvitationStatus @default(PENDING)
+  respondedAt    DateTime?
+  expiresAt      DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
-  family    Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
-  invitedBy User   @relation("InvitationSender", fields: [invitedById], references: [id], onDelete: Restrict)
+  family       Family        @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  invitedBy    User          @relation("InvitationSender", fields: [invitedById], references: [id], onDelete: Restrict)
+  relationship Relationship? @relation(fields: [relationshipId], references: [id], onDelete: SetNull)
 
   @@index([invitedPhone])
   @@index([familyId, status])
@@ -764,6 +776,20 @@ model HealthRecord {
 }
 
 // Round 15: the 8 conditions (owner-edited; `code` picks the app's page).
+/// Owner 2026-11-18: family relationships for the invitation ("Baba",
+/// "Ma", ...), EN/BN, owner-edited like conditions.
+model Relationship {
+  id          Int                @id @default(autoincrement())
+  code        String             @unique
+  nameEn      String
+  nameBn      String
+  sortOrder   Int                @default(0)
+  members     FamilyMember[]
+  invitations FamilyInvitation[]
+
+  @@map("relationships")
+}
+
 model Condition {
   id         Int             @id @default(autoincrement())
   code       String          @unique

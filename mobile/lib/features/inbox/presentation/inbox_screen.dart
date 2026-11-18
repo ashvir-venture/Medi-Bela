@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../notifications/push_service.dart';
 import '../../../router/app_router.dart';
+import '../../../widgets/notification_tone.dart';
 import '../../../widgets/state_views.dart';
 import '../domain/inbox_models.dart';
 import 'inbox_controller.dart';
@@ -118,31 +119,14 @@ class _InboxTile extends StatelessWidget {
   final InboxItem item;
   final VoidCallback onTap;
 
-  IconData get _icon {
-    switch (item.type) {
-      case 'MISSED_DOSE_FAMILY_ALERT':
-        return Icons.medication_outlined;
-      case 'PRESCRIPTION_UPDATE':
-        return Icons.description_outlined;
-      case 'NOTICE':
-        return Icons.campaign_outlined;
-      case 'MEDICINE_REMINDER':
-        return Icons.alarm_outlined;
-      default:
-        return Icons.notifications_outlined;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
       child: ListTile(
         onTap: onTap,
-        leading: CircleAvatar(
-          backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.12),
-          child: Icon(_icon, color: theme.colorScheme.primary),
-        ),
+        // Each kind its own colour and icon (owner 2026-11-18).
+        leading: NoteKindTile(noteKindOf(item.type, item.data)),
         title: Text(
           item.title,
           style: TextStyle(

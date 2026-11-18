@@ -94,7 +94,7 @@ class _MyCareScreenState extends ConsumerState<MyCareScreen> {
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: 10,
             crossAxisSpacing: 10,
-            childAspectRatio: 1.45,
+            childAspectRatio: 1.3,
             children: [
               for (final code in codes)
                 _ConditionTile(
@@ -128,7 +128,7 @@ class _MyCareScreenState extends ConsumerState<MyCareScreen> {
               else
                 Wrap(spacing: 8, runSpacing: 6, children: [
                   for (final code in codes.where(picked.contains))
-                    StateChip(conditionName(code, lookups, s.bn), tone: ToneKind.navy),
+                    StateChip(conditionName(code, lookups, s.bn), tone: conditionTone(code)),
                 ]),
             ]),
           ),
@@ -157,7 +157,9 @@ class _ConditionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final primary = Theme.of(context).colorScheme.primary;
+    // The condition's own colour (owner 2026-11-18): its icon on a coloured
+    // tile, and the whole tile in that colour once picked.
+    final (bg, fg) = toneColors(context, conditionTone(code));
     return Semantics(
       selected: selected,
       button: true,
@@ -167,13 +169,13 @@ class _ConditionTile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: selected ? p.primaryContainer : p.surface,
+            color: selected ? bg : p.surface,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: selected ? primary : p.line2, width: selected ? 2 : 1.5),
+            border: Border.all(color: selected ? fg : p.line2, width: selected ? 2 : 1.5),
           ),
           child: Stack(children: [
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Icon(conditionIcon(code), color: selected ? p.onPrimaryContainer : p.head),
+              IconTile(conditionIcon(code), tone: conditionTone(code), size: 36),
               const SizedBox(height: 4),
               Text(name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: AppType.body)),
               if (subtitle != null)
@@ -183,7 +185,7 @@ class _ConditionTile extends StatelessWidget {
               Positioned(
                 top: 0,
                 right: 0,
-                child: CircleAvatar(radius: 12, backgroundColor: primary, child: Icon(Icons.check, size: 14, color: Theme.of(context).colorScheme.onPrimary)),
+                child: CircleAvatar(radius: 12, backgroundColor: fg, child: Icon(Icons.check, size: 14, color: bg)),
               ),
           ]),
         ),

@@ -169,6 +169,62 @@ d('FamilyService (real Postgres)', () => {
     });
   });
 
+  describe('relationship chosen at the invitation (owner 2026-11-18)', () => {
+    const relation = (code: string, nameEn: string, nameBn: string) =>
+      prisma.relationship.upsert({ where: { code }, update: {}, create: { code, nameEn, nameBn } });
+
+    it('the inviter sees "Father" for the member; other members see only the name', async () => {
+      const { owner } = await familyOf();
+      const father = await relation('father', 'Father', 'বাবা');
+      const abba = await makeUser(prisma, 'Rahim');
+      const sister = await makeUser(prisma, 'Sister');
+      const inv = await svc.inviteMember(owner.id, { phone: abba.phone, relationshipId: father.id } as any);
+      expect(inv.relationship).toMatchObject({ code: 'father', nameBn: 'বাবা' });
+      await svc.acceptInvitation(abba.id, abba.phone, inv.id);
+      await join(owner, sister);
+
+      const mine = await svc.listMembers(owner.id);
+      expect(mine.find((m) => m.user.id === abba.id)?.relationship).toMatchObject({ code: 'father' });
+      expect(mine.find((m) => m.user.id === sister.id)?.relationship).toBeNull();
+      const hers = await svc.listMembers(sister.id);
+      expect(hers.find((m) => m.user.id === abba.id)?.relationship).toBeNull();
+
+      const summary = await svc.getMembersStatusSummary(owner.id);
+      expect(summary.members.find((m) => m.userId === abba.id)?.relationship).toMatchObject({ code: 'father' });
+      expect((await svc.getMemberStatus(owner.id, abba.id)).member.relationship).toMatchObject({ code: 'father' });
+      expect((await svc.getMemberStatus(sister.id, abba.id)).member.relationship).toBeNull();
+    });
+
+    it('an unknown relationship is refused', async () => {
+      const { owner } = await familyOf();
+      await expect(svc.inviteMember(owner.id, { phone: '01799999999', relationshipId: 999999 } as any)).rejects.toThrow(
+        'Unknown relationship',
+      );
+    });
+
+    it('only the one who chose it changes or clears it; anyone may set it when there is none', async () => {
+      const { owner } = await familyOf();
+      const father = await relation('father', 'Father', 'বাবা');
+      const son = await relation('son', 'Son', 'ছেলে');
+      const abba = await makeUser(prisma, 'Rahim');
+      const sister = await makeUser(prisma, 'Sister');
+      await join(owner, abba);
+      await join(owner, sister);
+
+      // None yet: the sister sets hers.
+      expect((await svc.setRelationship(sister.id, abba.id, father.id)).relationship).toMatchObject({ code: 'father' });
+      // Now it is hers: the owner may not overwrite it.
+      await expect(svc.setRelationship(owner.id, abba.id, son.id)).rejects.toThrow(ForbiddenException);
+      // She clears it; then the owner may choose.
+      expect((await svc.setRelationship(sister.id, abba.id, null)).relationship).toBeNull();
+      expect((await svc.setRelationship(owner.id, abba.id, father.id)).relationship).toMatchObject({ code: 'father' });
+      // Not for oneself, not outside the family.
+      await expect(svc.setRelationship(owner.id, owner.id, father.id)).rejects.toThrow('another member');
+      const stranger = await makeUser(prisma, 'Stranger');
+      await expect(svc.setRelationship(owner.id, stranger.id, father.id)).rejects.toThrow(NotFoundException);
+    });
+  });
+
   describe('member medicine status — isolation & privacy', () => {
     async function withDoses(user: any, doses: Array<{ h: number; status?: string }>) {
       const r = await prisma.medicineRoutine.create({ data: { userId: user.id, medicineName: 'Metformin', dosage: '500mg', frequency: 'd', startDate: new Date() } });

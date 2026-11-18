@@ -15,6 +15,7 @@ import { FamilyService } from './family.service';
 import { CreateFamilyDto } from './dto/create-family.dto';
 import { InviteMemberDto } from './dto/invite-member.dto';
 import { SetEasyModeDto } from './dto/set-easy-mode.dto';
+import { SetRelationshipDto } from './dto/set-relationship.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CaregiverAccessService } from './caregiver-access.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -133,6 +134,19 @@ export class FamilyController {
       await this.caregivers.notifyMember(acting, dto.on ? 'easy_mode_on' : 'easy_mode_off', `${Date.now()}`);
     }
     return { userId: acting.subjectId, easyMode: dto.on };
+  }
+
+  /**
+   * Owner 2026-11-18: what the caller calls this member ("Baba"), or null to
+   * clear it. Seen by the caller only (see FamilyService.setRelationship).
+   */
+  @Put('members/:userId/relationship')
+  setRelationship(
+    @CurrentUser('id') userId: string,
+    @Param('userId', ParseUUIDPipe) memberUserId: string,
+    @Body() dto: SetRelationshipDto,
+  ) {
+    return this.familyService.setRelationship(userId, memberUserId, dto.relationshipId);
   }
 
   @Get('members/:userId/status')

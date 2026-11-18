@@ -3,6 +3,7 @@ import { AccountStatus, NotificationType, Prisma, PushStatus } from '@prisma/cli
 import { PrismaService } from '../prisma/prisma.service';
 import { DeviceTokensService } from './device-tokens.service';
 import { PushService } from './push.service';
+import { notificationColor } from './lib/notification-color';
 
 export const MAX_PUSH_ATTEMPTS = 3;
 /** Push older than this is stale (e.g. "missed dose" from yesterday) — don't deliver late. */
@@ -188,6 +189,7 @@ export class NotificationsService {
           collapseKey: n.id,
           // Reminder backstops: the app shows them only if the doses are still untaken locally.
           dataOnly: n.type === NotificationType.MEDICINE_REMINDER,
+          color: notificationColor(n.type, n.data as Record<string, unknown> | null),
           data: {
             ...((n.data as Record<string, string> | null) ?? {}),
             notificationId: n.id,
