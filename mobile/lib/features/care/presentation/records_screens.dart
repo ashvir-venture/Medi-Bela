@@ -27,10 +27,10 @@ class RecordsScreen extends ConsumerWidget {
       showDragHandle: true,
       builder: (ctx) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Padding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 8), child: Text(s.whatToAdd, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700))),
+          Padding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 8), child: Text(s.whatToAdd, style: const TextStyle(fontSize: AppType.appBar, fontWeight: FontWeight.w700))),
           for (final (icon, tone, title, sub, path) in [
             (Icons.science_outlined, ToneKind.violet, s.addTestReport, s.addTestReportSub, testFormPath(done: true, who: who)),
-            (Icons.schedule, ToneKind.navy, s.addUpcomingTest, s.remindDayBefore, testFormPath(who: who)),
+            (Icons.schedule_outlined, ToneKind.navy, s.addUpcomingTest, s.remindDayBefore, testFormPath(who: who)),
             (Icons.description_outlined, ToneKind.navy, s.addRecordRx, s.addRecordRxSub, recordRxPath(who: who)),
             (Icons.medical_services_outlined, ToneKind.navy, s.addVisit, s.remindDayBefore, visitFormPath(who: who)),
           ])
@@ -113,7 +113,7 @@ class RecordsScreen extends ConsumerWidget {
                                 style: const TextStyle(fontWeight: FontWeight.w700),
                               ),
                               Text([inDaysLabel(a.day, s), if (a.time != null) hhmmLabel(context, a.time!, s), if (a.doctor != null && a.doctor!.line.isNotEmpty) a.doctor!.line].join(', '),
-                                  style: TextStyle(color: p.muted, fontSize: 13)),
+                                  style: TextStyle(color: p.muted, fontSize: AppType.small)),
                             ]),
                           ),
                           if (a.byCaregiver) StateChip(s.byCaregiver, tone: ToneKind.navy),
@@ -133,10 +133,10 @@ class RecordsScreen extends ConsumerWidget {
                         Expanded(
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                             Text(testName(t.testKindCode, t.otherName, lookups, s.bn), style: const TextStyle(fontWeight: FontWeight.w700)),
-                            Text([inDaysLabel(t.day, s), if (t.fasting) s.fasting].join(', '), style: TextStyle(color: p.muted, fontSize: 13)),
+                            Text([inDaysLabel(t.day, s), if (t.fasting) s.fasting].join(', '), style: TextStyle(color: p.muted, fontSize: AppType.small)),
                           ]),
                         ),
-                        Text(s.remindMe, style: TextStyle(color: p.muted, fontSize: 12)),
+                        Text(s.remindMe, style: TextStyle(color: p.muted, fontSize: AppType.tiny)),
                         Switch(
                           value: t.remind,
                           onChanged: (v) async {
@@ -253,7 +253,7 @@ class TestReportScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(14),
         children: [
           SectionCard(children: [
-            Text(shortDate(t.day, s, now: DateTime(0)), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+            Text(shortDate(t.day, s, now: DateTime(0)), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: AppType.body)),
             Text(t.lab ?? s.noLab, style: TextStyle(color: p.muted)),
             if (t.byCaregiver) Padding(padding: const EdgeInsets.only(top: 6), child: StateChip(s.byCaregiver, tone: ToneKind.navy)),
           ]),
@@ -268,17 +268,17 @@ class TestReportScreen extends ConsumerWidget {
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(kind?.fields.where((f) => f.id == v.fieldId).firstOrNull?.name(s.bn) ?? v.name, style: const TextStyle(fontWeight: FontWeight.w600)),
                       if (target(kind?.fields.where((f) => f.id == v.fieldId).firstOrNull?.code) != null)
-                        Text(target(kind!.fields.firstWhere((f) => f.id == v.fieldId).code)!, style: TextStyle(color: p.muted, fontSize: 12)),
+                        Text(target(kind!.fields.firstWhere((f) => f.id == v.fieldId).code)!, style: TextStyle(color: p.muted, fontSize: AppType.tiny)),
                     ]),
                   ),
-                  Text(v.textValue ?? numText(v.value ?? 0, s, decimals: 2), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                  Text(v.textValue ?? numText(v.value ?? 0, s, decimals: 2), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: AppType.title)),
                   const SizedBox(width: 6),
                   Text(v.unit ?? '', style: TextStyle(color: p.muted)),
                 ]),
               ),
             if ((t.findings ?? '').isNotEmpty) ...[
               const SizedBox(height: 8),
-              Text(s.findings, style: TextStyle(color: p.muted, fontSize: 13)),
+              Text(s.findings, style: TextStyle(color: p.muted, fontSize: AppType.small)),
               Text(t.findings!),
             ],
           ]),
@@ -462,7 +462,7 @@ class _RecordPrescriptionScreenState extends ConsumerState<RecordPrescriptionScr
                 Card(
                   child: ListTile(
                     title: Text(s.rxDate, style: const TextStyle(fontWeight: FontWeight.w700)),
-                    trailing: Text(shortDate(_date, s), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                    trailing: Text(shortDate(_date, s), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: AppType.body)),
                     onTap: () async {
                       final now = DateTime.now();
                       final d = await showDatePicker(context: context, initialDate: _date, firstDate: now.subtract(const Duration(days: 3650 * 3)), lastDate: now);

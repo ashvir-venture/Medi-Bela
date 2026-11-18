@@ -10,7 +10,7 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.view.WindowManager
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
@@ -26,8 +26,12 @@ import io.flutter.plugin.common.MethodChannel
  * full-screen intent on a locked phone); `finishAlarm` turns that off again
  * and returns to whatever was on screen before. Routes from alarms reach
  * Flutter through `openRoute` / `takeLaunchRoute`.
+ *
+ * Round 18: a FlutterFragmentActivity, as local_auth (fingerprint unlock)
+ * requires; the app offers fingerprint on Android 9+ only (`sdkInt`), where
+ * the system draws the prompt, so the launch theme needs no AppCompat parent.
  */
-class MainActivity : FlutterActivity() {
+class MainActivity : FlutterFragmentActivity() {
     private var channel: MethodChannel? = null
     private var launchRoute: String? = null
     private var launchedForAlarm = false
@@ -72,6 +76,8 @@ class MainActivity : FlutterActivity() {
                 "finishAlarm" -> result.success(finishAlarm())
                 // Round 14: phone-brand steps on Reminder check.
                 "deviceBrand" -> result.success(android.os.Build.MANUFACTURER ?: "")
+                // Round 18: fingerprint unlock is offered on Android 9+ (API 28).
+                "sdkInt" -> result.success(Build.VERSION.SDK_INT)
                 "openAppSettings" -> result.success(
                     launch(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))),
                 )

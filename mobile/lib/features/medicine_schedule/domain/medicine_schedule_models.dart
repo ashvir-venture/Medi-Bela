@@ -31,6 +31,15 @@ class ManagedRoutine {
     this.formName,
     this.intervalDays = 1,
     this.conditionCode,
+    this.weekdays = const [],
+    this.asNeeded = false,
+    this.maxPerDay,
+    this.minGapHours,
+    this.pillColor,
+    this.pillShape,
+    this.note,
+    this.hasPackPhoto = false,
+    this.takenToday = const [],
   });
 
   final String id;
@@ -53,6 +62,20 @@ class ManagedRoutine {
   final String? formName;
   /// Every N days (1 = every day).
   final int intervalDays;
+
+  /// Round 18 "Certain days": 0 = Sunday ... 6 = Saturday; empty = every day.
+  final List<int> weekdays;
+  /// Round 18 "Only when needed": no times; "Took one now" logs it.
+  final bool asNeeded;
+  final int? maxPerDay;
+  final int? minGapHours;
+  /// Round 18: the real tablet look (colour / shape codes) and the user's note.
+  final String? pillColor;
+  final String? pillShape;
+  final String? note;
+  final bool hasPackPhoto;
+  /// Round 18: as needed only: when it was taken today.
+  final List<DateTime> takenToday;
 
   bool get continuous => endDate == null;
 
@@ -81,6 +104,15 @@ class ManagedRoutine {
       formName: form?['name'] as String?,
       intervalDays: json['intervalDays'] as int? ?? 1,
       conditionCode: json['conditionCode'] as String?,
+      weekdays: ((json['weekdays'] as List<dynamic>?) ?? const []).whereType<int>().toList(),
+      asNeeded: json['asNeeded'] as bool? ?? false,
+      maxPerDay: json['maxPerDay'] as int?,
+      minGapHours: json['minGapHours'] as int?,
+      pillColor: json['pillColor'] as String?,
+      pillShape: json['pillShape'] as String?,
+      note: json['note'] as String?,
+      hasPackPhoto: json['hasPackPhoto'] as bool? ?? false,
+      takenToday: ((json['takenToday'] as List<dynamic>?) ?? const []).map((t) => DateTime.parse(t as String).toLocal()).toList(),
     );
   }
 }
@@ -226,4 +258,20 @@ DateTime takenWindowEnd(MedicineDoseModel dose, Iterable<MedicineDoseModel> know
     if (next == null || d.scheduledAt.isBefore(next)) next = d.scheduledAt;
   }
   return (next ?? dose.scheduledAt.add(const Duration(days: 1))).subtract(takenClosesBeforeNext);
+}
+
+
+/// Round 18: the answer to "Took one now".
+class AsNeededResult {
+  const AsNeededResult({required this.takenToday, required this.overMax, required this.tooSoon});
+
+  final List<DateTime> takenToday;
+  final bool overMax;
+  final bool tooSoon;
+
+  factory AsNeededResult.fromJson(Map<String, dynamic> json) => AsNeededResult(
+        takenToday: ((json['takenToday'] as List<dynamic>?) ?? const []).map((t) => DateTime.parse(t as String).toLocal()).toList(),
+        overMax: json['overMax'] as bool? ?? false,
+        tooSoon: json['tooSoon'] as bool? ?? false,
+      );
 }

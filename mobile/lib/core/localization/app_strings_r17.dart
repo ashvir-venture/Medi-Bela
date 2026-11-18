@@ -70,6 +70,7 @@ class Round17Strings {
         'routine.condition' => _('Set which condition a medicine is for', 'ওষুধটি কোন রোগের জন্য তা ঠিক করেছেন'),
         'dose.give' => _('Marked a dose as given', 'একটি ডোজ খাইয়ে দেওয়া হয়েছে বলে চিহ্নিত করেছেন'),
         'user.easy_mode' => _('Changed easy mode', 'সহজ মোড বদলেছেন'),
+        'user.reminder_timing' => _('Changed reminder timings', 'রিমাইন্ডারের সময় বদলেছেন'),
         'personal_reminder.create' => _('Set up a reminder', 'একটি রিমাইন্ডার তৈরি করেছেন'),
         'personal_reminder.update' => _('Changed a reminder', 'একটি রিমাইন্ডার বদলেছেন'),
         'personal_reminder.remove' => _('Removed a reminder', 'একটি রিমাইন্ডার সরিয়েছেন'),

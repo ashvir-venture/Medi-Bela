@@ -20,6 +20,7 @@ class AuthApi {
     String? languagePreference,
     Map<String, dynamic> details = const {},
     required bool acceptTerms,
+    bool acceptResearch = false,
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       ApiEndpoints.register,
@@ -27,6 +28,8 @@ class AuthApi {
         'phone': phone,
         // The Privacy & terms box; the server records when it was ticked.
         'acceptTerms': acceptTerms,
+        // Round 18: anonymous use of data (required to register).
+        'acceptResearch': acceptResearch,
         'name': name,
         'password': password,
         if (address != null && address.isNotEmpty) 'address': address,
@@ -52,8 +55,8 @@ class AuthApi {
     return (user, tokens, response.data!['reactivated'] == true);
   }
 
-  Future<void> logout() async {
-    await _dio.post(ApiEndpoints.logout);
+  Future<void> logout({String? refreshToken}) async {
+    await _dio.post(ApiEndpoints.logout, data: {'refreshToken': ?refreshToken});
   }
 
   Future<void> changePassword({

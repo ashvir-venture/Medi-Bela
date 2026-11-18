@@ -257,6 +257,10 @@ model User {
   birthYear                Int?
   // When the user ticked "I agree to the Privacy & terms" at sign-up (Round 11).
   termsAcceptedAt          DateTime?
+  /// Round 18 (client point 17): when the user agreed (required at sign-up)
+  /// that their health data may be used, without name or phone, to improve
+  /// the service. NULL for accounts from before Round 18.
+  researchConsentAt        DateTime?
   // Round 15: optional height (BMI on weight readings) and when the
   // "My care" step after sign-up was done or skipped (null = show it).
   heightCm                 Int?
@@ -280,6 +284,7 @@ model User {
   deviceTokens             DeviceToken[]
   assistantConversations   AssistantConversation[]
   passwordResetCode        PasswordResetCode?
+  refreshTokens            RefreshToken[]
   gender                   Gender?                 @relation(fields: [genderId], references: [id], onDelete: Restrict)
   division                 Division?               @relation(fields: [divisionId], references: [id], onDelete: Restrict)
   district                 District?               @relation(fields: [districtId, divisionId], references: [id, divisionId], onDelete: Restrict)
@@ -347,11 +352,21 @@ model FamilyEvent {
 }
 
 model FamilyMember {
-  id       String     @id @default(uuid()) @db.Uuid
-  familyId String     @db.Uuid
-  userId   String     @db.Uuid
-  role     FamilyRole @default(MEMBER)
-  joinedAt DateTime   @default(now())
+  id                    String     @id @default(uuid()) @db.Uuid
+  familyId              String     @db.Uuid
+  userId                String     @db.Uuid
+  role                  FamilyRole @default(MEMBER)
+  joinedAt              DateTime   @default(now())
+  /// Round 18 (owner 2026-11-17): what THIS member lets the family's
+  /// caregiver do, both off by default. View = see medicines, doses,
+  /// readings, records and prescriptions; Manage = change them (incl. "I gave
+  /// it", easy mode, reminder timings). Manage implies View (CHECK). With
+  /// both off the caregiver is only notified. Reset when the caregiver changes.
+  caregiverCanView      Boolean    @default(false)
+  caregiverCanManage    Boolean    @default(false)
+  /// When the member answered the permission question (NULL = ask: the
+  /// pop-up after joining, and again after a caregiver handover).
+  caregiverPermissionAt DateTime?
 
   family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -386,7 +401,12 @@ model Prescription {
   id                     String             @id @default(uuid()) @db.Uuid
   userId                 String             @db.Uuid
   // NULL once the patient deleted their account (the photo is erased).
+  // Round 18: page 1 (pageUrls holds every page).
   imageUrl               String?
+  /// Round 18 (client point 2): every page of a long prescription, in order
+  /// (1-5 private Cloudinary references, uploaded from the phone directly).
+  /// Empty for uploads from before Round 18 (imageUrl alone).
+  pageUrls               String[]           @default([])
   status                 PrescriptionStatus @default(PENDING)
   reviewedById           String?            @db.Uuid
   reviewedAt             DateTime?
@@ -478,6 +498,11 @@ model PrescriptionMedicine {
   // Every N days (1 = every day). N > 1 starts the day after confirmation
   // unless a start date is given.
   intervalDays   Int       @default(1)
+  /// Round 18: the pharmacist marks a line "only when needed" (no times);
+  /// confirmed into an as-needed routine. maxPerDay / minGapHours as written.
+  asNeeded       Boolean   @default(false)
+  maxPerDay      Int?
+  minGapHours    Int?
   // No end date: doses keep being generated (rolling) until stopped.
   continuous     Boolean   @default(false)
   verified       Boolean   @default(false)
@@ -519,6 +544,25 @@ model MedicineRoutine {
   // medicine is for (a conditions.code), shown on that condition's page.
   // A personal label only: never a recommendation. NULL = not tagged.
   conditionCode          String?
+  /// Round 18 (client note point 1): "Certain days": JSON array of weekdays
+  /// (0 = Sunday ... 6 = Saturday) of the app-timezone day; NULL = every day
+  /// (or every N days). Never together with intervalDays > 1.
+  weekdays               String?
+  /// Round 18: "Only when needed": no times, no doses generated, no
+  /// reminders, no late / missed and no family alert; "Took one now" creates
+  /// a TAKEN dose at that moment. maxPerDay / minGapHours only warn.
+  asNeeded               Boolean       @default(false)
+  maxPerDay              Int?
+  minGapHours            Int?
+  /// Round 18: the real tablet / capsule look (codes from the app: colour
+  /// w r g b y o p k ..., shape round oval capsule ...), shown in the app,
+  /// the full-screen reminder and (if the user allows) notifications.
+  pillColor              String?
+  pillShape              String?
+  /// Round 18: photo of the strip / pack (private Cloudinary reference).
+  packPhotoUrl           String?
+  /// Round 18: how to take it ("swallow with water"), the user's own note.
+  note                   String?
   // "HH:mm" JSON array, e.g. ["08:00","20:00"]. Set => the rolling job keeps
   // doses generated ahead (up to endDate, or with no end when endDate is
   // null). Null on routines created before Round 4: all their doses exist.
@@ -613,22 +657,41 @@ model PersonalReminder {
 /// Medicine box (Round 13): how many units of a routine's medicine were in
 /// the box at [countedAt]. What is left = quantity - units of the doses taken
 /// since then (units per dose = the number in the dose amount, else 1).
+/// Round 13 medicine box; Round 18 (client points 5, 6): also items with
+/// no reminder (a medicine kept at home, a care supply such as insulin,
+/// test strips, needles, lancets) and units by form (ml for a syrup).
 model MedicineStock {
-  id          String   @id @default(uuid()) @db.Uuid
-  userId      String   @db.Uuid
-  routineId   String   @unique @db.Uuid
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  /// The reminder it belongs to; NULL = a box-only item (named in `name`).
+  routineId   String?   @unique @db.Uuid
+  kind        StockKind @default(MEDICINE)
+  /// Box-only items: what it is ("Napa", "Test strips").
+  name        String?
+  /// What `quantity` counts: tablet, ml, puff, unit, piece, strip, pen...
+  unit        String?
+  /// Box-only items (no reminder to count from): how many are used a day.
+  perDay      Float?
+  /// Remind when this many days are left (default 3 for medicines, 5 for supplies).
+  refillDays  Int?
   quantity    Float
   countedAt   DateTime
-  updatedById String?  @db.Uuid
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  updatedById String?   @db.Uuid
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  user      User            @relation("MedicineStockOwner", fields: [userId], references: [id], onDelete: Cascade)
-  routine   MedicineRoutine @relation(fields: [routineId], references: [id], onDelete: Cascade)
-  updatedBy User?           @relation("MedicineStockUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  user      User             @relation("MedicineStockOwner", fields: [userId], references: [id], onDelete: Cascade)
+  routine   MedicineRoutine? @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  updatedBy User?            @relation("MedicineStockUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@map("medicine_stocks")
+}
+
+/// Round 18: what a medicine-box item is.
+enum StockKind {
+  MEDICINE
+  SUPPLY
 }
 
 model HealthReminder {
@@ -678,20 +741,20 @@ model HealthRecord {
   // Round 15: structured values next to the display `value`. numericValue:
   // sugar in mmol/L, weight kg, temperature °F, insulin units, sleep hours,
   // water glasses, peak flow L/min. BP: the average of 1-2 measurements.
-  numericValue    Float?
-  systolic        Int?
-  diastolic       Int?
-  pulse           Int?
-  bpArm           BpArm?
-  measurements    Int?
-  sugarContext    SugarContext?
-  injectionSite   InjectionSite?
-  injectionGiver  InjectionGiver?
+  numericValue   Float?
+  systolic       Int?
+  diastolic      Int?
+  pulse          Int?
+  bpArm          BpArm?
+  measurements   Int?
+  sugarContext   SugarContext?
+  injectionSite  InjectionSite?
+  injectionGiver InjectionGiver?
   // The insulin dose this injection was logged for (marks it taken too).
-  doseId          String?         @db.Uuid
-  rangeState      RangeState?
+  doseId         String?         @db.Uuid
+  rangeState     RangeState?
   // Set when the caregiver logged it for the member (never sent to apps).
-  enteredById     String?         @db.Uuid
+  enteredById    String?         @db.Uuid
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -1009,6 +1072,36 @@ model AssistantMessage {
 // One-time code (SMS) for the forgot-password flow. At most one live code per
 // user (re-requesting replaces it). Only an HMAC of the code is stored; it
 // expires quickly and locks after a few wrong guesses.
+/// Round 18: refresh tokens (owner 2026-11-17). Opaque random tokens, only
+/// their SHA-256 is stored. Each sign-in starts a family; every refresh marks
+/// the presented row used and adds the next one to the same family. A used
+/// row presented again after the reuse grace window revokes the whole family
+/// (a copied token). Rows older than the user's passwordChangedAt are dead.
+model RefreshToken {
+  id        String        @id @default(uuid()) @db.Uuid
+  userId    String        @db.Uuid
+  familyId  String        @db.Uuid
+  tokenHash String        @unique
+  client    RefreshClient
+  expiresAt DateTime
+  usedAt    DateTime?
+  revokedAt DateTime?
+  createdAt DateTime      @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+/// Who holds a refresh token: the phone app (60 days, in the response body)
+/// or the management panel (7 days, in an httpOnly cookie).
+enum RefreshClient {
+  APP
+  PANEL
+}
+
 model PasswordResetCode {
   id        String   @id @default(uuid()) @db.Uuid
   userId    String   @unique @db.Uuid
@@ -1139,10 +1232,10 @@ model Doctor {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  specialty     DoctorSpecialty? @relation(fields: [specialtyId], references: [id], onDelete: Restrict)
-  district      District?        @relation(fields: [districtId], references: [id], onDelete: Restrict)
-  createdBy     User?            @relation("DoctorCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  prescriptions Prescription[]
+  specialty           DoctorSpecialty?     @relation(fields: [specialtyId], references: [id], onDelete: Restrict)
+  district            District?            @relation(fields: [districtId], references: [id], onDelete: Restrict)
+  createdBy           User?                @relation("DoctorCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  prescriptions       Prescription[]
   appointments        Appointment[]
   recordPrescriptions RecordPrescription[]
 

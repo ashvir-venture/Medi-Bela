@@ -8,6 +8,8 @@ import { MedicineBoxController } from './medicine-box.controller';
 import { MedicineBoxService } from './medicine-box.service';
 import { FamilyModule } from '../family/family.module';
 import { CatalogModule } from '../catalog/catalog.module';
+import { PackPhotoService } from './pack-photo.service';
+import { CloudinaryService } from '../prescriptions/lib/cloudinary.service';
 
 @Module({
   imports: [FamilyModule, CatalogModule],
@@ -18,6 +20,8 @@ import { CatalogModule } from '../catalog/catalog.module';
     RollingDoseJob,
     RoutineManagementService,
     MedicineBoxService,
+    PackPhotoService,
+    CloudinaryService,
   ],
 })
 export class MedicineScheduleModule {}

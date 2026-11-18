@@ -59,7 +59,7 @@ class StateChip extends StatelessWidget {
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         if (icon != null) ...[Icon(icon, size: 14, color: fg), const SizedBox(width: 4)],
-        Flexible(child: Text(text, style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 13))),
+        Flexible(child: Text(text, style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: AppType.small))),
       ]),
     );
   }
@@ -105,7 +105,7 @@ class SectionCard extends StatelessWidget {
               ]),
             if (subtitle != null) ...[
               const SizedBox(height: 2),
-              Text(subtitle!, style: TextStyle(color: p.muted, fontSize: 13)),
+              Text(subtitle!, style: TextStyle(color: p.muted, fontSize: AppType.small)),
             ],
             if (title != null || subtitle != null) const SizedBox(height: 10),
             ...children,
@@ -151,7 +151,7 @@ class PillButton extends StatelessWidget {
             if (icon != null) ...[Icon(icon, size: 18, color: fg), const SizedBox(width: 6)],
             Flexible(
               child: Text(label,
-                  style: TextStyle(color: fg, fontWeight: selected ? FontWeight.w800 : FontWeight.w600, fontSize: 15)),
+                  style: TextStyle(color: fg, fontWeight: selected ? FontWeight.w800 : FontWeight.w600, fontSize: AppType.body)),
             ),
           ]),
         ),
@@ -175,9 +175,9 @@ class StatBox extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(color: p.surface2, borderRadius: BorderRadius.circular(16)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: TextStyle(color: p.muted, fontSize: 13)),
-        Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: p.head)),
-        if (sub != null) Text(sub!, style: TextStyle(color: p.muted, fontSize: 13)),
+        Text(label, style: TextStyle(color: p.muted, fontSize: AppType.small)),
+        Text(value, style: TextStyle(fontSize: AppType.title, fontWeight: FontWeight.w700, color: p.head)),
+        if (sub != null) Text(sub!, style: TextStyle(color: p.muted, fontSize: AppType.small)),
       ]),
     );
   }
@@ -263,7 +263,7 @@ class SparkChart extends StatelessWidget {
       if (labels.isNotEmpty)
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [for (final l in labels) Text(l, style: TextStyle(color: p.muted, fontSize: 12))],
+          children: [for (final l in labels) Text(l, style: TextStyle(color: p.muted, fontSize: AppType.tiny))],
         ),
     ]);
   }
@@ -374,7 +374,7 @@ class TrendBars extends StatelessWidget {
           for (final pt in shown)
             Expanded(
               child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
-                Text(_num(pt.$2), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                Text(_num(pt.$2), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: AppType.small)),
                 const SizedBox(height: 4),
                 Container(
                   width: 22,
@@ -385,12 +385,12 @@ class TrendBars extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(pt.$1, style: TextStyle(color: p.muted, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(pt.$1, style: TextStyle(color: p.muted, fontSize: AppType.tiny), maxLines: 1, overflow: TextOverflow.ellipsis),
               ]),
             ),
         ]),
       ),
-      if (unit != null) Text(unit!, style: TextStyle(color: p.muted, fontSize: 12)),
+      if (unit != null) Text(unit!, style: TextStyle(color: p.muted, fontSize: AppType.tiny)),
     ]);
   }
 
@@ -410,7 +410,7 @@ class NoteLine extends StatelessWidget {
     return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(padding: const EdgeInsets.only(top: 1), child: Icon(icon, size: 18, color: p.muted)),
       const SizedBox(width: 8),
-      Expanded(child: Text(text, style: TextStyle(color: p.muted, fontSize: 13))),
+      Expanded(child: Text(text, style: TextStyle(color: p.muted, fontSize: AppType.small))),
     ]);
   }
 }
@@ -430,8 +430,8 @@ class DateBox extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(color: p.navyContainer, borderRadius: BorderRadius.circular(12)),
       child: Column(children: [
-        Text(day, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: p.onNavyContainer)),
-        Text(month, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: p.onNavyContainer)),
+        Text(day, style: TextStyle(fontSize: AppType.title, fontWeight: FontWeight.w800, color: p.onNavyContainer)),
+        Text(month, style: TextStyle(fontSize: AppType.tiny, fontWeight: FontWeight.w600, color: p.onNavyContainer)),
       ]),
     );
   }

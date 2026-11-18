@@ -66,14 +66,31 @@ int lastRingEnds({required int rings, required int repeatMinutes, required int r
 
 final reminderRulesProvider = FutureProvider.autoDispose<ReminderRulesState>((ref) async {
   final res = await ref.watch(dioClientProvider).dio.get<Map<String, dynamic>>(ApiEndpoints.reminderTiming);
-  return ReminderRulesState(
-    defaults: ReminderTiming.fromJson((res.data?['defaults'] as Map<String, dynamic>?) ?? const {}),
-    own: ReminderRules.fromJson(res.data?['own'] as Map<String, dynamic>?),
-  );
+  return _rulesState(res.data);
 });
 
+/// Round 18 (client point 14): a member's timings, read by their caregiver
+/// (the member's View permission; saving needs Manage).
+final memberReminderRulesProvider = FutureProvider.autoDispose.family<ReminderRulesState, String>((ref, forUserId) async {
+  final res = await ref
+      .watch(dioClientProvider)
+      .dio
+      .get<Map<String, dynamic>>(ApiEndpoints.reminderTiming, queryParameters: {'forUserId': forUserId});
+  return _rulesState(res.data);
+});
+
+ReminderRulesState _rulesState(Map<String, dynamic>? data) => ReminderRulesState(
+      defaults: ReminderTiming.fromJson((data?['defaults'] as Map<String, dynamic>?) ?? const {}),
+      own: ReminderRules.fromJson(data?['own'] as Map<String, dynamic>?),
+    );
+
 class ReminderRulesScreen extends ConsumerStatefulWidget {
-  const ReminderRulesScreen({super.key});
+  const ReminderRulesScreen({super.key, this.forUserId, this.memberName});
+
+  /// Round 18: the caregiver setting a member's timings (incl. when the
+  /// caregiver is told); null = my own.
+  final String? forUserId;
+  final String? memberName;
 
   @override
   ConsumerState<ReminderRulesScreen> createState() => _ReminderRulesScreenState();
@@ -87,16 +104,17 @@ class _ReminderRulesScreenState extends ConsumerState<ReminderRulesScreen> {
   Widget build(BuildContext context) {
     final strings = ref.watch(stringsProvider);
     final s = strings.r14;
-    final async = ref.watch(reminderRulesProvider);
+    final forUserId = widget.forUserId;
+    final async = forUserId == null ? ref.watch(reminderRulesProvider) : ref.watch(memberReminderRulesProvider(forUserId));
     return Scaffold(
-      appBar: AppBar(title: Text(s.routineTitle)),
+      appBar: AppBar(title: Text(forUserId == null ? s.routineTitle : strings.r18.memberTimings(widget.memberName ?? ''))),
       body: OnlineOnly(
         child: async.when(
           loading: () => const LoadingView(),
           error: (e, _) => ErrorView(
             message: friendlyErrorMessage(e),
             retryLabel: strings.retry,
-            onRetry: () => ref.invalidate(reminderRulesProvider),
+            onRetry: () => _invalidate(),
           ),
           data: (state) => _form(context, strings, state),
         ),
@@ -120,7 +138,7 @@ class _ReminderRulesScreenState extends ConsumerState<ReminderRulesScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(s.routineIntro, style: TextStyle(color: p.muted, fontSize: 15)),
+        Text(s.routineIntro, style: TextStyle(color: p.muted, fontSize: AppType.body)),
         const SizedBox(height: 12),
         Card(
           child: Padding(
@@ -172,7 +190,7 @@ class _ReminderRulesScreenState extends ConsumerState<ReminderRulesScreen> {
           ),
         ),
         const SizedBox(height: 10),
-        Text(s.lastRing(lastEnds), style: TextStyle(color: p.muted, fontSize: 14)),
+        Text(s.lastRing(lastEnds), style: TextStyle(color: p.muted, fontSize: AppType.small)),
         if (!valid) ...[
           const SizedBox(height: 8),
           Container(
@@ -198,6 +216,15 @@ class _ReminderRulesScreenState extends ConsumerState<ReminderRulesScreen> {
     );
   }
 
+  void _invalidate() {
+    final forUserId = widget.forUserId;
+    if (forUserId == null) {
+      ref.invalidate(reminderRulesProvider);
+    } else {
+      ref.invalidate(memberReminderRulesProvider(forUserId));
+    }
+  }
+
   Future<void> _save(ReminderRules rules) async {
     final s = ref.read(stringsProvider).r14;
     setState(() => _saving = true);
@@ -205,13 +232,18 @@ class _ReminderRulesScreenState extends ConsumerState<ReminderRulesScreen> {
       final res = await ref
           .read(dioClientProvider)
           .dio
-          .put<Map<String, dynamic>>(ApiEndpoints.reminderTiming, data: rules.toJson());
+          .put<Map<String, dynamic>>(
+            ApiEndpoints.reminderTiming,
+            data: rules.toJson(),
+            queryParameters: {'forUserId': ?widget.forUserId},
+          );
       final effective = res.data?['effective'];
-      if (effective is Map<String, dynamic> && await ReminderTiming.apply(effective)) {
+      // A member's timings apply on the member's phone, never on this one.
+      if (widget.forUserId == null && effective is Map<String, dynamic> && await ReminderTiming.apply(effective)) {
         ref.read(notificationSchedulerProvider).timingChanged();
       }
       _draft = null;
-      ref.invalidate(reminderRulesProvider);
+      _invalidate();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.saved)));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
@@ -274,12 +306,12 @@ class _StepperRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                Text(help, style: TextStyle(color: p.muted, fontSize: 13)),
+                Text(title, style: const TextStyle(fontSize: AppType.body, fontWeight: FontWeight.w700)),
+                Text(help, style: TextStyle(color: p.muted, fontSize: AppType.small)),
                 if (isDefault)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
-                    child: Text(defaultTag, style: TextStyle(color: p.link, fontSize: 12, fontWeight: FontWeight.w700)),
+                    child: Text(defaultTag, style: TextStyle(color: p.link, fontSize: AppType.tiny, fontWeight: FontWeight.w700)),
                   ),
               ],
             ),
@@ -287,7 +319,7 @@ class _StepperRow extends StatelessWidget {
           btn(Icons.remove, down),
           SizedBox(
             width: 76,
-            child: Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+            child: Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: AppType.body, fontWeight: FontWeight.w800)),
           ),
           btn(Icons.add, up),
         ],

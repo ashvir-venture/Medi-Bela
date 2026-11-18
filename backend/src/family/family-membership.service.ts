@@ -91,6 +91,12 @@ export class FamilyMembershipService {
     if (membership.role === FamilyRole.CAREGIVER) {
       const next = remaining[0];
       await tx.familyMember.update({ where: { id: next.id }, data: { role: FamilyRole.CAREGIVER } });
+      // Round 18: what members allowed the old caregiver does not pass to the
+      // new one; everyone is asked again.
+      await tx.familyMember.updateMany({
+        where: { familyId },
+        data: { caregiverCanView: false, caregiverCanManage: false, caregiverPermissionAt: null },
+      });
       await tx.familyEvent.create({
         data: { familyId, kind: FamilyEventKind.CAREGIVER_CHANGED, subjectUserId: next.userId, actorUserId: null },
       });

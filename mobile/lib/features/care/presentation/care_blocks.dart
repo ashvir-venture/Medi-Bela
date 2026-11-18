@@ -80,8 +80,8 @@ class _DangerBlockState extends ConsumerState<DangerBlock> {
           const SizedBox(width: 10),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(tr(d.title, s.bn), style: TextStyle(color: p.later, fontWeight: FontWeight.w700, fontSize: 16)),
-              Text(open ? s.rememberShare : s.whenToAct, style: TextStyle(color: p.muted, fontSize: 13)),
+              Text(tr(d.title, s.bn), style: TextStyle(color: p.later, fontWeight: FontWeight.w700, fontSize: AppType.body)),
+              Text(open ? s.rememberShare : s.whenToAct, style: TextStyle(color: p.muted, fontSize: AppType.small)),
             ]),
           ),
           Icon(open ? Icons.expand_less : Icons.expand_more),
@@ -101,7 +101,7 @@ class _DangerBlockState extends ConsumerState<DangerBlock> {
           child: FilledButton.icon(
             style: FilledButton.styleFrom(backgroundColor: p.later, foregroundColor: p.onLater),
             onPressed: () => openExternal(context, ref, 'tel:999', fallbackCopy: '999'),
-            icon: const Icon(Icons.phone, size: 18),
+            icon: const Icon(Icons.phone_outlined, size: 18),
             label: FitLabel(Text(s.call999)),
           ),
         ),
@@ -115,7 +115,7 @@ class _DangerBlockState extends ConsumerState<DangerBlock> {
         ),
       ]),
       const SizedBox(height: 6),
-      Text(tr(helpline16263, s.bn), style: TextStyle(color: p.muted, fontSize: 12)),
+      Text(tr(helpline16263, s.bn), style: TextStyle(color: p.muted, fontSize: AppType.tiny)),
     ]);
   }
 }
@@ -164,7 +164,7 @@ class _HabitsBlockState extends ConsumerState<HabitsBlock> {
       title: s.todaysHabits,
       trailing: TextButton.icon(
         onPressed: () => setState(() => _edit = !_edit),
-        icon: Icon(_edit ? Icons.check : Icons.tune, size: 18),
+        icon: Icon(_edit ? Icons.check : Icons.tune_outlined, size: 18),
         label: Text(_edit ? s.done : s.edit),
       ),
       children: [
@@ -265,7 +265,7 @@ class _SymptomsBlockState extends ConsumerState<SymptomsBlock> {
         );
     return SectionCard(
       title: s.howFeel,
-      trailing: last == null ? null : Text(s.lastOn(dayLabel(last.loggedAt, s)), style: TextStyle(color: p.muted, fontSize: 13)),
+      trailing: last == null ? null : Text(s.lastOn(dayLabel(last.loggedAt, s)), style: TextStyle(color: p.muted, fontSize: AppType.small)),
       subtitle: s.howFeelSub,
       children: [
         Wrap(spacing: 6, runSpacing: 6, children: [
@@ -290,7 +290,7 @@ class _SymptomsBlockState extends ConsumerState<SymptomsBlock> {
                   child: FilledButton.icon(
                     style: FilledButton.styleFrom(backgroundColor: p.later, foregroundColor: p.onLater),
                     onPressed: () => openExternal(context, ref, 'tel:999', fallbackCopy: '999'),
-                    icon: const Icon(Icons.phone, size: 18),
+                    icon: const Icon(Icons.phone_outlined, size: 18),
                     label: FitLabel(Text(s.call999)),
                   ),
                 ),
@@ -436,14 +436,14 @@ class _RegularTestsBlockState extends ConsumerState<RegularTestsBlock> {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
-              Text(sub, style: TextStyle(color: p.muted, fontSize: 13)),
+              Text(sub, style: TextStyle(color: p.muted, fontSize: AppType.small)),
               if (next == null && due != null)
                 Text(overdue ? s.wasDue(shortDate(due, s)) : s.dueOn(shortDate(due, s)),
-                    style: TextStyle(color: overdue ? p.onWarnContainer : p.muted, fontWeight: FontWeight.w600, fontSize: 13)),
+                    style: TextStyle(color: overdue ? p.onWarnContainer : p.muted, fontWeight: FontWeight.w600, fontSize: AppType.small)),
             ]),
           ),
           if (next != null)
-            StateChip(inDaysLabel(next.day, s), tone: next.day.difference(DateTime.now()).inDays <= 7 ? ToneKind.warn : ToneKind.navy, icon: Icons.schedule)
+            StateChip(inDaysLabel(next.day, s), tone: next.day.difference(DateTime.now()).inDays <= 7 ? ToneKind.warn : ToneKind.navy, icon: Icons.schedule_outlined)
           else
             OutlinedButton(
               style: compactOutlined,
@@ -459,7 +459,7 @@ class _RegularTestsBlockState extends ConsumerState<RegularTestsBlock> {
       subtitle: _edit ? s.regularTestsEdit : s.regularTestsSub,
       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
         if (!_edit) TextButton(onPressed: () => context.push(recordsPath(c.who)), child: Text(s.allRecords)),
-        TextButton.icon(onPressed: () => setState(() => _edit = !_edit), icon: Icon(_edit ? Icons.check : Icons.tune, size: 18), label: Text(_edit ? s.done : s.edit)),
+        TextButton.icon(onPressed: () => setState(() => _edit = !_edit), icon: Icon(_edit ? Icons.check : Icons.tune_outlined, size: 18), label: Text(_edit ? s.done : s.edit)),
       ]),
       children: [
         if (tests.isEmpty) Text(s.noTests, style: TextStyle(color: p.muted)),
@@ -513,8 +513,8 @@ class NextVisitBlock extends ConsumerWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('${s.doctorVisit}, ${inDaysLabel(next.day, s)}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-              Text(line, style: TextStyle(color: p.muted, fontSize: 13)),
+              Text('${s.doctorVisit}, ${inDaysLabel(next.day, s)}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: AppType.body)),
+              Text(line, style: TextStyle(color: p.muted, fontSize: AppType.small)),
             ]),
           ),
         ]),

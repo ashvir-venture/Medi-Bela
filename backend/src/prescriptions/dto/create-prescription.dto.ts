@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
 /**
  * Body fields alongside the multipart `image` file. `clientId` mirrors
@@ -25,4 +25,19 @@ export class CreatePrescriptionDto {
   @IsOptional()
   @IsUUID()
   previousPrescriptionId?: string;
+}
+
+/**
+ * Round 18 (client point 2): a prescription whose pages the phone already
+ * uploaded straight to Cloudinary (POST /uploads/sign, purpose
+ * "prescription"). Created only when every page is there, so the
+ * pharmacist never sees half a prescription.
+ */
+export class CreatePrescriptionFromPagesDto extends CreatePrescriptionDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(5)
+  @IsString({ each: true })
+  @MaxLength(200, { each: true })
+  pages: string[];
 }

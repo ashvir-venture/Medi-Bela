@@ -38,6 +38,6 @@ export class JwtAccessStrategy extends PassportStrategy(
       throw new UnauthorizedException('Session expired. Please log in again.');
     }
 
-    return { id: user.id, phone: user.phone, role: user.role };
+    return { id: user.id, phone: user.phone, role: user.role, sid: payload.sid };
   }
 }

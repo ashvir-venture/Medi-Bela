@@ -13,6 +13,7 @@ import 'notifications/reminder_actions.dart';
 import 'notifications/reminder_preference.dart';
 import 'notifications/reminder_timing.dart';
 import 'providers/core_providers.dart';
+import 'notifications/notification_look.dart';
 
 /// Shared plugin instance for scheduling on-device reminders (medicine
 /// times, health check-ins). Initialized once at startup and used by
@@ -72,6 +73,7 @@ Future<void> main() async {
   initTimeZones();
   // Reminder timings the server last sent (its .env), before anything is scheduled.
   await ReminderTiming.load();
+  await NotificationLook.load();
   final reminders = ReminderPreference();
   await reminders.load();
   final container = ProviderContainer(

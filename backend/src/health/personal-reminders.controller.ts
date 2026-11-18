@@ -24,7 +24,7 @@ export class PersonalRemindersController {
     @CurrentUser('id') userId: string,
     @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
   ) {
-    const acting = await this.caregivers.resolve(userId, forUserId);
+    const acting = await this.caregivers.resolve(userId, forUserId, 'view');
     return this.reminders.list(acting.subjectId);
   }
 

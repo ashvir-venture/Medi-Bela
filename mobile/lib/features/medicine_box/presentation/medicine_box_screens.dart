@@ -11,6 +11,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_mapper.dart';
 import '../../../providers/core_providers.dart';
 import '../../../router/app_router.dart';
+import '../../../widgets/pill_icon.dart';
 import '../../../widgets/state_views.dart';
 import '../domain/medicine_box_models.dart';
 import '../../../widgets/fit_label.dart';
@@ -68,6 +69,24 @@ class _MedicineBoxScreenState extends ConsumerState<MedicineBoxScreen> {
     if (changed == true && widget.forUserId != null) ref.invalidate(_memberBoxProvider(widget.forUserId!));
   }
 
+  /// Round 18: after adding, counting or removing a box-only item.
+  Future<void> _afterExtra(MedicineBox box) async {
+    if (widget.forUserId != null) {
+      ref.invalidate(_memberBoxProvider(widget.forUserId!));
+    } else {
+      await _refresh();
+    }
+  }
+
+  Future<void> _addExtra(BuildContext context) async {
+    final box = await showModalBottomSheet<MedicineBox>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _AddExtraSheet(forUserId: widget.forUserId),
+    );
+    if (box != null) await _afterExtra(box);
+  }
+
   @override
   Widget build(BuildContext context) {
     final strings = ref.watch(stringsProvider);
@@ -94,18 +113,24 @@ class _MedicineBoxScreenState extends ConsumerState<MedicineBoxScreen> {
                   ? ErrorView(message: _error!, retryLabel: strings.retry, onRetry: _refresh)
                   : const LoadingView();
             }
-            if (box.items.isEmpty) {
-              return ListView(children: [
-                const SizedBox(height: 80),
-                EmptyView(message: strings.boxNoMedicines, icon: Icons.medication_outlined),
-              ]);
+            if (box.items.isNotEmpty && !box.started && box.extras.isEmpty) {
+              return _StartView(strings: strings, onStart: () => _openForm());
             }
-            if (!box.started) return _StartView(strings: strings, onStart: () => _openForm());
+            final s = strings.r18;
+            // Round 18 (client points 5, 6): medicines, then care supplies
+            // and medicines with no reminder, each with how long it lasts.
             return ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               children: [
-                Text(strings.medicineBoxHelp, style: TextStyle(color: context.palette.muted)),
+                Text(strings.medicineBoxHelp, style: TextStyle(color: context.palette.muted, fontSize: AppType.small)),
                 const SizedBox(height: 12),
+                Text(s.boxMedicines, style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                if (box.items.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(strings.boxNoMedicines, style: TextStyle(color: context.palette.muted)),
+                  ),
                 for (final item in box.items)
                   _ItemCard(
                     item: item,
@@ -115,6 +140,18 @@ class _MedicineBoxScreenState extends ConsumerState<MedicineBoxScreen> {
                         : 0,
                     onRefill: () => _openForm(routineId: item.routineId),
                   ),
+                const SizedBox(height: 12),
+                Text(s.careSupplies, style: Theme.of(context).textTheme.titleMedium),
+                Text(s.careSuppliesSub, style: TextStyle(color: context.palette.muted, fontSize: AppType.small)),
+                const SizedBox(height: 8),
+                for (final x in box.extras)
+                  _ExtraCard(item: x, strings: strings, onChanged: _afterExtra, forUserId: widget.forUserId),
+                OutlinedButton.icon(
+                  key: const ValueKey('box-add-item'),
+                  onPressed: () => _addExtra(context),
+                  icon: const Icon(Icons.add_rounded),
+                  label: Text(s.addItem),
+                ),
               ],
             );
           },
@@ -146,7 +183,7 @@ class _StartView extends StatelessWidget {
         FilledButton.icon(
           style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
           onPressed: onStart,
-          icon: const Icon(Icons.play_arrow),
+          icon: const Icon(Icons.play_arrow_outlined),
           label: Text(strings.startMedicineBox),
         ),
       ],
@@ -178,7 +215,7 @@ class _ItemCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            Icon(Icons.medication_outlined, color: item.counted ? color : context.palette.muted),
+            PillIcon(color: item.pillColor, shape: item.pillShape, formName: item.formName, size: 40),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -190,7 +227,12 @@ class _ItemCard extends StatelessWidget {
                   Text(
                     left == null
                         ? strings.notCountedYet
-                        : '${strings.unitsLeft(formatUnits(left))} • ${strings.dosesLeft(doses ?? 0)}',
+                        // Round 18: in the box's own unit (ml for a syrup) and days left.
+                        : [
+                            strings.r18.leftAmount('${formatUnits(left)} ${strings.r18.unitName(item.unit ?? 'dose')}'),
+                            if (item.daysLeftWith(pendingTaken) != null) strings.r18.daysLeftTag(item.daysLeftWith(pendingTaken)!)
+                            else strings.dosesLeft(doses ?? 0),
+                          ].join(' · '),
                     style: TextStyle(color: item.counted ? color : context.palette.muted, fontWeight: FontWeight.w600),
                   ),
                 ],
@@ -318,7 +360,7 @@ class _MedicineBoxFormScreenState extends ConsumerState<MedicineBoxFormScreen> {
                       controller: _fields[item.routineId],
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
-                      style: const TextStyle(fontSize: 20),
+                      style: const TextStyle(fontSize: AppType.appBar),
                       decoration: InputDecoration(
                         labelText: item.medicineName,
                         helperText: [item.formName, item.doseAmount].whereType<String>().join(' • '),
@@ -503,6 +545,223 @@ class MedicineBoxButton extends ConsumerWidget {
         subtitle: Text(strings.medicineBoxCardSubtitle),
         trailing: const Icon(Icons.chevron_right),
         onTap: open,
+      ),
+    );
+  }
+}
+
+
+/// Round 18 (client point 5): a box item with no reminder.
+class _ExtraCard extends ConsumerWidget {
+  const _ExtraCard({required this.item, required this.strings, required this.onChanged, this.forUserId});
+
+  final BoxExtra item;
+  final AppStrings strings;
+  final Future<void> Function(MedicineBox) onChanged;
+  final String? forUserId;
+
+  Future<void> _bought(BuildContext context, WidgetRef ref) async {
+    final s = strings.r18;
+    final c = TextEditingController(text: formatUnits(item.remaining));
+    final value = await showDialog<double>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(s.newCount),
+        content: TextField(
+          controller: c,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(suffixText: s.unitName(item.unit ?? 'piece')),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(strings.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(ctx, double.tryParse(c.text.trim())), child: Text(strings.save)),
+        ],
+      ),
+    );
+    c.dispose();
+    if (value == null) return;
+    try {
+      await onChanged(await ref.read(medicineBoxApiProvider).updateExtra(item.id, {'quantity': value}, forUserId: forUserId));
+    } catch (e) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
+    }
+  }
+
+  Future<void> _remove(BuildContext context, WidgetRef ref) async {
+    try {
+      await onChanged(await ref.read(medicineBoxApiProvider).removeExtra(item.id, forUserId: forUserId));
+    } catch (e) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = strings.r18;
+    final p = context.palette;
+    final low = item.low;
+    return Card(
+      key: ValueKey('box-extra-${item.id}'),
+      margin: const EdgeInsets.only(bottom: 12),
+      color: low ? p.warnContainer : null,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+        child: Row(children: [
+          Icon(item.isSupply ? Icons.medical_services_outlined : Icons.medication_outlined, color: low ? p.onWarnContainer : p.head),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(item.name, style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                [
+                  s.leftAmount('${formatUnits(item.remaining)} ${s.unitName(item.unit ?? 'piece')}'),
+                  if (item.daysLeft != null) s.daysLeftTag(item.daysLeft!),
+                  if (!item.isSupply) s.noReminder,
+                ].join(' · '),
+                style: TextStyle(color: low ? p.onWarnContainer : p.muted, fontSize: AppType.small, fontWeight: FontWeight.w600),
+              ),
+            ]),
+          ),
+          FilledButton.tonal(onPressed: () => _bought(context, ref), child: Text(s.bought)),
+          PopupMenuButton<String>(
+            onSelected: (_) => _remove(context, ref),
+            itemBuilder: (_) => [PopupMenuItem(value: 'remove', child: Text(s.removeItem))],
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+/// Round 18: add a care supply or a medicine kept with no reminder.
+class _AddExtraSheet extends ConsumerStatefulWidget {
+  const _AddExtraSheet({this.forUserId});
+
+  final String? forUserId;
+
+  @override
+  ConsumerState<_AddExtraSheet> createState() => _AddExtraSheetState();
+}
+
+class _AddExtraSheetState extends ConsumerState<_AddExtraSheet> {
+  final _name = TextEditingController();
+  final _count = TextEditingController();
+  final _perDay = TextEditingController();
+  String _kind = 'SUPPLY';
+  String _unit = 'piece';
+  int _refill = 5;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _count.dispose();
+    _perDay.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final strings = ref.read(stringsProvider);
+    final count = double.tryParse(_count.text.trim());
+    if (_name.text.trim().isEmpty || count == null) {
+      setState(() => _error = strings.requiredField);
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final box = await ref.read(medicineBoxApiProvider).addExtra({
+        'kind': _kind,
+        'name': _name.text.trim(),
+        'unit': _unit,
+        'quantity': count,
+        'perDay': ?double.tryParse(_perDay.text.trim()),
+        'refillDays': _refill,
+      }, forUserId: widget.forUserId);
+      if (mounted) Navigator.pop(context, box);
+    } catch (e) {
+      if (mounted) setState(() => _error = friendlyErrorMessage(e));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = ref.watch(stringsProvider);
+    final s = strings.r18;
+    final p = context.palette;
+    Widget choice(String label, bool on, VoidCallback onTap) => ChoiceChip(label: Text(label), selected: on, onSelected: (_) => onTap());
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+      child: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(s.addItem, style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 12),
+          Wrap(spacing: 8, children: [
+            choice(s.kindSupply, _kind == 'SUPPLY', () => setState(() => _kind = 'SUPPLY')),
+            choice(s.kindMedicine, _kind == 'MEDICINE', () => setState(() {
+                  _kind = 'MEDICINE';
+                  if (_unit == 'piece') _unit = 'tablet';
+                })),
+          ]),
+          if (_kind == 'SUPPLY') ...[
+            const SizedBox(height: 10),
+            Text(s.suggested, style: TextStyle(color: p.muted, fontSize: AppType.small)),
+            const SizedBox(height: 6),
+            Wrap(spacing: 6, runSpacing: 6, children: [
+              for (final (name, unit) in s.supplySuggestions)
+                ActionChip(
+                  label: Text(name),
+                  onPressed: () => setState(() {
+                    _name.text = name;
+                    _unit = unit;
+                  }),
+                ),
+            ]),
+          ],
+          const SizedBox(height: 12),
+          TextField(key: const ValueKey('extra-name'), controller: _name, decoration: InputDecoration(labelText: s.itemName, hintText: s.itemNameHint)),
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(
+              child: TextField(
+                key: const ValueKey('extra-count'),
+                controller: _count,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(labelText: s.howManyNow),
+              ),
+            ),
+            const SizedBox(width: 8),
+            DropdownButton<String>(
+              value: _unit,
+              underline: const SizedBox.shrink(),
+              items: [for (final u in const ['piece', 'tablet', 'capsule', 'ml', 'pen', 'vial', 'strip', 'unit', 'puff', 'sachet']) DropdownMenuItem(value: u, child: Text(s.unitName(u)))],
+              onChanged: (v) => setState(() => _unit = v ?? _unit),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _perDay,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(labelText: s.usedPerDay, helperText: s.usedPerDayHelp),
+          ),
+          const SizedBox(height: 12),
+          Wrap(crossAxisAlignment: WrapCrossAlignment.center, spacing: 6, children: [
+            Text(s.remindWhenLeft, style: TextStyle(color: p.muted, fontSize: AppType.small)),
+            for (final d in const [3, 5, 7]) choice(s.daysN(d), _refill == d, () => setState(() => _refill = d)),
+          ]),
+          if (_error != null) ...[
+            const SizedBox(height: 8),
+            Text(_error!, style: TextStyle(color: p.later, fontWeight: FontWeight.w600)),
+          ],
+          const SizedBox(height: 16),
+          FilledButton(key: const ValueKey('extra-save'), onPressed: _saving ? null : _save, child: Text(strings.save)),
+        ]),
       ),
     );
   }

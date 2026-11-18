@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrescriptionMedicine } from '@prisma/client';
-import { addAppDays, atAppTime, startOfAppDay } from '../../common/utils/time.util';
+import { addAppDays, appUtcOffsetMinutes, atAppTime, startOfAppDay } from '../../common/utils/time.util';
 
 /**
  * Doses are generated on a rolling basis: only this many days ahead of
@@ -27,10 +27,14 @@ export interface GeneratedRoutine {
   formId: number | null;
   /** Every N days (1 = every day), counted from startDate. */
   intervalDays: number;
-  /** Stored on the routine so the rolling job can continue it. */
-  scheduleTimes: string;
-  /** Doses exist up to (excluding) this instant. */
-  generatedUntil: Date;
+  /** Stored on the routine so the rolling job can continue it (null: as needed). */
+  scheduleTimes: string | null;
+  /** Doses exist up to (excluding) this instant (null: as needed). */
+  generatedUntil: Date | null;
+  /** Round 18: an "only when needed" line. */
+  asNeeded?: boolean;
+  maxPerDay?: number | null;
+  minGapHours?: number | null;
   doses: GeneratedDose[];
 }
 
@@ -41,6 +45,30 @@ export interface DoseInterval {
   days: number;
   /** Start of the routine's first dosing day (app timezone). */
   anchor: Date;
+  /**
+   * Round 18 (client point 1b, "Certain days"): only on these weekdays of
+   * the app-timezone day, 0 = Sunday ... 6 = Saturday. Empty / missing =
+   * every day (or every N days).
+   */
+  weekdays?: number[];
+}
+
+/** 0 = Sunday ... 6 = Saturday, of an app-timezone day start. */
+export function appWeekday(dayStart: Date, offsetMinutes = appUtcOffsetMinutes()): number {
+  return new Date(dayStart.getTime() + offsetMinutes * 60_000).getUTCDay();
+}
+
+/** Round 18: routines.weekdays (JSON "[0,3,5]") → numbers 0-6, sorted; [] when unset. */
+export function parseWeekdays(raw: string | null | undefined): number[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? [...new Set(parsed.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6) as number[])].sort()
+      : [];
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -55,7 +83,9 @@ export function dosesForDays(
 ): GeneratedDose[] {
   const doses: GeneratedDose[] = [];
   const every = interval && interval.days > 1 ? interval : null;
+  const weekdays = interval?.weekdays?.length ? new Set(interval.weekdays) : null;
   for (let day = fromDay; day < toDayExclusive; day = addAppDays(day, 1)) {
+    if (weekdays && !weekdays.has(appWeekday(day))) continue;
     if (every) {
       const offset = Math.round((day.getTime() - every.anchor.getTime()) / DAY_MS);
       if (offset < 0 || offset % every.days !== 0) continue;
@@ -98,6 +128,8 @@ export function planSchedule(
     durationDays: number | null;
     continuous: boolean;
     intervalDays?: number;
+    /** Round 18: "Certain days" (0 = Sunday ... 6 = Saturday). */
+    weekdays?: number[];
   },
   now: Date,
 ): PlannedSchedule {
@@ -116,6 +148,7 @@ export function planSchedule(
   const doses = dosesForDays(input.scheduleTimes, startDate, generatedUntil, {
     days: intervalDays,
     anchor: startDate,
+    weekdays: input.weekdays,
   }).filter((d) => d.scheduledAt > now);
   return { startDate, endDate, generatedUntil, doses };
 }
@@ -151,6 +184,29 @@ export class RoutineGenerationService {
    *   "now" for the rolling horizon
    */
   generate(medicine: PrescriptionMedicine, completedAt: Date): GeneratedRoutine {
+    // Round 18: "only when needed" lines have no times: no doses, nothing to roll.
+    if (medicine.asNeeded) {
+      const startDate = medicine.startDate ? startOfAppDay(medicine.startDate) : startOfAppDay(completedAt);
+      return {
+        medicineName: medicine.medicineName,
+        dosage: medicine.dosage,
+        frequency: medicine.frequency,
+        startDate,
+        endDate: medicine.durationDays && !medicine.continuous ? addAppDays(startDate, medicine.durationDays - 1) : null,
+        prescriptionMedicineId: medicine.id,
+        strength: medicine.strength,
+        doseAmount: medicine.doseAmount,
+        mealTimingId: medicine.mealTimingId,
+        formId: medicine.formId,
+        intervalDays: 1,
+        scheduleTimes: null,
+        generatedUntil: null,
+        asNeeded: true,
+        maxPerDay: medicine.maxPerDay,
+        minGapHours: medicine.minGapHours,
+        doses: [],
+      };
+    }
     const timesPerDay = medicine.timesPerDay;
     const durationDays = medicine.durationDays;
     const scheduleTimes = parseScheduleTimes(medicine.scheduleTimes);

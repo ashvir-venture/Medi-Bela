@@ -101,7 +101,7 @@ class _ProfileContent extends ConsumerWidget {
                   backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.12),
                   child: Text(
                     user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                    style: TextStyle(fontSize: 26, color: theme.colorScheme.primary),
+                    style: TextStyle(fontSize: AppType.display, color: theme.colorScheme.primary),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -143,7 +143,7 @@ class _ProfileContent extends ConsumerWidget {
               const Divider(height: 1),
               ListTile(
                 minVerticalPadding: 16,
-                leading: const Icon(Icons.lock_reset),
+                leading: const Icon(Icons.lock_reset_outlined),
                 title: Text(strings.changePassword, style: theme.textTheme.titleMedium),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => showChangePasswordDialog(context),
@@ -168,7 +168,7 @@ class _ProfileContent extends ConsumerWidget {
         const SizedBox(height: 48),
         OutlinedButton.icon(
           onPressed: () => _logout(context, ref),
-          icon: const Icon(Icons.logout),
+          icon: const Icon(Icons.logout_outlined),
           label: Text(strings.logout),
           style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
         ),

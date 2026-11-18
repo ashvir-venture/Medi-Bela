@@ -1,9 +1,11 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../core/constants/api_endpoints.dart';
 import '../domain/prescription_models.dart';
+import '../../../core/network/direct_uploader.dart';
 
 /// Talks to the Phase 3A `/prescriptions` endpoints.
 ///
@@ -14,32 +16,40 @@ import '../domain/prescription_models.dart';
 /// the pharmacist's review status once synced.
 ///
 /// Written against the Phase 3A `/prescriptions` endpoints (see backend
-/// `PrescriptionsController`). [uploadDraft]'s `clientId` doubles as an
+/// `PrescriptionsController`). [uploadPages]' `clientId` doubles as an
 /// idempotency key server-side, so a retried sync (e.g. after a dropped
 /// connection mid-upload) can never create a duplicate prescription.
 class PrescriptionApi {
-  PrescriptionApi(this._dio);
+  PrescriptionApi(this._dio, {DirectUploader? uploader}) : _uploader = uploader ?? DirectUploader(_dio);
 
   final Dio _dio;
+  final DirectUploader _uploader;
 
-  Future<String> uploadDraft({
+  /// Round 18 (client point 2): every page straight to Cloudinary, then one
+  /// call that makes the prescription (so the pharmacist never sees half of
+  /// it). `clientId` keeps a retried sync from making a second one.
+  Future<String> uploadPages({
     required String clientId,
+    required List<String> pages,
     String? note,
-    String? imageLocalPath,
     String? previousPrescriptionId,
+    String? forUserId,
   }) async {
-    final formData = FormData.fromMap({
-      'clientId': clientId,
-      if (note != null && note.isNotEmpty) 'note': note,
-      // Re-upload of a rejected prescription (the server checks it is ours).
-      if (previousPrescriptionId != null) 'previousPrescriptionId': previousPrescriptionId,
-      if (imageLocalPath != null && File(imageLocalPath).existsSync())
-        'image': await MultipartFile.fromFile(imageLocalPath),
-    });
-
+    final ids = <String>[];
+    for (final path in pages) {
+      if (!File(path).existsSync()) continue;
+      ids.add(await _uploader.upload(path, purpose: 'prescription', forUserId: forUserId));
+    }
+    if (ids.isEmpty) throw StateError('No photo to upload');
     final response = await _dio.post<Map<String, dynamic>>(
-      ApiEndpoints.prescriptions,
-      data: formData,
+      '${ApiEndpoints.prescriptions}/pages',
+      data: {
+        'clientId': clientId,
+        'pages': ids,
+        if (note != null && note.isNotEmpty) 'note': note,
+        'previousPrescriptionId': ?previousPrescriptionId,
+      },
+      queryParameters: {'forUserId': ?forUserId},
     );
     return response.data!['id'] as String;
   }
@@ -91,13 +101,6 @@ class PrescriptionApi {
 
   /// A caregiver uploading for a family member. Online only: the member's
   /// prescriptions aren't kept in this phone's offline queue.
-  Future<String> uploadForMember({required String forUserId, required String imagePath}) async {
-    final formData = FormData.fromMap({'image': await MultipartFile.fromFile(imagePath)});
-    final response = await _dio.post<Map<String, dynamic>>(
-      ApiEndpoints.prescriptions,
-      data: formData,
-      queryParameters: {'forUserId': forUserId},
-    );
-    return response.data!['id'] as String;
-  }
+  Future<String> uploadForMember({required String forUserId, required List<String> pages}) =>
+      uploadPages(clientId: const Uuid().v4(), pages: pages, forUserId: forUserId);
 }

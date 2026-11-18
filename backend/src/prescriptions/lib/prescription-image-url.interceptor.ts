@@ -19,8 +19,15 @@ export class PrescriptionImageUrlInterceptor implements NestInterceptor {
   private sign(body: unknown): unknown {
     if (Array.isArray(body)) return body.map((item) => this.sign(item));
     if (body && typeof body === 'object' && typeof (body as { imageUrl?: unknown }).imageUrl === 'string') {
-      const record = body as { imageUrl: string };
-      return { ...record, imageUrl: this.cloudinary.signedImageUrl(record.imageUrl) };
+      const record = body as { imageUrl: string; pageUrls?: unknown };
+      return {
+        ...record,
+        imageUrl: this.cloudinary.signedImageUrl(record.imageUrl),
+        // Round 18: every page of a multi-page prescription.
+        ...(Array.isArray(record.pageUrls)
+          ? { pageUrls: record.pageUrls.map((u) => (typeof u === 'string' ? this.cloudinary.signedImageUrl(u) : u)) }
+          : {}),
+      };
     }
     return body;
   }

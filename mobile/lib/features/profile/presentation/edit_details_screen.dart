@@ -141,7 +141,7 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
                           labelText: strings.r15.heightOptional,
-                          prefixIcon: const Icon(Icons.height),
+                          prefixIcon: const Icon(Icons.height_outlined),
                         ),
                         validator: (v) => (v ?? '').trim().isEmpty || _heightValue() != null ? null : strings.r15.heightRange,
                       ),

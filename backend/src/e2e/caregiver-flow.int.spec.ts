@@ -40,6 +40,8 @@ d('Round 6: confirm, routines and caregiver actions', () => {
     for (const m of members) {
       const inv = await http().post('/api/family/invitations').set(auth(caregiver.token)).send({ phone: m.phone }).expect(201);
       await http().post(`/api/family/invitations/${inv.body.id}/accept`).set(auth(m.token)).expect(201);
+      // Round 18: the member lets the caregiver see and change things.
+      await http().put('/api/family/permissions').set(auth(m.token)).send({ view: true, manage: true }).expect(200);
     }
   }
 

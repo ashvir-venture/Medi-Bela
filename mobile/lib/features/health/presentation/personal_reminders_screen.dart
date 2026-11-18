@@ -76,7 +76,7 @@ class _PersonalRemindersScreenState extends ConsumerState<PersonalRemindersScree
       appBar: AppBar(title: Text(title)),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _open(),
-        icon: const Icon(Icons.add_alarm),
+        icon: const Icon(Icons.add_alarm_outlined),
         label: Text(strings.addReminder),
       ),
       body: async.when(
@@ -99,7 +99,7 @@ class _PersonalRemindersScreenState extends ConsumerState<PersonalRemindersScree
                   for (final r in list)
                     Card(
                       child: ListTile(
-                        leading: const Icon(Icons.alarm),
+                        leading: const Icon(Icons.alarm_outlined),
                         title: Text(r.name, style: Theme.of(context).textTheme.titleMedium),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -361,8 +361,8 @@ class _TimeChips extends StatelessWidget {
           children: [
             for (var i = 0; i < times.length; i++)
               ActionChip(
-                avatar: const Icon(Icons.schedule, size: 18),
-                label: Text(formatHhmm(context, times[i]), style: const TextStyle(fontSize: 16)),
+                avatar: const Icon(Icons.schedule_outlined, size: 18),
+                label: Text(formatHhmm(context, times[i]), style: const TextStyle(fontSize: AppType.body)),
                 onPressed: !enabled
                     ? null
                     : () async {

@@ -1,8 +1,8 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CaregiverAccessService } from '../family/caregiver-access.service';
 import { MedicineBoxService } from './medicine-box.service';
-import { SaveMedicineBoxDto } from './dto/medicine-box.dto';
+import { BoxExtraDto, SaveMedicineBoxDto, UpdateBoxExtraDto } from './dto/medicine-box.dto';
 
 /**
  * `?forUserId=` = the family caregiver acting for that member (see and
@@ -20,7 +20,7 @@ export class MedicineBoxController {
     @CurrentUser('id') userId: string,
     @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
   ) {
-    const acting = await this.caregivers.resolve(userId, forUserId);
+    const acting = await this.caregivers.resolve(userId, forUserId, 'view');
     return this.box.get(acting.subjectId);
   }
 
@@ -31,6 +31,35 @@ export class MedicineBoxController {
     @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
   ) {
     return this.box.save(await this.caregivers.resolve(userId, forUserId), dto);
+  }
+
+  /** Round 18: a box item with no reminder (a medicine at home, a care supply). */
+  @Post('extras')
+  async addExtra(
+    @CurrentUser('id') userId: string,
+    @Body() dto: BoxExtraDto,
+    @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
+  ) {
+    return this.box.addExtra(await this.caregivers.resolve(userId, forUserId), dto);
+  }
+
+  @Patch('extras/:id')
+  async updateExtra(
+    @CurrentUser('id') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateBoxExtraDto,
+    @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
+  ) {
+    return this.box.updateExtra(await this.caregivers.resolve(userId, forUserId), id, dto);
+  }
+
+  @Delete('extras/:id')
+  async removeExtra(
+    @CurrentUser('id') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
+  ) {
+    return this.box.removeExtra(await this.caregivers.resolve(userId, forUserId), id);
   }
 
   @Post(':routineId/ignore')

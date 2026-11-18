@@ -172,6 +172,8 @@ export interface AssistantContext {
   reminders: Array<{ title: string; when: string }>;
   /** Brand names from the user's message found in the medicines catalog (brand -> generic). */
   catalog?: Array<{ brand: string; generic: string; form: string | null }>;
+  /** Round 18: medicine box items (names, cleaned), incl. ones with no reminder and supplies. */
+  box?: string[];
 }
 
 /**
@@ -191,6 +193,26 @@ export function clean(value: string | null | undefined, max = 120): string {
 /** Output length cap for assistant replies (also enforced by max_tokens in LlmProvider). */
 export const MAX_REPLY_WORDS = 120;
 
+/**
+ * Round 18 (client point 16): under an answer that talks about one of the
+ * user's own medicines, a fixed line (not the model's words): this is
+ * general information; talk to the doctor before changing anything.
+ */
+export function medicineSourceNote(lang: Language): string {
+  return lang === Language.BN
+    ? 'এই তথ্য সাধারণ ওষুধ-তথ্য থেকে নেওয়া। কোনো কিছু বদলানোর আগে আপনার ডাক্তারের সাথে কথা বলুন।'
+    : 'This is general medicine information. Talk to your doctor before changing anything.';
+}
+
+/** True when [reply] names one of [medicines] (case-insensitive, whole words). */
+export function mentionsAny(reply: string, medicines: string[]): boolean {
+  const text = reply.toLowerCase();
+  return medicines.some((m) => {
+    const name = m.trim().toLowerCase();
+    return name.length >= 3 && text.includes(name);
+  });
+}
+
 export function buildSystemPrompt(lang: Language, context: AssistantContext): string {
   const routineLines = context.routines.length
     ? context.routines
@@ -204,6 +226,8 @@ export function buildSystemPrompt(lang: Language, context: AssistantContext): st
   const reminderLines = context.reminders.length
     ? context.reminders.map((r) => `- ${r.title} (${r.when})`).join('\n')
     : '(none)';
+  // Round 18 (client point 16): what is in the medicine box (names only).
+  const boxLines = context.box?.length ? context.box.map((b) => `- ${b}`).join(String.fromCharCode(10)) : '(none)';
   const catalogLines = context.catalog?.length
     ? context.catalog.map((c) => `- ${c.brand}${c.form ? ` (${c.form})` : ''} = ${c.generic}`).join('\n')
     : '(none)';
@@ -228,6 +252,8 @@ Medicine routine:
 ${routineLines}
 Upcoming health reminders:
 ${reminderLines}
+Medicine box (medicines and supplies kept at home, some with no reminder):
+${boxLines}
 CATALOG (brand = generic, from the pharmacy's list):
 ${catalogLines}`;
 }

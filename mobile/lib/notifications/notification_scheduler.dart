@@ -10,6 +10,7 @@ import '../features/medicine_schedule/domain/medicine_schedule_models.dart';
 import 'local_notifications_gateway.dart';
 import 'notification_ids.dart';
 import 'reminder_timing.dart';
+import 'notification_look.dart';
 
 /// Turns synchronized dose data into on-device notifications, and keeps
 /// them reconciled as that data changes — without ever depending on the
@@ -97,10 +98,14 @@ const _maxScheduledPersonal = 8;
 
 /// Doses due at one time that still need a reminder.
 class ReminderGroup {
-  ReminderGroup(this.at, List<String> doseIds) : doseIds = [...doseIds]..sort();
+  ReminderGroup(this.at, List<String> doseIds, {this.names = const []}) : doseIds = [...doseIds]..sort();
 
   final DateTime at;
   final List<String> doseIds;
+
+  /// Round 18: the medicine names, shown only when the user turned on
+  /// "show names on the lock screen" (never part of the key).
+  final List<String> names;
 
   String get key =>
       '$_groupKeyPrefix${at.millisecondsSinceEpoch}:${notificationIdForKey(doseIds.join(','))}';
@@ -286,7 +291,7 @@ class NotificationScheduler {
           ..where((t) => t.scheduledAt.equals(at) & t.doseStatus.equals('PENDING')))
         .get();
     if (rows.isEmpty) return null;
-    return ReminderGroup(at, rows.map((r) => r.id).toList());
+    return ReminderGroup(at, rows.map((r) => r.id).toList(), names: rows.map((r) => r.medicineName).toList());
   }
 
   List<ReminderGroup> _groupsFrom(
@@ -295,11 +300,13 @@ class NotificationScheduler {
   ) {
     final now = _now();
     final byTime = <DateTime, List<String>>{};
+    final names = <DateTime, List<String>>{};
     for (final d in doses.where((d) => d.status == 'PENDING')) {
       byTime.putIfAbsent(d.scheduledAt, () => []).add(d.id);
+      names.putIfAbsent(d.scheduledAt, () => []).add(d.medicineName);
     }
     final groups = [
-      for (final entry in byTime.entries) ReminderGroup(entry.key, entry.value),
+      for (final entry in byTime.entries) ReminderGroup(entry.key, entry.value, names: names[entry.key] ?? const []),
     ].where((g) => g.lastAutoReminder.isAfter(now)).toList()
       ..sort((a, b) => a.at.compareTo(b.at));
     return groups.take(_maxScheduledGroups).toList();
@@ -353,12 +360,16 @@ class NotificationScheduler {
     final s = _strings();
     final time = _formatTime(group.at);
     final count = group.doseIds.length;
+    final neutral = count == 1
+        ? s.reminderBodyOne.replaceAll('{time}', time)
+        : s.reminderBodyMany.replaceAll('{count}', '$count').replaceAll('{time}', time);
+    // Round 18: names only when the user allowed them on the lock screen.
+    final look = NotificationLook.current;
     return ScheduledReminder(
       id: style == ReminderStyle.quiet ? group.quietId(stage) : group.ringId(stage),
       title: s.reminderTitle,
-      body: count == 1
-          ? s.reminderBodyOne.replaceAll('{time}', time)
-          : s.reminderBodyMany.replaceAll('{count}', '$count').replaceAll('{time}', time),
+      body: look.showNames && group.names.isNotEmpty ? '${group.names.join(', ')} · $time' : neutral,
+      photoPath: look.photoPath,
       at: at,
       style: style,
       payload: reminderPayload(group.at, stage),

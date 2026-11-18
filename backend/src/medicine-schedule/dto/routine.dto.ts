@@ -5,6 +5,7 @@ import {
   IsArray,
   IsBoolean,
   IsDateString,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -18,6 +19,10 @@ import {
 } from 'class-validator';
 
 const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/; // HH:mm, 24h
+/** Round 18: tablet colour / shape codes the app offers. */
+export const PILL_COLORS = ['w', 'r', 'g', 'b', 'y', 'o', 'p', 'k', 'n', 'c'] as const;
+export const PILL_SHAPES = ['round', 'oval', 'capsule', 'oblong', 'half', 'square'] as const;
+const asNeededOff = (o: { asNeeded?: boolean }) => !o.asNeeded;
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
 /** A medicine the patient (or caregiver) adds without a prescription. */
@@ -45,16 +50,60 @@ export class CreateRoutineDto {
   @MaxLength(50)
   doseAmount?: string;
 
+  /** Not used for an as-needed medicine (Round 18). */
+  @ValidateIf(asNeededOff)
   @IsInt()
   @Min(1)
   @Max(12)
   timesPerDay: number;
 
+  @ValidateIf(asNeededOff)
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(12)
   @Matches(TIME_REGEX, { each: true, message: 'each scheduleTimes entry must be HH:mm (24h)' })
   scheduleTimes: string[];
+
+  /** Round 18 ("Certain days"): 0 = Sunday ... 6 = Saturday. Not with intervalDays > 1. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(7)
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  @Max(6, { each: true })
+  weekdays?: number[];
+
+  /** Round 18 ("Only when needed"): no times, no reminders; "Took one now" logs it. */
+  @IsOptional()
+  @IsBoolean()
+  asNeeded?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(24)
+  maxPerDay?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(48)
+  minGapHours?: number;
+
+  @IsOptional()
+  @IsIn(PILL_COLORS)
+  pillColor?: string;
+
+  @IsOptional()
+  @IsIn(PILL_SHAPES)
+  pillShape?: string;
+
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @MaxLength(300)
+  note?: string;
 
   @IsOptional()
   @IsInt()
@@ -161,6 +210,52 @@ export class UpdateRoutineDto {
   @IsInt()
   @Min(1)
   formId?: number | null;
+
+  /** Round 18: null / [] = every day. Self-added only. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(7)
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  @Max(6, { each: true })
+  weekdays?: number[] | null;
+
+  /** Round 18: self-added only. */
+  @IsOptional()
+  @IsBoolean()
+  asNeeded?: boolean;
+
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsInt()
+  @Min(1)
+  @Max(24)
+  maxPerDay?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsInt()
+  @Min(1)
+  @Max(48)
+  minGapHours?: number | null;
+
+  /** Round 18: personal labels, allowed on any medicine (null clears). */
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsIn(PILL_COLORS)
+  pillColor?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsIn(PILL_SHAPES)
+  pillShape?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @Transform(trim)
+  @IsString()
+  @MaxLength(300)
+  note?: string | null;
 }
 
 /** Round 16: tag a medicine with one of the user's conditions (null = none). */

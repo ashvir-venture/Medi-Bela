@@ -2,6 +2,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { RegisterDto } from '../dto/register.dto';
 import { AuthService } from '../auth.service';
+import { fakeRefresh } from '../../test-utils/fake-refresh';
 
 const base = {
   phone: '01712345678',
@@ -24,7 +25,12 @@ describe('sign-up consent (Privacy & terms)', () => {
     expect(await errorsFor(base)).toContain('acceptTerms');
     expect(await errorsFor({ ...base, acceptTerms: false })).toContain('acceptTerms');
     expect(await errorsFor({ ...base, acceptTerms: 'yes' })).toContain('acceptTerms');
-    expect(await errorsFor({ ...base, acceptTerms: true })).toEqual([]);
+    expect(await errorsFor({ ...base, acceptTerms: true, acceptResearch: true })).toEqual([]);
+  });
+
+  it('Round 18: the anonymous-data box is required too', async () => {
+    expect(await errorsFor({ ...base, acceptTerms: true })).toContain('acceptResearch');
+    expect(await errorsFor({ ...base, acceptTerms: true, acceptResearch: false })).toContain('acceptResearch');
   });
 
   it('the account records when the user agreed', async () => {
@@ -39,11 +45,13 @@ describe('sign-up consent (Privacy & terms)', () => {
     };
     const jwt = { signAsync: jest.fn(async () => 'token') };
     const config = { getOrThrow: () => 'secret', get: () => undefined };
-    const service = new AuthService(prisma, jwt as any, config as any, {} as any, { record: jest.fn() } as any);
+    const service = new AuthService(prisma, jwt as any, config as any, {} as any, { record: jest.fn() } as any, fakeRefresh());
     const before = Date.now();
-    await service.register({ ...base, phone: '+8801712345678', acceptTerms: true } as any);
+    await service.register({ ...base, phone: '+8801712345678', acceptTerms: true, acceptResearch: true } as any);
     expect(created.termsAcceptedAt).toBeInstanceOf(Date);
     expect(created.termsAcceptedAt.getTime()).toBeGreaterThanOrEqual(before);
     expect(created).not.toHaveProperty('acceptTerms');
+    expect(created.researchConsentAt).toBeInstanceOf(Date);
+    expect(created).not.toHaveProperty('acceptResearch');
   });
 });

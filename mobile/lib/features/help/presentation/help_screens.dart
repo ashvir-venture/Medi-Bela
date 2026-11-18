@@ -275,7 +275,7 @@ class _TeamCard extends ConsumerWidget {
             const SizedBox(height: 2),
             Text(member.field, textAlign: TextAlign.center),
             const SizedBox(height: 2),
-            Text(member.university, textAlign: TextAlign.center, style: TextStyle(color: context.palette.muted, fontSize: 13)),
+            Text(member.university, textAlign: TextAlign.center, style: TextStyle(color: context.palette.muted, fontSize: AppType.small)),
             TextButton(
               onPressed: () => openExternal(context, ref, member.facebook),
               child: Text(facebookLabel),

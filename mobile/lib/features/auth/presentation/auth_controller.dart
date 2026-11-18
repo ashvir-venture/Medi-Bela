@@ -70,9 +70,11 @@ class AuthController extends StateNotifier<AsyncValue<UserModel?>> {
     String? languagePreference,
     Map<String, dynamic> details = const {},
     required bool acceptTerms,
+    bool acceptResearch = false,
   }) async {
     final result = await _repository.register(
       acceptTerms: acceptTerms,
+      acceptResearch: acceptResearch,
       phone: phone,
       name: name,
       password: password,

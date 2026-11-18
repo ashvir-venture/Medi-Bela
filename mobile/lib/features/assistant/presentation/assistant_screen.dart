@@ -313,7 +313,11 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
                               ?.copyWith(color: context.palette.muted),
                         ),
                       ),
+                    // Round 18 (owner's screenshot): the mic sits inside the
+                    // box and Send is one fixed 48 px round button, so the two
+                    // no longer crowd each other.
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Expanded(
                           child: TextField(
@@ -327,26 +331,30 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
                             decoration: InputDecoration(
                               hintText: _listening ? strings.r17.listening : strings.assistantHint,
                               counterText: '',
-                              border: const OutlineInputBorder(),
                               isDense: true,
+                              // Round 17 B: ask by voice (the words fill the box).
+                              suffixIcon: IconButton(
+                                key: const ValueKey('assistant-voice'),
+                                tooltip: _listening ? strings.r17.stopListening : strings.r17.askByVoice,
+                                onPressed: canType || _listening ? _toggleVoice : null,
+                                color: _listening ? context.palette.later : context.palette.muted,
+                                icon: Icon(_listening ? Icons.stop_circle_outlined : Icons.mic_none_rounded),
+                              ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        // Round 17 B: ask by voice (the words fill the box).
-                        IconButton(
-                          key: const ValueKey('assistant-voice'),
-                          tooltip: _listening ? strings.r17.stopListening : strings.r17.askByVoice,
-                          onPressed: canType || _listening ? _toggleVoice : null,
-                          iconSize: 28,
-                          color: _listening ? context.palette.later : null,
-                          icon: Icon(_listening ? Icons.stop_circle_outlined : Icons.mic_none),
-                        ),
-                        const SizedBox(width: 4),
-                        IconButton.filled(
-                          tooltip: strings.sendLabel,
-                          onPressed: canType ? () => _submit(_input.text) : null,
-                          icon: const Icon(Icons.send),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: IconButton.filled(
+                            key: const ValueKey('assistant-send'),
+                            tooltip: strings.sendLabel,
+                            padding: EdgeInsets.zero,
+                            style: IconButton.styleFrom(minimumSize: const Size(48, 48), fixedSize: const Size(48, 48)),
+                            onPressed: canType ? () => _submit(_input.text) : null,
+                            icon: const Icon(Icons.send_rounded, size: 22),
+                          ),
                         ),
                       ],
                     ),

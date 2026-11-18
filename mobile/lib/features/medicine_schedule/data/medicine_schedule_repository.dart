@@ -79,6 +79,20 @@ class MedicineScheduleRepository {
     });
   }
 
+  /// Round 18 (client point 7): the cached doses of any day (the day
+  /// arrows on My medicine), each with its taken window.
+  Stream<List<MedicineDoseModel>> watchDay(DateTime day) {
+    final start = DateTime(day.year, day.month, day.day);
+    final end = start.add(const Duration(days: 1));
+    return _db.select(_db.cachedMedicineDoses).watch().map((rows) {
+      final all = rows.map(_doseRowToModel).toList()..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+      return [
+        for (final d in all)
+          if (!d.scheduledAt.isBefore(start) && d.scheduledAt.isBefore(end)) d.withTakenUntil(takenWindowEnd(d, all)),
+      ];
+    });
+  }
+
   /// Doses of one reminder group (same time), with their taken windows.
   Stream<List<MedicineDoseModel>> watchAt(DateTime at) {
     return _db.select(_db.cachedMedicineDoses).watch().map((rows) {

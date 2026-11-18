@@ -12,6 +12,8 @@ import { Put,
 } from '@nestjs/common';
 import { MedicineScheduleService } from './medicine-schedule.service';
 import { RoutineManagementService } from './routine-management.service';
+import { PackPhotoService } from './pack-photo.service';
+import { PackPhotoDto } from './dto/pack-photo.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { MarkDoseTakenDto } from './dto/mark-dose-taken.dto';
 import { CreateRoutineDto, UpdateRoutineDto, SetRoutineConditionDto } from './dto/routine.dto';
@@ -28,6 +30,7 @@ export class MedicineScheduleController {
   constructor(
     private readonly schedule: MedicineScheduleService,
     private readonly routines: RoutineManagementService,
+    private readonly packPhotos: PackPhotoService,
     private readonly caregivers: CaregiverAccessService,
     private readonly audit: AuditService,
   ) {}
@@ -38,7 +41,7 @@ export class MedicineScheduleController {
     @CurrentUser('id') userId: string,
     @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
   ) {
-    const acting = await this.caregivers.resolve(userId, forUserId);
+    const acting = await this.caregivers.resolve(userId, forUserId, 'view');
     return this.routines.listRoutines(acting.subjectId);
   }
 
@@ -91,7 +94,7 @@ export class MedicineScheduleController {
     @Param('id', ParseUUIDPipe) id: string,
     @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
   ) {
-    const acting = await this.caregivers.resolve(userId, forUserId);
+    const acting = await this.caregivers.resolve(userId, forUserId, 'view');
     return this.schedule.getRoutineDetail(acting.subjectId, id);
   }
 
@@ -146,6 +149,45 @@ export class MedicineScheduleController {
   @Get('doses/:id')
   getDose(@CurrentUser('id') userId: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.schedule.getDoseDetail(userId, id);
+  }
+
+  /** Round 18: the medicine's pack photo as a 1-hour signed link (or null). */
+  @Get('routines/:id/pack-photo')
+  async packPhoto(
+    @CurrentUser('id') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
+  ) {
+    const acting = await this.caregivers.resolve(userId, forUserId, 'view');
+    return this.packPhotos.get(acting.subjectId, id);
+  }
+
+  /** Round 18: set (a direct upload's public id) or remove (null) the pack photo. */
+  @Put('routines/:id/pack-photo')
+  async setPackPhoto(
+    @CurrentUser('id') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: PackPhotoDto,
+    @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
+  ) {
+    const acting = await this.caregivers.resolve(userId, forUserId, 'manage');
+    return this.packPhotos.set(acting, id, dto.publicId);
+  }
+
+  /**
+   * Round 18 ("Took one now"): logs an as-needed medicine now (or at the
+   * offline tap's `takenAt`). The caregiver may do it for a member with the
+   * member's Manage permission. Answers today's times and the warnings.
+   */
+  @Post('routines/:id/took')
+  async tookAsNeeded(
+    @CurrentUser('id') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: MarkDoseTakenDto,
+    @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
+  ) {
+    const acting = await this.caregivers.resolve(userId, forUserId, 'manage');
+    return this.routines.takeAsNeeded(acting, id, dto.takenAt);
   }
 
   /**

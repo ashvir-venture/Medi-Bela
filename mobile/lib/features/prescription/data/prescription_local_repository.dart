@@ -52,7 +52,12 @@ class PrescriptionLocalRepository {
     String? note,
     String? imageLocalPath,
     String? previousPrescriptionId,
+    List<String>? pages,
   }) async {
+    // Round 18: every page travels in the outbox payload; the draft row
+    // keeps page 1 (Drift schema unchanged).
+    final allPages = pages ?? [?imageLocalPath];
+    imageLocalPath = allPages.isEmpty ? null : allPages.first;
     final id = _uuid.v4();
     final now = DateTime.now();
 
@@ -78,6 +83,7 @@ class PrescriptionLocalRepository {
                 'clientId': id,
                 'note': note,
                 'imageLocalPath': imageLocalPath,
+                'pages': allPages,
                 if (previousPrescriptionId != null)
                   'previousPrescriptionId': previousPrescriptionId,
               }),
@@ -88,6 +94,11 @@ class PrescriptionLocalRepository {
 
     return id;
   }
+
+  /// Round 18: "Tap to retry" on a failed upload.
+  Future<void> markQueued(String id) =>
+      (_db.update(_db.prescriptionDrafts)..where((t) => t.id.equals(id)))
+          .write(PrescriptionDraftsCompanion(status: const Value('queued'), updatedAt: Value(DateTime.now())));
 
   /// Pulls the latest status (PENDING/AWAITING_CONFIRMATION/REJECTED/...) for
   /// every draft that has already synced (has a [PrescriptionDraft.serverId]),

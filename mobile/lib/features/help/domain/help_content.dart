@@ -9,7 +9,7 @@ const helpContentEn = HelpContent(
     HelpSection('Your data and privacy', [
       'Your data is stored under strong monitoring and a strict access policy.',
       'Your data is used for medical purposes only.',
-      'No third party gets access to your health data for promotion or research.',
+      'Your health data may be used without your name or phone number, together with other users\' data, to improve Medi-Bela; you agree to this when you sign up. No third party gets your health data for promotion.',
       'Only you, the family members you allow, and the Medi-Bela pharmacists who check your prescription can see your medicine information.',
       'Trusted service providers that run parts of the app (photo storage, notifications, AI answers, SMS) process data only to provide those services.',
       'Your password is stored encrypted; no one at Medi-Bela can see it.',
@@ -97,7 +97,7 @@ const helpContentBn = HelpContent(
     HelpSection('আপনার তথ্য ও গোপনীয়তা', [
       'আপনার তথ্য কঠোর নজরদারি ও কড়া প্রবেশাধিকার নীতির অধীনে সংরক্ষিত থাকে।',
       'আপনার তথ্য শুধু চিকিৎসা-সংক্রান্ত কাজে ব্যবহার করা হয়।',
-      'কোনো তৃতীয় পক্ষকে প্রচার বা গবেষণার জন্য আপনার স্বাস্থ্য-তথ্য দেওয়া হয় না।',
+      'আপনার নাম বা ফোন নম্বর ছাড়া আপনার স্বাস্থ্য-তথ্য অন্য ব্যবহারকারীদের তথ্যের সাথে মিলিয়ে মেডি-বেলা উন্নত করতে ব্যবহার করা হতে পারে; সাইন আপ করার সময় আপনি এতে রাজি হন। প্রচারের জন্য কোনো তৃতীয় পক্ষ আপনার স্বাস্থ্য-তথ্য পায় না।',
       'শুধু আপনি, আপনার অনুমতি দেওয়া পরিবারের সদস্যরা এবং প্রেসক্রিপশন যাচাইকারী মেডি-বেলা ফার্মাসিস্টরাই আপনার ওষুধের তথ্য দেখতে পারেন।',
       'অ্যাপের কিছু অংশ চালাতে বিশ্বস্ত সেবাদাতারা (ছবি সংরক্ষণ, নোটিফিকেশন, এআই উত্তর, এসএমএস) শুধু সেই সেবা দিতেই তথ্য ব্যবহার করে।',
       'আপনার পাসওয়ার্ড এনক্রিপ্ট করে রাখা হয়; মেডি-বেলার কেউ তা দেখতে পারে না।',

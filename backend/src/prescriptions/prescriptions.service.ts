@@ -10,6 +10,7 @@ import {
   PrescriptionStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { assertOwnUpload } from '../uploads/upload-purpose';
 import { SaveMedicinesDto } from './dto/save-medicines.dto';
 import { PrescriptionTestEntryDto, SavePrescriptionDetailsDto } from './dto/save-details.dto';
 import { QueueStatus } from './dto/queue-query.dto';
@@ -163,6 +164,58 @@ export class PrescriptionsService {
     // so a failed upload never creates a prescription row pointing at
     // nothing.
     const imageUrl = await this.cloudinary.uploadPrescriptionImage(imageBuffer, originalFilename);
+    return this.insert(userId, [imageUrl], clientId, previousPrescriptionId, uploadedById);
+  }
+
+  /**
+   * Round 18 (client point 2): pages the phone uploaded straight to
+   * Cloudinary. Each public id must be one signed for this user (folder
+   * prescriptions/<userId>/) and a real JPG / PNG under 10 MB; the row is
+   * made only when every page checks out.
+   */
+  async createFromPages(
+    userId: string,
+    publicIds: string[],
+    clientId?: string,
+    previousPrescriptionId?: string,
+    uploadedById: string = userId,
+  ) {
+    if (new Set(publicIds).size !== publicIds.length) throw new BadRequestException('A page is listed twice');
+    publicIds.forEach((id) => assertOwnUpload('prescription', userId, id));
+    if (clientId) {
+      const existing = await this.prisma.prescription.findUnique({ where: { clientUploadId: clientId } });
+      if (existing) {
+        if (existing.userId !== userId) throw new ConflictException('clientId already in use');
+        return existing;
+      }
+    }
+    await this.checkPrevious(userId, previousPrescriptionId);
+    const pages = await Promise.all(publicIds.map((id) => this.cloudinary.confirmDirectUpload(id)));
+    return this.insert(userId, pages, clientId, previousPrescriptionId, uploadedById);
+  }
+
+  private async checkPrevious(userId: string, previousPrescriptionId?: string) {
+    if (!previousPrescriptionId) return;
+    const previous = await this.prisma.prescription.findUnique({
+      where: { id: previousPrescriptionId },
+      select: { userId: true, status: true },
+    });
+    if (!previous || previous.userId !== userId) {
+      throw new BadRequestException('previousPrescriptionId does not match one of your prescriptions');
+    }
+    if (previous.status !== PrescriptionStatus.REJECTED) {
+      throw new BadRequestException('Only a rejected prescription can be re-uploaded');
+    }
+  }
+
+  private async insert(
+    userId: string,
+    pages: string[],
+    clientId: string | undefined,
+    previousPrescriptionId: string | undefined,
+    uploadedById: string,
+  ) {
+    const imageUrl = pages[0];
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -170,6 +223,7 @@ export class PrescriptionsService {
           data: {
             userId,
             imageUrl,
+            pageUrls: pages,
             clientUploadId: clientId ?? null,
             previousPrescriptionId: previousPrescriptionId ?? null,
             uploadedById,
@@ -484,6 +538,10 @@ export class PrescriptionsService {
           formId: entry.formId ?? null,
           intervalDays: entry.intervalDays ?? 1,
           continuous: entry.continuous ?? false,
+          // Round 18: "only when needed" (no times; the limits as written).
+          asNeeded: entry.asNeeded ?? false,
+          maxPerDay: entry.asNeeded ? entry.maxPerDay ?? null : null,
+          minGapHours: entry.asNeeded ? entry.minGapHours ?? null : null,
           verified: true,
           verifiedById: adminId,
           verifiedAt: now,
@@ -665,6 +723,9 @@ export class PrescriptionsService {
             intervalDays: routine.intervalDays,
             scheduleTimes: routine.scheduleTimes,
             generatedUntil: routine.generatedUntil,
+            asNeeded: routine.asNeeded ?? false,
+            maxPerDay: routine.maxPerDay ?? null,
+            minGapHours: routine.minGapHours ?? null,
             // "Edited by you" / "edited by caregiver" when the patient side changed it.
             ...(editedIds.has(routine.prescriptionMedicineId)
               ? { lastEditedById: actorId, lastEditedAt: activatedAt }
@@ -803,6 +864,8 @@ export class PrescriptionsService {
   private assertMedicinesReadyForCompletion(medicines: PrescriptionMedicine[]) {
     const problems: string[] = [];
     for (const m of medicines) {
+      // Round 18: an "only when needed" line needs no times or length.
+      if (m.asNeeded) continue;
       if (!m.timesPerDay) {
         problems.push(`"${m.medicineName}": timesPerDay is required`);
         continue;

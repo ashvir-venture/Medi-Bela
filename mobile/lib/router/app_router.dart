@@ -36,6 +36,7 @@ import '../features/medicine_box/presentation/medicine_box_screens.dart';
 import '../features/home/presentation/home_screen.dart';
 import '../features/medicine_schedule/presentation/medicines_tab_screen.dart';
 import '../features/medicine_schedule/presentation/my_medicines_screen.dart';
+import '../features/medicine_schedule/presentation/medicine_detail_screen.dart';
 import '../features/medicine_schedule/presentation/routine_form_screen.dart';
 import '../features/notices/presentation/notices_screen.dart';
 import '../features/prescription/presentation/confirm_prescription_screen.dart';
@@ -97,6 +98,10 @@ class AppRoutes {
         queryParameters: {if (forUserId != null) 'for': forUserId, if (name != null) 'name': name},
       ).toString();
   static const medicineBox = '/medicine-box';
+  static String reminderRulesPath({String? forUserId, String? name}) => Uri(
+        path: reminderRules,
+        queryParameters: {if (forUserId != null) 'for': forUserId, if (name != null) 'name': name},
+      ).toString();
   static String medicineBoxPath({String? forUserId, String? name}) => Uri(
         path: medicineBox,
         queryParameters: {if (forUserId != null) 'for': forUserId, if (name != null) 'name': name},
@@ -130,6 +135,12 @@ class AppRoutes {
         queryParameters: {if (forUserId != null) 'for': forUserId, if (name != null) 'name': name},
       ).toString();
   static const medicineForm = '/medicines/form';
+  /// Round 18 (client point 6): one medicine's page (Edit / Remove at the bottom).
+  static const medicineItem = '/medicines/item/:id';
+  static String medicinePath(String id, {String? forUserId, String? name}) => Uri(
+        path: '/medicines/item/$id',
+        queryParameters: {if (forUserId != null) 'for': forUserId, if (name != null) 'name': name},
+      ).toString();
   static const confirmPrescription = '/prescription/confirm/:id';
   static String confirmPrescriptionPath(String id, {String? forUserId}) => Uri(
         path: '/prescription/confirm/$id',
@@ -417,7 +428,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.reminderRules,
-            builder: (context, state) => const ReminderRulesScreen(),
+            // Round 18: `?for=&name=` = the caregiver for a member.
+            builder: (context, state) => ReminderRulesScreen(
+              forUserId: state.uri.queryParameters['for'],
+              memberName: state.uri.queryParameters['name'],
+            ),
           ),
           GoRoute(
             path: AppRoutes.notificationLook,
@@ -463,6 +478,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.medicineForm,
             builder: (context, state) =>
                 RoutineFormScreen(args: state.extra as RoutineFormArgs? ?? const RoutineFormArgs()),
+          ),
+          GoRoute(
+            path: AppRoutes.medicineItem,
+            builder: (context, state) => MedicineDetailScreen(
+              routineId: state.pathParameters['id']!,
+              forUserId: state.uri.queryParameters['for'],
+              memberName: state.uri.queryParameters['name'],
+            ),
           ),
           GoRoute(
             path: AppRoutes.confirmPrescription,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -53,6 +54,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final strings = ref.read(stringsProvider);
     result.when(
       success: (reactivated) {
+        // Round 18: offer to save the phone and password (password manager).
+        TextInput.finishAutofillContext();
         // Once, after signing in to a deactivated account (it is active again).
         if (reactivated) {
           ScaffoldMessenger.of(context)
@@ -83,7 +86,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               padding: const EdgeInsets.all(24),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
-                child: Form(
+                child: AutofillGroup(child: Form(
                   key: _formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -97,7 +100,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         child: AppLogo(
                           height: 72,
                           fallback: Icon(
-                            Icons.favorite,
+                            Icons.favorite_outlined,
                             size: 56,
                             color: Theme.of(context).colorScheme.primary,
                           ),
@@ -124,6 +127,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       TextFormField(
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
+                        autofillHints: const [AutofillHints.telephoneNumber, AutofillHints.username],
                         textInputAction: TextInputAction.next,
                         decoration: InputDecoration(
                           labelText: strings.phone,
@@ -140,6 +144,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       TextFormField(
                         controller: _passwordController,
                         obscureText: true,
+                        autofillHints: const [AutofillHints.password],
                         textInputAction: TextInputAction.done,
                         decoration: InputDecoration(
                           labelText: strings.password,
@@ -183,7 +188,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ],
                   ),
-                ),
+                )),
               ),
             ),
           ),

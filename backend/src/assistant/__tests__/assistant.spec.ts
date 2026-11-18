@@ -11,7 +11,7 @@ import { detectEmergency, detectRestrictedIntent, buildSystemPrompt, clean } fro
  * (writes to routines/reminders/prescriptions, any other model) throws, which is
  * how these tests prove the assistant cannot modify medical data.
  */
-function fakeDb(data: { routines?: any[]; reminders?: any[]; catalog?: any[]; lang?: Language } = {}) {
+function fakeDb(data: { routines?: any[]; reminders?: any[]; catalog?: any[]; box?: any[]; lang?: Language } = {}) {
   const convs = new Map<string, any>();
   let msgs: any[] = [];
   let n = 0;
@@ -110,6 +110,8 @@ function fakeDb(data: { routines?: any[]; reminders?: any[]; catalog?: any[]; la
     user: { findUnique: async () => ({ languagePreference: data.lang ?? Language.EN }) },
     medicineRoutine: { findMany: async () => { reads.routines++; return data.routines ?? []; } },
     healthReminder: { findMany: async () => { reads.reminders++; return data.reminders ?? []; } },
+    // Round 18: the medicine box (read-only, names only).
+    medicineStock: { findMany: async () => data.box ?? [] },
     // Read-only catalog lookup (brand -> generic); filters like Postgres would.
     medicine: {
       findMany: async (args: any) => {
@@ -260,6 +262,7 @@ describe('AssistantService: sending, persistence and context', () => {
     expect(system).toMatch(/NEVER: diagnose[\s\S]*which medicine to take[\s\S]*start, stop, skip, increase/);
     expect(system).toMatch(/check with a qualified doctor or pharmacist/);
     expect(turns).toEqual([{ role: 'user', content: 'Explain my medicine instructions' }]);
+    expect(system).toContain('Medicine box');
   });
 
   it('sends no identity: the prompt has no name/phone/address fields to leak', async () => {
@@ -630,5 +633,22 @@ describe('AssistantService: ownership and deletion', () => {
     const list = await service.listConversations('u1');
     expect(list).toHaveLength(1);
     expect(list[0]).toMatchObject({ id: cid, preview: 'What is hypertension? Please explain.', userMessageCount: 1, maxUserMessages: 10 });
+  });
+});
+
+describe('Round 18: the medicine box and the doctor line', () => {
+  it('a reply naming one of my medicines ends with the fixed doctor line', () => {
+    const { mentionsAny, medicineSourceNote } = require('../assistant-safety');
+    expect(mentionsAny('Metformin is often used for diabetes.', ['Metformin'])).toBe(true);
+    expect(mentionsAny('Drink water.', ['Metformin'])).toBe(false);
+    expect(mentionsAny('An ok reply', ['ok'])).toBe(false); // too short to match
+    expect(medicineSourceNote(Language.EN)).toMatch(/Talk to your doctor before changing anything/);
+    expect(medicineSourceNote(Language.BN)).toMatch(/ডাক্তার/);
+  });
+
+  it('the prompt lists the box', () => {
+    const prompt = buildSystemPrompt(Language.EN, { routines: [], reminders: [], box: ['Napa', 'Test strips (supply)'] });
+    expect(prompt).toContain('- Napa');
+    expect(prompt).toContain('- Test strips (supply)');
   });
 });

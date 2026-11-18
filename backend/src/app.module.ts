@@ -10,6 +10,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { FamilyModule } from './family/family.module';
 import { PrescriptionsModule } from './prescriptions/prescriptions.module';
+import { UploadsModule } from './uploads/uploads.module';
 import { MedicineScheduleModule } from './medicine-schedule/medicine-schedule.module';
 import { HealthModule } from './health/health.module';
 import { CareModule } from './care/care.module';
@@ -47,6 +48,7 @@ import { rateLimitOptions } from './common/rate-limit/rate-limit.config';
     UsersModule,
     FamilyModule,
     PrescriptionsModule,
+    UploadsModule,
     MedicineScheduleModule,
     HealthModule,
     CareModule,

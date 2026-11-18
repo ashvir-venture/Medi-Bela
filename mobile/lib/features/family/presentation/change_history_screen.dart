@@ -90,7 +90,7 @@ class ChangeHistoryScreen extends ConsumerWidget {
           Text(mine ? s.changesForMeSub : s.changeHistorySub, style: TextStyle(color: context.palette.muted)),
           const SizedBox(height: 12),
           if (state.items.isEmpty)
-            EmptyView(message: s.noChanges, icon: Icons.history)
+            EmptyView(message: s.noChanges, icon: Icons.history_outlined)
           else
             for (final c in state.items) _ChangeTile(change: c, strings: strings),
           if (state.nextCursor != null)
@@ -138,7 +138,7 @@ IconData changeIcon(String action) {
   if (action.startsWith('prescription.') || action.startsWith('record.prescription')) return Icons.description_outlined;
   if (action.startsWith('routine.')) return Icons.medication_outlined;
   if (action == 'dose.give') return Icons.check_circle_outline;
-  if (action == 'user.easy_mode') return Icons.accessibility_new;
+  if (action == 'user.easy_mode') return Icons.accessibility_new_outlined;
   if (action.startsWith('personal_reminder.')) return Icons.alarm_outlined;
   if (action == 'medicine_box.save') return Icons.inventory_2_outlined;
   if (action.startsWith('record.appointment')) return Icons.event_outlined;

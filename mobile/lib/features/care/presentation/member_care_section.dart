@@ -42,9 +42,9 @@ class MemberCareSection extends ConsumerWidget {
       ]),
       const SizedBox(height: 8),
       Row(children: [
-        Expanded(child: OutlinedButton.icon(onPressed: () => context.push(limitsPath(who)), icon: const Icon(Icons.track_changes), label: FitLabel(Text(s.targetsLimits)))),
+        Expanded(child: OutlinedButton.icon(onPressed: () => context.push(limitsPath(who)), icon: const Icon(Icons.track_changes_outlined), label: FitLabel(Text(s.targetsLimits)))),
         const SizedBox(width: 12),
-        Expanded(child: OutlinedButton.icon(onPressed: () => context.push(myCarePath(who)), icon: const Icon(Icons.tune), label: FitLabel(Text(s.editConditions)))),
+        Expanded(child: OutlinedButton.icon(onPressed: () => context.push(myCarePath(who)), icon: const Icon(Icons.tune_outlined), label: FitLabel(Text(s.editConditions)))),
       ]),
     ]);
   }

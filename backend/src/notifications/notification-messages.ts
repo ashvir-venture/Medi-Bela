@@ -33,9 +33,14 @@ export type CaregiverAction =
   | 'dose_given'
   | 'easy_mode_on'
   | 'easy_mode_off'
+  | 'reminder_timing_updated'
   | 'health_updated';
 
 const CAREGIVER_BODY: Record<CaregiverAction, { en: string; bn: string }> = {
+  reminder_timing_updated: {
+    en: 'Your caregiver changed when your reminders ring again and when the family is told.',
+    bn: 'আপনার পরিচর্যাকারী রিমাইন্ডার আবার বাজার সময় আর পরিবারকে জানানোর সময় বদলেছেন।',
+  },
   prescription_uploaded: {
     en: 'Your caregiver uploaded a prescription for you.',
     bn: 'আপনার পরিচর্যাকারী আপনার জন্য একটি প্রেসক্রিপশন আপলোড করেছেন।',
@@ -246,6 +251,25 @@ export const messages = {
     return lang === Language.BN
       ? { title: 'পরিবারের আপডেট', body: `${name} এখন পরিবারের পরিচর্যাকারী।` }
       : { title: 'Family update', body: `${name} is now the family caregiver.` };
+  },
+
+  /** Round 18: an as-needed medicine was taken more times today than the daily most (no medicine name). */
+  asNeededOverMaxCaregiver(lang: Language, memberName: string): MessageCopy {
+    const name = clip(memberName, 40);
+    return lang === Language.BN
+      ? { title: 'ওষুধের খবর', body: `${name} আজ একটি প্রয়োজনমতো ওষুধ দিনের সর্বোচ্চ সীমার বেশি বার নিয়েছেন। অনুগ্রহ করে খোঁজ নিন।` }
+      : { title: 'Medicine update', body: `${name} took an as-needed medicine more times today than the daily limit. Please check in.` };
+  },
+
+  /** Round 18: to the caregiver when a member changes what the caregiver may see or do. */
+  caregiverPermissionChanged(lang: Language, memberName: string, view: boolean, manage: boolean): MessageCopy {
+    const name = clip(memberName, 40);
+    if (lang === Language.BN) {
+      const what = manage ? 'ওষুধ ও সেটিংস দেখা ও বদলানো' : view ? 'ওষুধ ও রেকর্ড দেখা (বদলানো নয়)' : 'শুধু নোটিফিকেশন';
+      return { title: 'পরিবারের আপডেট', body: `${name} আপনাকে অনুমতি দিয়েছেন: ${what}।` };
+    }
+    const what = manage ? 'see and change their medicines and settings' : view ? 'see their medicines and records (no changes)' : 'notifications only';
+    return { title: 'Family update', body: `${name} set what you can do: ${what}.` };
   },
 
   /** Round 17: a family member shared a notice. Notice titles are public text. */

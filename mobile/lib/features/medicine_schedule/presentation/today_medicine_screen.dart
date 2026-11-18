@@ -103,7 +103,7 @@ class _TodaysMedicineScreenState extends ConsumerState<TodaysMedicineScreen> {
                     ),
                     TextButton.icon(
                       onPressed: () => context.go(AppRoutes.medicinesTabPath('mine')),
-                      icon: const Icon(Icons.edit_note),
+                      icon: const Icon(Icons.edit_note_outlined),
                       label: Text(strings.manageMedicines),
                     ),
                   ],
@@ -136,8 +136,8 @@ class _DoseTile extends ConsumerWidget {
       DoseDisplayStatus.taken => (Icons.check_circle, context.palette.success, strings.doseTaken),
       DoseDisplayStatus.missed => (Icons.cancel_outlined, Theme.of(context).colorScheme.error, strings.doseMissed),
       DoseDisplayStatus.due => (Icons.notifications_active_outlined, context.palette.warning, strings.doseDue),
-      DoseDisplayStatus.skipped => (Icons.block, context.palette.subtle, strings.doseMissed),
-      DoseDisplayStatus.upcoming => (Icons.schedule, context.palette.subtle, strings.doseUpcoming),
+      DoseDisplayStatus.skipped => (Icons.block_outlined, context.palette.subtle, strings.doseMissed),
+      DoseDisplayStatus.upcoming => (Icons.schedule_outlined, context.palette.subtle, strings.doseUpcoming),
     };
 
     final outcome = doseOutcome(dose);
@@ -158,10 +158,10 @@ class _DoseTile extends ConsumerWidget {
               ),
             Row(
               children: [
-                if (outcome == null) Text(label, style: TextStyle(color: color, fontSize: 12)),
+                if (outcome == null) Text(label, style: TextStyle(color: color, fontSize: AppType.tiny)),
                 if (dose.syncState != 'synced') ...[
-                  const Text(' • ', style: TextStyle(fontSize: 12)),
-                  Text(_syncStateLabel(dose.syncState, strings), style: const TextStyle(fontSize: 12)),
+                  const Text(' • ', style: TextStyle(fontSize: AppType.tiny)),
+                  Text(_syncStateLabel(dose.syncState, strings), style: const TextStyle(fontSize: AppType.tiny)),
                 ],
               ],
             ),
@@ -257,10 +257,10 @@ class WeekStrip extends ConsumerWidget {
               Text(label,
                   maxLines: 1,
                   overflow: TextOverflow.clip,
-                  style: TextStyle(fontSize: 12, color: isToday ? p.surface2 : p.muted)),
+                  style: TextStyle(fontSize: AppType.tiny, color: isToday ? p.surface2 : p.muted)),
               Text(isBangla ? bnDigits('${d.day}') : '${d.day}',
                   style: TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w800, color: isToday ? p.surface2 : p.ink)),
+                      fontSize: AppType.title, fontWeight: FontWeight.w800, color: isToday ? p.surface2 : p.ink)),
               const SizedBox(height: 2),
               Container(
                 width: 7,

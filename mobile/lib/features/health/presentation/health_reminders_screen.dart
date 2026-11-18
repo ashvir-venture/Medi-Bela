@@ -9,6 +9,7 @@ import '../../../widgets/state_views.dart';
 import '../../care/presentation/reading_screen.dart' show testFormPath;
 import '../domain/health_models.dart';
 import 'health_controller.dart';
+import '../../../core/utils/clock_label.dart';
 
 class HealthRemindersScreen extends ConsumerStatefulWidget {
   const HealthRemindersScreen({super.key});
@@ -95,7 +96,7 @@ class _ReminderTile extends ConsumerWidget {
     final strings = ref.watch(stringsProvider);
     final now = DateTime.now();
     final t = reminder.scheduledAt;
-    final when = '${formatYmd(t)} • ${TimeOfDay.fromDateTime(t).format(context)}';
+    final when = '${formatYmd(t)} • ${TimeOfDay.fromDateTime(t).label(context)}';
     final day = reminder.isTest ? reminder.testDayAt(now) : null;
     final lines = [
       if (reminder.isTest) when,

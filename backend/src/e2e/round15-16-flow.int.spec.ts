@@ -30,7 +30,7 @@ d('Rounds 15-16: my care, readings, health records', () => {
     const phone = `017800${String(seq).padStart(5, '0')}`;
     const res = await http()
       .post('/api/auth/register')
-      .send({ phone, name, password: 'pass1234', acceptTerms: true, ...(await signupDetails(prisma)) })
+      .send({ phone, name, password: 'pass1234', acceptTerms: true, acceptResearch: true, ...(await signupDetails(prisma)) })
       .expect(201);
     return { token: res.body.tokens.accessToken as string, id: res.body.user.id as string, phone };
   }
@@ -40,6 +40,8 @@ d('Rounds 15-16: my care, readings, health records', () => {
     for (const m of members) {
       const inv = await http().post('/api/family/invitations').set(auth(carer.token)).send({ phone: m.phone }).expect(201);
       await http().post(`/api/family/invitations/${inv.body.id}/accept`).set(auth(m.token)).expect(201);
+      // Round 18: the member lets the caregiver see and change things.
+      await http().put('/api/family/permissions').set(auth(m.token)).send({ view: true, manage: true }).expect(200);
     }
   }
 
@@ -148,7 +150,8 @@ d('Rounds 15-16: my care, readings, health records', () => {
     expect(r.body.enteredById).toBeUndefined();
     await http().put(`/api/care/settings/diabetes?forUserId=${abba.id}`).set(auth(carer.token))
       .send({ pen: { openedOn: '2026-11-01', lifeDays: 28, remindDaysBefore: 3 } }).expect(200);
-    const audits = await prisma.auditLog.findMany({ where: { subjectUserId: abba.id } });
+    // The caregiver's actions (Round 18: Abba's own permission answer is audited too, by Abba).
+    const audits = await prisma.auditLog.findMany({ where: { subjectUserId: abba.id, actorId: { not: abba.id } } });
     expect(audits.map((a: any) => a.action).sort()).toEqual(['care.settings', 'health_record.create']);
     expect((await alertsTo(abba.id, 'caregiver_action')).length).toBeGreaterThanOrEqual(2);
 

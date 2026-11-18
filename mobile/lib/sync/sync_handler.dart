@@ -13,3 +13,16 @@ abstract class SyncHandler {
   /// since only the handler knows that record's shape.
   Future<void> sync(OutboxEntry entry);
 }
+
+/// Round 18 (owner 2026-11-17): a handler with its own retry rule. Photo
+/// uploads try 3 times with a growing pause, then stop and tell the user
+/// ("Upload failed, tap to retry") instead of the default 5 quick tries.
+abstract class RetryPolicy {
+  int get maxRetries;
+
+  /// Wait this long after attempt [retryCount] before the next one.
+  Duration backoff(int retryCount);
+
+  /// Called once when the last try failed.
+  Future<void> onGaveUp(OutboxEntry entry);
+}

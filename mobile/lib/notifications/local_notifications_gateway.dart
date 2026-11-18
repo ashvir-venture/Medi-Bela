@@ -5,6 +5,7 @@ import 'package:timezone/timezone.dart' as tz;
 import 'full_screen_alarms.dart';
 import 'reminder_timing.dart';
 import 'push_service.dart' show alarmRouteForPayload;
+import 'notification_look.dart';
 
 /// Quiet/plain reminders (health reminders, the silent re-post of a medicine
 /// reminder once it has stopped ringing).
@@ -18,6 +19,8 @@ const androidChannelDescription = 'Reminders for your scheduled medicine doses';
 /// silent/vibrate. Channel sound can't change after creation: a new sound
 /// needs a new channel id.
 const alarmChannelId = 'medicine_alarm';
+/// Round 18: the same alarm without vibration.
+const alarmQuietVibrationChannelId = 'medicine_alarm_novibrate';
 const alarmChannelName = 'Medicine alarm';
 const alarmChannelDescription = 'Rings when it is time to take your medicine';
 
@@ -62,7 +65,11 @@ class ScheduledReminder {
     this.style = ReminderStyle.plain,
     this.payload,
     this.actions = const [],
+    this.photoPath,
   });
+
+  /// Round 18: the patient's round photo, shown as the notification picture.
+  final String? photoPath;
 
   final int id;
   final String title;
@@ -114,9 +121,15 @@ class FlutterLocalNotificationsGateway implements LocalNotificationsGateway {
       tz.TZDateTime.from(reminder.at, tz.local),
       _details(reminder),
       payload: reminder.payload,
-      androidScheduleMode: exact
-          ? AndroidScheduleMode.exactAllowWhileIdle
-          : AndroidScheduleMode.inexactAllowWhileIdle,
+      // Round 18 (client point 15, owner 2026-11-17): a ringing medicine
+      // reminder is an alarm-clock alarm, which Android never delays (Doze,
+      // battery saver, Samsung "sleeping apps"); it shows the alarm icon in
+      // the status bar. Other reminders stay exact / inexact as before.
+      androidScheduleMode: exact && reminder.style == ReminderStyle.ringing
+          ? AndroidScheduleMode.alarmClock
+          : exact
+              ? AndroidScheduleMode.exactAllowWhileIdle
+              : AndroidScheduleMode.inexactAllowWhileIdle,
     );
     // The same ring as a full screen over other apps (when allowed).
     final route = reminder.style == ReminderStyle.ringing ? alarmRouteForPayload(reminder.payload) : null;
@@ -148,8 +161,11 @@ class FlutterLocalNotificationsGateway implements LocalNotificationsGateway {
       // Ongoing while it rings: a swipe can't clear it; only a button or a
       // tap on it (which opens the reminder page) does.
       ReminderStyle.ringing => AndroidNotificationDetails(
-          alarmChannelId,
+          // Round 18: "vibrate" off has its own channel (fixed per channel).
+          NotificationLook.current.vibrate ? alarmChannelId : alarmQuietVibrationChannelId,
           alarmChannelName,
+          enableVibration: NotificationLook.current.vibrate,
+          largeIcon: reminder.photoPath == null ? null : FilePathAndroidBitmap(reminder.photoPath!),
           channelDescription: alarmChannelDescription,
           importance: Importance.max,
           priority: Priority.max,

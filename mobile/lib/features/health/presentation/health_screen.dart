@@ -58,8 +58,8 @@ class HealthScreen extends ConsumerWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               IconTile(icon, tone: tone, size: 36),
               const SizedBox(height: 6),
-              Text(title, style: TextStyle(color: p.muted, fontSize: 13)),
-              Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+              Text(title, style: TextStyle(color: p.muted, fontSize: AppType.small)),
+              Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: AppType.body)),
             ]),
           ),
         );
@@ -99,7 +99,7 @@ class HealthScreen extends ConsumerWidget {
           ),
           Card(
             child: ListTile(
-              leading: const IconTile(Icons.track_changes, tone: ToneKind.ok),
+              leading: const IconTile(Icons.track_changes_outlined, tone: ToneKind.ok),
               title: Text(s.targetsLimits, style: const TextStyle(fontWeight: FontWeight.w700)),
               subtitle: Text(limitsSummary),
               trailing: Row(mainAxisSize: MainAxisSize.min, children: [

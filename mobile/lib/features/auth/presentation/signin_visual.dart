@@ -119,7 +119,7 @@ class _Dot extends StatelessWidget {
       children: [
         Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(width: 6),
-        Flexible(child: Text(label, style: TextStyle(fontSize: 13, color: context.palette.muted))),
+        Flexible(child: Text(label, style: TextStyle(fontSize: AppType.small, color: context.palette.muted))),
       ],
     );
   }
@@ -136,7 +136,7 @@ class _Chip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
       decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(999)),
-      child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+      child: Text(label, style: TextStyle(fontSize: AppType.tiny, fontWeight: FontWeight.w600, color: color)),
     );
   }
 }

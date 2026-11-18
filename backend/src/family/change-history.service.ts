@@ -20,6 +20,8 @@ export const CAREGIVER_CHANGE_ACTIONS = [
   'routine.condition',
   'dose.give',
   'user.easy_mode',
+  // Round 18: the caregiver (with Manage) changed the member's reminder timings.
+  'user.reminder_timing',
   'personal_reminder.create',
   'personal_reminder.update',
   'personal_reminder.remove',
@@ -63,7 +65,7 @@ export class ChangeHistoryService {
 
   /** The caregiver's view of a member (404 unless they may act for them). */
   async forMember(actorId: string, memberId: string, cursor?: string) {
-    const acting = await this.caregivers.resolve(actorId, memberId);
+    const acting = await this.caregivers.resolve(actorId, memberId, 'view');
     return this.list(acting.subjectId, cursor);
   }
 

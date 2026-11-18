@@ -1,8 +1,12 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { AccountStatus, FamilyRole, Language, NotificationType, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CaregiverAction, messages } from '../notifications/notification-messages';
+import { ErrorCode, withCode } from '../common/filters/error-codes';
+
+/** Round 18: a read needs the member's View permission, a change their Manage permission. */
+export type CaregiverNeed = 'view' | 'manage';
 
 /** Who a request acts for. `byCaregiver` = the caller acts for another member. */
 export interface ActingFor {
@@ -14,8 +18,10 @@ export interface ActingFor {
 /**
  * The one place that decides whether the caller may act for another user
  * (`?forUserId=`). Allowed only for the CAREGIVER of the family the target
- * belongs to, and only while the target doesn't hide from family. Anything
- * else is the same 404 as a nonexistent user, so ids can't be probed.
+ * belongs to, only while the target doesn't hide from family, and (Round 18)
+ * only with the permission the member gave: View for reads, Manage for
+ * changes. Anything else is the same 404 as a nonexistent user, so ids
+ * can't be probed.
  */
 @Injectable()
 export class CaregiverAccessService {
@@ -26,7 +32,7 @@ export class CaregiverAccessService {
     private readonly notifications: NotificationsService,
   ) {}
 
-  async resolve(actorId: string, forUserId?: string | null): Promise<ActingFor> {
+  async resolve(actorId: string, forUserId?: string | null, need: CaregiverNeed = 'manage'): Promise<ActingFor> {
     if (!forUserId || forUserId === actorId) {
       return { actorId, subjectId: actorId, byCaregiver: false };
     }
@@ -38,6 +44,8 @@ export class CaregiverAccessService {
       const target = await this.prisma.familyMember.findFirst({
         where: { familyId: actor.familyId, userId: forUserId },
         select: {
+          caregiverCanView: true,
+          caregiverCanManage: true,
           user: { select: { profileVisibleToFamily: true, role: true, accountStatus: true } },
         },
       });
@@ -47,7 +55,11 @@ export class CaregiverAccessService {
         target.user.role === Role.USER &&
         target.user.accountStatus === AccountStatus.ACTIVE
       ) {
-        return { actorId, subjectId: forUserId, byCaregiver: true };
+        const allowed = need === 'view' ? target.caregiverCanView || target.caregiverCanManage : target.caregiverCanManage;
+        if (allowed) return { actorId, subjectId: forUserId, byCaregiver: true };
+        // Round 18: their own caregiver is told why (the member decides in Settings);
+        // anyone else still gets the same 404 as a nonexistent user.
+        throw withCode(new ForbiddenException('This family member has not allowed this'), ErrorCode.CAREGIVER_NO_PERMISSION);
       }
     }
     throw new NotFoundException('Family member not found');

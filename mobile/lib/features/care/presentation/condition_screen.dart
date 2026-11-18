@@ -43,7 +43,7 @@ class _ConditionScreenState extends ConsumerState<ConditionScreen> {
       appBar: AppBar(
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(name),
-          if (widget.who.isMember) Text(widget.who.memberName ?? '', style: TextStyle(fontSize: 13, color: p.muted)),
+          if (widget.who.isMember) Text(widget.who.memberName ?? '', style: TextStyle(fontSize: AppType.small, color: p.muted)),
         ]),
       ),
       body: careAsync.when(

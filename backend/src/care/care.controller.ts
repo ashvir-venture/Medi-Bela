@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post, Put, Query } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { CaregiverAccessService } from '../family/caregiver-access.service';
+import { CaregiverAccessService, CaregiverNeed } from '../family/caregiver-access.service';
 import { CareService } from './care.service';
 import {
   CareSettingDto,
@@ -23,8 +23,9 @@ export class CareController {
     private readonly caregivers: CaregiverAccessService,
   ) {}
 
-  private acting(userId: string, forUserId?: string) {
-    return this.caregivers.resolve(userId, forUserId);
+  /** Round 18: reads need the member's View permission, changes their Manage permission. */
+  private acting(userId: string, forUserId?: string, need: CaregiverNeed = 'manage') {
+    return this.caregivers.resolve(userId, forUserId, need);
   }
 
   @Get()
@@ -32,7 +33,7 @@ export class CareController {
     @CurrentUser('id') userId: string,
     @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
   ) {
-    return this.care.overview((await this.acting(userId, forUserId)).subjectId);
+    return this.care.overview((await this.acting(userId, forUserId, 'view')).subjectId);
   }
 
   @Put('conditions')

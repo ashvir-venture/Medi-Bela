@@ -6,6 +6,7 @@ import 'core/localization/locale_controller.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/text_size_controller.dart';
 import 'core/theme/theme_mode_controller.dart';
+import 'features/auth/presentation/app_lock_gate.dart';
 import 'features/auth/presentation/auth_controller.dart';
 import 'features/auth/presentation/session_notifier.dart';
 import 'notifications/session_services.dart';
@@ -56,7 +57,8 @@ class CareBridgeApp extends ConsumerWidget {
       builder: (context, child) => withAppTextScale(
         context,
         textFactor,
-        BottomSafeArea(child: maintenance
+        // Round 18: the fingerprint lock (when on) over everything but a ringing reminder.
+        BottomSafeArea(child: AppLockGate(child: maintenance
             ? MaintenanceScreen(
                 onTryAgain: () {
                   ref.read(maintenanceProvider.notifier).state = false;
@@ -64,7 +66,7 @@ class CareBridgeApp extends ConsumerWidget {
                   ref.read(authControllerProvider.notifier).refreshProfile();
                 },
               )
-            : child ?? const SizedBox.shrink()),
+            : child ?? const SizedBox.shrink())),
       ),
     );
   }

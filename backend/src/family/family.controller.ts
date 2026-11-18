@@ -20,6 +20,8 @@ import { CaregiverAccessService } from './caregiver-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ChangeHistoryService } from './change-history.service';
+import { CaregiverPermissionsService } from './caregiver-permissions.service';
+import { CaregiverPermissionsDto } from './dto/caregiver-permissions.dto';
 
 @Controller('family')
 export class FamilyController {
@@ -29,7 +31,20 @@ export class FamilyController {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly changes: ChangeHistoryService,
+    private readonly permissions: CaregiverPermissionsService,
   ) {}
+
+  /** Round 18: what I let the family caregiver do (View / Manage), and whether I answered yet. */
+  @Get('permissions')
+  myPermissions(@CurrentUser('id') userId: string) {
+    return this.permissions.get(userId);
+  }
+
+  /** Round 18: change it (Manage implies View); the caregiver is told. */
+  @Put('permissions')
+  setPermissions(@CurrentUser('id') userId: string, @Body() dto: CaregiverPermissionsDto) {
+    return this.permissions.set(userId, dto);
+  }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -102,7 +117,7 @@ export class FamilyController {
     @Param('userId', ParseUUIDPipe) memberUserId: string,
     @Body() dto: SetEasyModeDto,
   ) {
-    const acting = await this.caregivers.resolve(userId, memberUserId);
+    const acting = await this.caregivers.resolve(userId, memberUserId, 'manage');
     const before = await this.prisma.user.findUniqueOrThrow({ where: { id: acting.subjectId }, select: { easyMode: true } });
     if (before.easyMode !== dto.on) {
       await this.prisma.user.update({ where: { id: acting.subjectId }, data: { easyMode: dto.on } });

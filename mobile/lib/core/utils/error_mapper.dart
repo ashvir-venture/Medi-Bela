@@ -56,6 +56,10 @@ String textForErrorCode(String? code, AppStrings s, {String? serverMessage, Stri
       return s.errorDoseWindowClosed;
     case 'FAMILY_ALERT_TOO_EARLY':
       return s.r14.familyAlertTooEarly;
+    case 'CAREGIVER_NO_PERMISSION':
+      return s.r18.noPermission;
+    case 'SESSION_EXPIRED':
+      return s.sessionEnded;
     case 'NOT_FOUND':
       return s.errorNotFound;
     case 'FORBIDDEN':

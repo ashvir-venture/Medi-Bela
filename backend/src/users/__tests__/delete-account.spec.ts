@@ -44,7 +44,20 @@ async function setup(opts: { role?: string } = {}) {
   const prisma: any = {
     user: { findUnique: jest.fn(async () => user) },
     prescription: {
-      findMany: jest.fn(async () => [{ imageUrl: 'https://res.cloudinary.com/x/image/upload/v1/prescriptions/a1.jpg' }]),
+      // Round 18: a second page of a multi-page prescription.
+      findMany: jest.fn(async () => [
+        {
+          imageUrl: 'https://res.cloudinary.com/x/image/upload/v1/prescriptions/a1.jpg',
+          pageUrls: [
+            'https://res.cloudinary.com/x/image/upload/v1/prescriptions/a1.jpg',
+            'https://res.cloudinary.com/x/image/authenticated/v1/prescriptions/a2.jpg',
+          ],
+        },
+      ]),
+    },
+    // Round 18: a medicine's pack photo.
+    medicineRoutine: {
+      findMany: jest.fn(async () => [{ packPhotoUrl: 'https://res.cloudinary.com/x/image/authenticated/v1/packs/p1.jpg' }]),
     },
     // Round 16: a test report photo is erased too.
     recordPhoto: {
@@ -92,7 +105,7 @@ describe('deleteAccount (de-identify)', () => {
     expect(data).not.toHaveProperty('districtId');
 
     expect(s.tx.prescription.deleteMany.mock.calls[0][0].where.status.in).toEqual(['PENDING', 'AWAITING_CONFIRMATION']);
-    expect(s.tx.prescription.updateMany).toHaveBeenCalledWith({ where: { userId: 'u1' }, data: { imageUrl: null } });
+    expect(s.tx.prescription.updateMany).toHaveBeenCalledWith({ where: { userId: 'u1' }, data: { imageUrl: null, pageUrls: [] } });
     for (const t of ['healthRecord', 'healthReminder', 'personalReminder', 'medicineStock', 'healthSuggestion', 'assistantConversation', 'notification', 'passwordResetCode', 'userCondition', 'healthLimits', 'careSetting', 'dayTick', 'careLog', 'doctorQuestion', 'recordPhoto', 'ownTest', 'recordPrescription', 'appointment', 'myDoctor']) {
       expect(s.tx[t].deleteMany).toHaveBeenCalledWith({ where: { userId: 'u1' } });
     }
@@ -103,6 +116,10 @@ describe('deleteAccount (de-identify)', () => {
     ]);
     expect(s.cloudinary.deleteImageByUrl).toHaveBeenCalledWith('https://res.cloudinary.com/x/image/upload/v1/prescriptions/a1.jpg');
     expect(s.cloudinary.deleteImageByUrl).toHaveBeenCalledWith('https://res.cloudinary.com/x/image/authenticated/v1/records/r1.jpg');
+    // Round 18: every page once (page 1 is also imageUrl) and the pack photo.
+    expect(s.cloudinary.deleteImageByUrl).toHaveBeenCalledWith('https://res.cloudinary.com/x/image/authenticated/v1/prescriptions/a2.jpg');
+    expect(s.cloudinary.deleteImageByUrl).toHaveBeenCalledWith('https://res.cloudinary.com/x/image/authenticated/v1/packs/p1.jpg');
+    expect((s.cloudinary.deleteImageByUrl.mock.calls as any[]).filter((c) => c[0].endsWith('a1.jpg'))).toHaveLength(1);
     expect(s.tx.user.update.mock.calls[0][0].data.heightCm).toBeNull();
   });
 

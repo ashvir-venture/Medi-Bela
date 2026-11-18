@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 
 /// Round 14: the look of the owner's demo ("Rafi's / Abba's Medi-Bela"):
 /// teal primary, navy headings and Home band, soft blue-grey page, white
-/// cards, pill buttons, green Taken and red Later. Big text and 48dp+ tap
-/// targets stay (older users). The phone's own font is kept (owner,
-/// 2026-11-10: no bundled font).
+/// cards, green Taken and red Later. 48dp+ tap targets stay (older users).
+///
+/// Round 18 (client note point 19, owner 2026-11-17): one bundled font for
+/// both languages (Hind Siliguri, as the panel) and one type scale, so every
+/// screen uses the same few sizes ([AppType]); help and comment text is
+/// smaller, and lines sit closer together. The user's Text size (Normal /
+/// Large / Larger) still scales all of it.
 ///
 /// Light and dark share one builder; only colors differ. Screens take text
 /// and status colors from [AppPalette] (`context.palette`) instead of fixed
@@ -65,21 +69,13 @@ class AppTheme {
       scaffoldBackgroundColor: scaffold,
       visualDensity: VisualDensity.comfortable,
       extensions: [p],
-      textTheme: TextTheme(
-        headlineMedium: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: p.head),
-        headlineSmall: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: p.head),
-        titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: p.head),
-        // Round 6: one step larger throughout for older eyes.
-        titleMedium: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-        bodyLarge: const TextStyle(fontSize: 17, height: 1.45),
-        bodyMedium: const TextStyle(fontSize: 16, height: 1.45),
-        labelLarge: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-      ),
+      fontFamily: AppType.family,
+      textTheme: AppType.textTheme(p),
       appBarTheme: AppBarTheme(
         centerTitle: false,
         elevation: 0,
         scrolledUnderElevation: 0,
-        titleTextStyle: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: p.head),
+        titleTextStyle: TextStyle(fontFamily: AppType.family, fontSize: AppType.appBar, height: AppType.tightHeight, fontWeight: FontWeight.w700, color: p.head),
         backgroundColor: p.surface,
         foregroundColor: p.head,
         surfaceTintColor: Colors.transparent,
@@ -95,7 +91,7 @@ class AppTheme {
           foregroundColor: colorScheme.onPrimary,
           elevation: 0,
           padding: buttonPadding,
-          textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+          textStyle: const TextStyle(fontFamily: AppType.family, fontSize: AppType.button, fontWeight: FontWeight.w700),
           shape: buttonShape,
         ),
       ),
@@ -105,7 +101,7 @@ class AppTheme {
           foregroundColor: p.head,
           side: BorderSide(color: p.line2, width: 1.5),
           padding: buttonPadding,
-          textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+          textStyle: const TextStyle(fontFamily: AppType.family, fontSize: AppType.button, fontWeight: FontWeight.w700),
           shape: buttonShape,
         ),
       ),
@@ -115,7 +111,7 @@ class AppTheme {
         style: FilledButton.styleFrom(
           minimumSize: const Size(64, 48),
           padding: buttonPadding,
-          textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+          textStyle: const TextStyle(fontFamily: AppType.family, fontSize: AppType.button, fontWeight: FontWeight.w700),
           shape: buttonShape,
         ),
       ),
@@ -125,11 +121,11 @@ class AppTheme {
       listTileTheme: ListTileThemeData(
         minVerticalPadding: 12,
         iconColor: p.head,
-        titleTextStyle: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: p.ink),
-        subtitleTextStyle: TextStyle(fontSize: 15, height: 1.4, color: p.muted),
+        titleTextStyle: TextStyle(fontFamily: AppType.family, fontSize: AppType.title, height: AppType.tightHeight, fontWeight: FontWeight.w700, color: p.ink),
+        subtitleTextStyle: TextStyle(fontFamily: AppType.family, fontSize: AppType.small, height: AppType.bodyHeight, color: p.muted),
       ),
       chipTheme: ChipThemeData(
-        labelStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: p.head),
+        labelStyle: TextStyle(fontFamily: AppType.family, fontSize: AppType.label, fontWeight: FontWeight.w600, color: p.head),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         side: BorderSide(color: p.line2, width: 1.5),
         shape: pill,
@@ -143,7 +139,7 @@ class AppTheme {
           selectedForegroundColor: p.onPrimaryContainer,
           foregroundColor: p.muted2,
           side: BorderSide(color: p.segment),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          textStyle: const TextStyle(fontFamily: AppType.family, fontSize: AppType.button, fontWeight: FontWeight.w700),
           shape: buttonShape,
         ),
       ),
@@ -158,14 +154,17 @@ class AppTheme {
         style: TextButton.styleFrom(
           minimumSize: const Size(48, 48),
           foregroundColor: p.link,
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          textStyle: const TextStyle(fontFamily: AppType.family, fontSize: AppType.button, fontWeight: FontWeight.w700),
           shape: buttonShape,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: p.surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        labelStyle: TextStyle(fontFamily: AppType.family, fontSize: AppType.body, color: p.muted),
+        hintStyle: TextStyle(fontFamily: AppType.family, fontSize: AppType.body, color: p.muted),
+        helperStyle: TextStyle(fontFamily: AppType.family, fontSize: AppType.small, color: p.muted),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: p.line2, width: 1.5),
@@ -200,7 +199,8 @@ class AppTheme {
         indicatorColor: p.primaryContainer,
         labelTextStyle: WidgetStateProperty.resolveWith(
           (s) => TextStyle(
-            fontSize: 12,
+            fontFamily: AppType.family,
+            fontSize: AppType.tiny,
             fontWeight: s.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w600,
             color: s.contains(WidgetState.selected) ? colorScheme.primary : p.muted,
           ),
@@ -221,16 +221,62 @@ class AppTheme {
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: p.head,
         foregroundColor: scaffold,
-        shape: const CircleBorder(),
+        // Stadium, not CircleBorder: a round button stays round, and a
+        // labelled (extended) one becomes a pill instead of a circle that
+        // cut its label ("rescrip", "d a me"; owner's screenshots 2026-11-17).
+        shape: const StadiumBorder(),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: p.ink,
-        contentTextStyle: TextStyle(color: p.surface, fontSize: 15, fontWeight: FontWeight.w600),
+        contentTextStyle: TextStyle(fontFamily: AppType.family, color: p.surface, fontSize: AppType.body, fontWeight: FontWeight.w600),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
+}
+
+/// The app's one type scale (Round 18). Screens take sizes from here or the
+/// theme's text styles, never a free number, so the same kind of text has
+/// the same size everywhere. Sizes are before the user's Text size setting.
+///
+/// headline 22 · app bar 19 · title (cards, list rows) 16 · body 15 ·
+/// small (help, hints, list subtitles) 13 · tiny (badges, bar labels) 12;
+/// big numbers (readings, counts) 28.
+class AppType {
+  AppType._();
+
+  static const String family = 'HindSiliguri';
+
+  static const double display = 28;
+  static const double headline = 22;
+  static const double appBar = 19;
+  static const double title = 16;
+  static const double body = 15;
+  static const double label = 14;
+  static const double button = 15;
+  static const double small = 13;
+  static const double tiny = 12;
+
+  /// Hind Siliguri has tall built-in line spacing; these keep two-line text
+  /// close (client: "too much space between double lines").
+  static const double tightHeight = 1.2;
+  static const double bodyHeight = 1.32;
+
+  static TextTheme textTheme(AppPalette p) => TextTheme(
+        displaySmall: TextStyle(fontSize: display, height: tightHeight, fontWeight: FontWeight.w700, color: p.head),
+        headlineMedium: TextStyle(fontSize: 24, height: tightHeight, fontWeight: FontWeight.w700, color: p.head),
+        headlineSmall: TextStyle(fontSize: headline, height: tightHeight, fontWeight: FontWeight.w700, color: p.head),
+        titleLarge: TextStyle(fontSize: appBar, height: tightHeight, fontWeight: FontWeight.w700, color: p.head),
+        titleMedium: const TextStyle(fontSize: title, height: tightHeight, fontWeight: FontWeight.w700),
+        titleSmall: const TextStyle(fontSize: label, height: tightHeight, fontWeight: FontWeight.w600),
+        bodyLarge: const TextStyle(fontSize: 16, height: bodyHeight),
+        bodyMedium: const TextStyle(fontSize: body, height: bodyHeight),
+        bodySmall: TextStyle(fontSize: small, height: bodyHeight, color: p.muted),
+        labelLarge: const TextStyle(fontSize: label, height: tightHeight, fontWeight: FontWeight.w700),
+        labelMedium: const TextStyle(fontSize: small, height: tightHeight, fontWeight: FontWeight.w600),
+        labelSmall: const TextStyle(fontSize: tiny, height: tightHeight, fontWeight: FontWeight.w600),
+      );
 }
 
 /// Text and status colors that differ between light and dark mode, from the

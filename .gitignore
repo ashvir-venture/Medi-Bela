@@ -91,6 +91,8 @@ xcuserdata/
 *.sqlite3
 *.db
 uploads/
+# Round 18: the API's uploads module is source code, not an upload folder.
+!backend/src/uploads/
 
 # ---- Editors and OS -------------------------------------------------
 .idea/

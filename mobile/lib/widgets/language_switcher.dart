@@ -17,7 +17,7 @@ class LanguageSwitcher extends ConsumerWidget {
       key: const ValueKey('language-switcher'),
       onPressed: () =>
           ref.read(localeControllerProvider.notifier).setLanguage(isBangla ? 'en' : 'bn'),
-      icon: const Icon(Icons.translate),
+      icon: const Icon(Icons.translate_outlined),
       label: Text(isBangla ? 'English' : 'বাংলা'),
     );
   }

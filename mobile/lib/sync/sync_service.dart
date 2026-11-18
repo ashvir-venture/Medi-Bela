@@ -100,6 +100,14 @@ class SyncService {
           .get();
 
       for (final entry in pending) {
+        // Round 18: a handler with a retry rule waits between its tries.
+        final handler = _handlersByType[entry.entityType];
+        final policy = handler is RetryPolicy ? handler as RetryPolicy : null;
+        final last = entry.lastAttemptAt;
+        if (policy != null && entry.retryCount > 0 && last != null &&
+            _now().isBefore(last.add(policy.backoff(entry.retryCount)))) {
+          continue;
+        }
         final throttled = await _processEntry(entry);
         if (throttled) break;
       }
@@ -123,7 +131,7 @@ class SyncService {
       entry.id,
       OutboxEntriesCompanion(
         status: const Value(OutboxStatus.syncing),
-        lastAttemptAt: Value(DateTime.now()),
+        lastAttemptAt: Value(_now()),
       ),
     );
 
@@ -144,8 +152,17 @@ class SyncService {
         return true;
       }
       final retryCount = entry.retryCount + 1;
-      final gaveUp = retryCount >= AppConfig.maxOutboxRetries;
+      final policy = handler is RetryPolicy ? handler as RetryPolicy : null;
+      final max = policy?.maxRetries ?? AppConfig.maxOutboxRetries;
+      final gaveUp = retryCount >= max;
       if (gaveUp) await _releaseLocalPending(entry);
+      if (gaveUp && policy != null) {
+        try {
+          await policy.onGaveUp(entry);
+        } catch (_) {
+          // The failed state is still saved below.
+        }
+      }
       await _updateEntry(
         entry.id,
         OutboxEntriesCompanion(

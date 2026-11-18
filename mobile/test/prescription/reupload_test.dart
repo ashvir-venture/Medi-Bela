@@ -14,14 +14,18 @@ class _RecordingApi extends PrescriptionApi {
 
   final uploads = <Map<String, String?>>[];
 
+  final pages = <List<String>>[];
+
   @override
-  Future<String> uploadDraft({
+  Future<String> uploadPages({
     required String clientId,
+    required List<String> pages,
     String? note,
-    String? imageLocalPath,
     String? previousPrescriptionId,
+    String? forUserId,
   }) async {
     uploads.add({'clientId': clientId, 'previousPrescriptionId': previousPrescriptionId});
+    this.pages.add(pages);
     return 'server-$clientId';
   }
 }
@@ -61,5 +65,23 @@ void main() {
 
     await handler.sync(entry);
     expect(api.uploads.single['previousPrescriptionId'], isNull);
+  });
+
+  test('Round 18: every page is queued and sent; after 3 failed tries the draft fails and the user is told', () async {
+    await repo.createAndQueue(pages: ['/tmp/p1.jpg', '/tmp/p2.jpg']);
+    final entry = (await db.select(db.outboxEntries).get()).single;
+    await handler.sync(entry);
+    expect(api.pages.single, ['/tmp/p1.jpg', '/tmp/p2.jpg']);
+    final draft = (await db.select(db.prescriptionDrafts).get()).single;
+    expect(draft.imageLocalPath, '/tmp/p1.jpg');
+
+    String? told;
+    final failing = PrescriptionSyncHandler(api: api, database: db, onFailed: (id) async => told = id);
+    expect(failing.maxRetries, 3);
+    expect(failing.backoff(1), const Duration(seconds: 30));
+    expect(failing.backoff(2), const Duration(minutes: 2));
+    await failing.onGaveUp(entry);
+    expect(told, draft.id);
+    expect((await db.select(db.prescriptionDrafts).get()).single.status, 'failed');
   });
 }

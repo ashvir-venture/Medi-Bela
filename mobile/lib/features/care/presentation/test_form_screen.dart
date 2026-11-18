@@ -278,7 +278,7 @@ class _TestFormScreenState extends ConsumerState<TestFormScreen> {
               PillButton(label: s.otherTest, selected: _kind == '', onTap: () => setState(() => _kind = '')),
             ])
           else
-            Text(testName(_existing!.testKindCode, _existing!.otherName, lookups, s.bn), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            Text(testName(_existing!.testKindCode, _existing!.otherName, lookups, s.bn), style: const TextStyle(fontSize: AppType.title, fontWeight: FontWeight.w700)),
           if (_kind == '' && _existing == null) ...[
             const SizedBox(height: 8),
             TextField(controller: _other, decoration: InputDecoration(labelText: s.testName), onChanged: (_) => setState(() {})),
@@ -294,7 +294,7 @@ class _TestFormScreenState extends ConsumerState<TestFormScreen> {
           Card(
             child: ListTile(
               title: Text(_done ? s.whenWasIt : s.when, style: const TextStyle(fontWeight: FontWeight.w700)),
-              trailing: Text(shortDate(_date, s), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+              trailing: Text(shortDate(_date, s), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: AppType.body)),
               onTap: () async {
                 final now = DateTime.now();
                 final d = await showDatePicker(
@@ -329,7 +329,7 @@ class _TestFormScreenState extends ConsumerState<TestFormScreen> {
                           style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
                       ),
-                      SizedBox(width: 70, child: Padding(padding: const EdgeInsets.only(left: 6), child: Text(f.unit ?? '', style: TextStyle(color: p.muted, fontSize: 13)))),
+                      SizedBox(width: 70, child: Padding(padding: const EdgeInsets.only(left: 6), child: Text(f.unit ?? '', style: TextStyle(color: p.muted, fontSize: AppType.small)))),
                     ]),
                   ),
               for (var i = 0; i < _extra.length; i++)

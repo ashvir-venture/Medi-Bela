@@ -12,6 +12,8 @@ export const ErrorCode = {
   BAD_REQUEST: 'BAD_REQUEST',
   UNAUTHORIZED: 'UNAUTHORIZED',
   INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
+  /** Round 18: the refresh token is unknown, expired, revoked or reused; sign in again. */
+  SESSION_EXPIRED: 'SESSION_EXPIRED',
   FORBIDDEN: 'FORBIDDEN',
   PASSWORD_INCORRECT: 'PASSWORD_INCORRECT',
   ACCOUNT_SUSPENDED: 'ACCOUNT_SUSPENDED',
@@ -24,6 +26,8 @@ export const ErrorCode = {
   DOSE_WINDOW_CLOSED: 'DOSE_WINDOW_CLOSED',
   /** Own reminder timings where the family would be told before the last ring has finished (Round 14). */
   FAMILY_ALERT_TOO_EARLY: 'FAMILY_ALERT_TOO_EARLY',
+  /** Round 18: the caregiver may not see (View) or change (Manage) this member's data: the member decides. */
+  CAREGIVER_NO_PERMISSION: 'CAREGIVER_NO_PERMISSION',
   NOT_FOUND: 'NOT_FOUND',
   CONFLICT: 'CONFLICT',
   PAYLOAD_TOO_LARGE: 'PAYLOAD_TOO_LARGE',

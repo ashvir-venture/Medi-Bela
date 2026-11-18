@@ -64,7 +64,7 @@ class _Banner extends StatelessWidget {
             text,
             style: TextStyle(
               color: color,
-              fontSize: 13,
+              fontSize: AppType.small,
               fontWeight: FontWeight.w600,
             ),
           ),

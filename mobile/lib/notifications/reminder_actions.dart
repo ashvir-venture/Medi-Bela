@@ -24,6 +24,7 @@ import 'push_service.dart' show isCaregiverActionMessage;
 import '../features/medicine_box/data/medicine_box_alerts.dart' show boxActionIgnore, medicineBoxType;
 import 'reminder_preference.dart';
 import 'reminder_timing.dart';
+import 'notification_look.dart';
 
 /// Done / Later on a medicine reminder, and the server's backstop push.
 ///
@@ -254,6 +255,7 @@ Future<ProviderContainer> openBackgroundContainer() async {
   final reminders = ReminderPreference();
   await reminders.load();
   await ReminderTiming.load();
+  await NotificationLook.load();
 
   return ProviderContainer(
     overrides: [

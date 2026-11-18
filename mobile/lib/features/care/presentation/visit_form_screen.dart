@@ -9,6 +9,7 @@ import 'care_actions.dart';
 import 'care_providers.dart';
 import 'care_widgets.dart';
 import 'doctor_picker.dart';
+import '../../../core/utils/clock_label.dart';
 
 /// A doctor visit (Round 16 A), a pregnancy check-up (kind ANC) or a chemo
 /// session (kind CHEMO): date, optional time, doctor, condition, note and
@@ -114,7 +115,7 @@ class _VisitFormScreenState extends ConsumerState<VisitFormScreen> {
                   child: Column(children: [
                     ListTile(
                       title: Text(s.date, style: const TextStyle(fontWeight: FontWeight.w700)),
-                      trailing: Text(shortDate(_date, s), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                      trailing: Text(shortDate(_date, s), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: AppType.body)),
                       onTap: () async {
                         final now = DateTime.now();
                         final d = await showDatePicker(context: context, initialDate: _date, firstDate: now.subtract(const Duration(days: 365)), lastDate: now.add(const Duration(days: 730)));
@@ -124,7 +125,7 @@ class _VisitFormScreenState extends ConsumerState<VisitFormScreen> {
                     Divider(height: 1, color: p.line3),
                     ListTile(
                       title: Text(s.time + s.optional, style: const TextStyle(fontWeight: FontWeight.w700)),
-                      trailing: Text(_time == null ? '—' : s.n(_time!.format(context)), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                      trailing: Text(_time == null ? '—' : s.n(_time!.label(context)), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: AppType.body)),
                       onTap: () async {
                         final t = await showTimePicker(context: context, initialTime: _time ?? const TimeOfDay(hour: 17, minute: 0));
                         if (t != null) setState(() => _time = t);

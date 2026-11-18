@@ -7,6 +7,8 @@ class ApiEndpoints {
   static const String register = '/auth/register';
   static const String login = '/auth/login';
   static const String logout = '/auth/logout';
+  /// Round 18: a refresh token for a new access token (and the next refresh token).
+  static const String refresh = '/auth/refresh';
   static const String changePassword = '/auth/change-password';
   static const String forgotPassword = '/auth/forgot-password';
   static const String resetPassword = '/auth/reset-password';
@@ -25,6 +27,8 @@ class ApiEndpoints {
   // Family
   static const String family = '/family';
   static const String familyMembers = '/family/members';
+  /// Round 18: what I let the family caregiver do (View / Manage).
+  static const String familyPermissions = '/family/permissions';
   static const String familyInvitations = '/family/invitations';
   static String acceptInvitation(String id) =>
       '/family/invitations/$id/accept';

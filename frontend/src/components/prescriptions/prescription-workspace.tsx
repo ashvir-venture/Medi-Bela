@@ -432,12 +432,22 @@ export function PrescriptionWorkspace({
             <div className="card">
               {p.imageUrl ? (
                 <>
-                  <a href={p.imageUrl} target="_blank" rel="noreferrer" title="Open full size">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={p.imageUrl} alt="Prescription photo" className="prescription-image" />
-                  </a>
+                  {/* Round 18: every page of a long prescription, in order. */}
+                  {(p.pageUrls && p.pageUrls.length > 0 ? p.pageUrls : [p.imageUrl]).map((url, i, all) => (
+                    <div key={url} className="prescription-page">
+                      {all.length > 1 && (
+                        <p className="muted prescription-page-label">
+                          Page {i + 1} of {all.length}
+                        </p>
+                      )}
+                      <a href={url} target="_blank" rel="noreferrer" title="Open full size">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={url} alt={`Prescription page ${i + 1}`} className="prescription-image" />
+                      </a>
+                    </div>
+                  ))}
                   <p className="muted" style={{ marginTop: 8 }}>
-                    Tap the photo to open it full size.
+                    Tap a page to open it full size.
                   </p>
                 </>
               ) : (

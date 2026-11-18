@@ -19,7 +19,7 @@ import { Role } from '@prisma/client';
 import { PrescriptionsService } from './prescriptions.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
-import { CreatePrescriptionDto } from './dto/create-prescription.dto';
+import { CreatePrescriptionDto, CreatePrescriptionFromPagesDto } from './dto/create-prescription.dto';
 import { SaveMedicinesDto } from './dto/save-medicines.dto';
 import { SavePrescriptionDetailsDto } from './dto/save-details.dto';
 import { QueueQueryDto } from './dto/queue-query.dto';
@@ -66,12 +66,35 @@ export class PrescriptionsController {
     return created;
   }
 
+  /**
+   * Round 18 (client point 2): up to 5 pages the phone uploaded straight to
+   * Cloudinary (in the background). `?forUserId=` = the caregiver.
+   */
+  @Post('pages')
+  @HttpCode(HttpStatus.CREATED)
+  async createFromPages(
+    @CurrentUser('id') userId: string,
+    @Body() dto: CreatePrescriptionFromPagesDto,
+    @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
+  ) {
+    const acting = await this.caregivers.resolve(userId, forUserId);
+    const created = await this.prescriptions.createFromPages(
+      acting.subjectId,
+      dto.pages,
+      dto.clientId,
+      dto.previousPrescriptionId,
+      acting.actorId,
+    );
+    await this.caregivers.notifyMember(acting, 'prescription_uploaded', created.id);
+    return created;
+  }
+
   @Get('mine')
   async getMine(
     @CurrentUser('id') userId: string,
     @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
   ) {
-    const acting = await this.caregivers.resolve(userId, forUserId);
+    const acting = await this.caregivers.resolve(userId, forUserId, 'view');
     return this.prescriptions.getMyHistory(acting.subjectId);
   }
 
@@ -81,7 +104,7 @@ export class PrescriptionsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
   ) {
-    const acting = await this.caregivers.resolve(userId, forUserId);
+    const acting = await this.caregivers.resolve(userId, forUserId, 'view');
     return this.prescriptions.getMyPrescriptionDetail(acting.subjectId, id);
   }
 

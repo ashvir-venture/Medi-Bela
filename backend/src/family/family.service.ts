@@ -45,6 +45,15 @@ type MemberRow = Prisma.FamilyMemberGetPayload<{
   include: { user: { select: typeof MEMBER_USER_SELECT } };
 }>;
 
+/** Round 18: what a member allows their caregiver (Manage includes View). */
+function permissionsOf(m: { caregiverCanView: boolean; caregiverCanManage: boolean; caregiverPermissionAt: Date | null }) {
+  return {
+    view: m.caregiverCanView || m.caregiverCanManage,
+    manage: m.caregiverCanManage,
+    answered: m.caregiverPermissionAt != null,
+  };
+}
+
 /** One place decides what a family member may see about another. */
 function presentUser(user: MemberRow['user']) {
   return {
@@ -135,11 +144,14 @@ export class FamilyService {
       include: { user: { select: MEMBER_USER_SELECT } },
       orderBy: { joinedAt: 'asc' },
     });
+    // Round 18: the caregiver sees what each member allows them.
+    const viewerIsCaregiver = membership.role === FamilyRole.CAREGIVER;
     return members.map((m) => ({
       familyMemberId: m.id,
       role: m.role,
       joinedAt: m.joinedAt,
       user: presentUser(m.user),
+      ...(viewerIsCaregiver && m.userId !== userId ? { permissions: permissionsOf(m) } : {}),
     }));
   }
 
@@ -168,7 +180,7 @@ export class FamilyService {
       .map((m) => m.userId);
     const doses = sharingIds.length
       ? await this.prisma.medicineDose.findMany({
-          where: { userId: { in: sharingIds }, scheduledAt: { gte: start, lt: end } },
+          where: { userId: { in: sharingIds }, scheduledAt: { gte: start, lt: end }, routine: { asNeeded: false } },
           select: { userId: true, status: true, scheduledAt: true },
         })
       : [];
@@ -225,12 +237,15 @@ export class FamilyService {
     const isSelf = target.userId === userId;
     // Round 14: the caregiver may mark this member's doses ("I gave it") and
     // switch easy mode, so they get the dose ids and the switch's state.
-    const asCaregiver = !isSelf && membership.role === FamilyRole.CAREGIVER;
+    // Round 18: only with the member's Manage permission.
+    const asCaregiver = !isSelf && membership.role === FamilyRole.CAREGIVER && target.caregiverCanManage;
     const member = {
       userId: target.userId,
       name: target.user.name,
       paused,
       ...(asCaregiver && !paused && target.user.profileVisibleToFamily ? { easyMode: target.user.easyMode } : {}),
+      // Round 18: what the member allows the caregiver (the caregiver's view only).
+      ...(!isSelf && membership.role === FamilyRole.CAREGIVER ? { permissions: permissionsOf(target) } : {}),
     };
     if (paused || (!isSelf && !target.user.profileVisibleToFamily)) {
       return { member, shared: false as const, today: null, doses: [] };
@@ -238,7 +253,7 @@ export class FamilyService {
 
     const { start, end } = appDayBounds(new Date());
     const rows = await this.prisma.medicineDose.findMany({
-      where: { userId: target.userId, scheduledAt: { gte: start, lt: end } },
+      where: { userId: target.userId, scheduledAt: { gte: start, lt: end }, routine: { asNeeded: false } },
       orderBy: { scheduledAt: 'asc' },
       select: {
         id: true,

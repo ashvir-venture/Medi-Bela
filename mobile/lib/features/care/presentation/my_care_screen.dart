@@ -77,7 +77,7 @@ class _MyCareScreenState extends ConsumerState<MyCareScreen> {
       appBar: widget.signupStep
           ? AppBar(
               automaticallyImplyLeading: false,
-              title: Text(s.lastStep, style: TextStyle(color: p.muted, fontSize: 15, fontWeight: FontWeight.w700)),
+              title: Text(s.lastStep, style: TextStyle(color: p.muted, fontSize: AppType.body, fontWeight: FontWeight.w700)),
               actions: [TextButton(onPressed: _saving ? null : _later, child: Text(s.later))],
             )
           : AppBar(title: Text(widget.who.isMember ? '${s.myCare} · ${widget.who.memberName ?? ''}' : s.myCare)),
@@ -86,7 +86,7 @@ class _MyCareScreenState extends ConsumerState<MyCareScreen> {
         children: [
           Text(s.whatCare, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700, color: p.head)),
           const SizedBox(height: 6),
-          Text(s.whatCareSub, style: TextStyle(color: p.muted, fontSize: 15)),
+          Text(s.whatCareSub, style: TextStyle(color: p.muted, fontSize: AppType.body)),
           const SizedBox(height: 16),
           GridView.count(
             crossAxisCount: 2,
@@ -121,7 +121,7 @@ class _MyCareScreenState extends ConsumerState<MyCareScreen> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(color: p.surface2, borderRadius: BorderRadius.circular(16)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(s.homeWillShow, style: TextStyle(color: p.muted, fontWeight: FontWeight.w700, fontSize: 13)),
+              Text(s.homeWillShow, style: TextStyle(color: p.muted, fontWeight: FontWeight.w700, fontSize: AppType.small)),
               const SizedBox(height: 8),
               if (picked.isEmpty)
                 Text(s.homeWillShowNone)
@@ -175,9 +175,9 @@ class _ConditionTile extends StatelessWidget {
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Icon(conditionIcon(code), color: selected ? p.onPrimaryContainer : p.head),
               const SizedBox(height: 4),
-              Text(name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+              Text(name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: AppType.body)),
               if (subtitle != null)
-                Text(subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.muted, fontSize: 12)),
+                Text(subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.muted, fontSize: AppType.tiny)),
             ]),
             if (selected)
               Positioned(

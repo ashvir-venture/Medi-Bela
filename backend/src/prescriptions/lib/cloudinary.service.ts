@@ -1,4 +1,5 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { ErrorCode, withCode } from '../../common/filters/error-codes';
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary } from 'cloudinary';
 
@@ -89,6 +90,71 @@ export class CloudinaryService {
   }
 
   /**
+   * Round 18 (owner 2026-11-17): the phone uploads a photo straight to
+   * Cloudinary with these signed parameters (the secret never leaves the
+   * server). The asset is private (`authenticated`), JPG / PNG only, at a
+   * public id the server chose under the user's own folder, so nothing the
+   * phone sends can land elsewhere. The signature is valid for about an hour
+   * (Cloudinary's own limit on `timestamp`).
+   */
+  signDirectUpload(publicId: string, now = Date.now()) {
+    if (!this.configured) {
+      throw new InternalServerErrorException('File storage is not configured (missing Cloudinary credentials)');
+    }
+    const timestamp = Math.floor(now / 1000);
+    const params = { timestamp, public_id: publicId, type: 'authenticated', allowed_formats: 'jpg,jpeg,png' };
+    const signature = cloudinary.utils.api_sign_request(params, this.config.getOrThrow<string>('CLOUDINARY_API_SECRET'));
+    const cloudName = this.config.getOrThrow<string>('CLOUDINARY_CLOUD_NAME');
+    return {
+      uploadUrl: `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+      apiKey: this.config.getOrThrow<string>('CLOUDINARY_API_KEY'),
+      timestamp,
+      signature,
+      publicId,
+      type: 'authenticated',
+      allowedFormats: 'jpg,jpeg,png',
+      maxBytes: DIRECT_UPLOAD_MAX_BYTES,
+    };
+  }
+
+  /**
+   * Round 18: after a direct upload, checks the asset exists, is an image
+   * of an allowed format and size; removes it and refuses otherwise. Returns
+   * the reference to store (the same shape as a server-side upload).
+   */
+  async confirmDirectUpload(publicId: string): Promise<string> {
+    if (!this.configured) {
+      throw new InternalServerErrorException('File storage is not configured (missing Cloudinary credentials)');
+    }
+    let resource: { format: string; bytes: number; version: number; public_id: string };
+    try {
+      resource = await cloudinary.api.resource(publicId, { resource_type: 'image', type: 'authenticated' });
+    } catch {
+      throw new BadRequestException('The photo was not uploaded');
+    }
+    const okFormat = ['jpg', 'jpeg', 'png'].includes((resource.format ?? '').toLowerCase());
+    if (!okFormat || resource.bytes > DIRECT_UPLOAD_MAX_BYTES) {
+      await this.destroy(publicId);
+      throw withCode(new BadRequestException('Only JPG or PNG photos up to 10 MB'), ErrorCode.PAYLOAD_TOO_LARGE);
+    }
+    return cloudinary.url(resource.public_id, {
+      resource_type: 'image',
+      type: 'authenticated',
+      version: resource.version,
+      format: resource.format,
+      secure: true,
+    });
+  }
+
+  private async destroy(publicId: string) {
+    try {
+      await cloudinary.uploader.destroy(publicId, { resource_type: 'image', type: 'authenticated', invalidate: true });
+    } catch {
+      this.logger.warn('Cloudinary image deletion failed');
+    }
+  }
+
+  /**
    * Best-effort removal of an image we uploaded (used when an account is
    * deleted). Only touches Cloudinary URLs; never throws.
    */
@@ -122,6 +188,9 @@ export class CloudinaryService {
     }
   }
 }
+
+/** Round 18: the largest photo the phone may upload directly. */
+export const DIRECT_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
 
 /** How long a signed prescription image link stays valid. */
 export const SIGNED_URL_TTL_SECONDS = 60 * 60;

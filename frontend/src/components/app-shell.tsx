@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { AdminUser, clearTokens, getDashboard, getPharmacistDashboard } from '@/lib/api-client';
+import { AdminUser, getDashboard, getPharmacistDashboard, logout as signOut } from '@/lib/api-client';
 import { ADMIN_BASE } from '@/lib/paths';
 import { Icon, IconName } from '@/components/icons';
 import { Skeleton } from '@/components/skeleton';
@@ -123,8 +123,8 @@ export function AppShell({ user, area, children }: { user: AdminUser; area: Area
       .catch(() => undefined);
   }, [area]);
 
-  function logout() {
-    clearTokens();
+  async function logout() {
+    await signOut();
     router.replace('/login');
   }
 

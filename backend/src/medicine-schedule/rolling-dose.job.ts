@@ -7,6 +7,7 @@ import {
   dosesForDays,
   generationLimit,
   parseScheduleTimes,
+  parseWeekdays,
 } from '../prescriptions/lib/routine-generation.service';
 
 const BATCH_SIZE = 200;
@@ -21,6 +22,7 @@ const ROUTINE_SELECT = {
   generatedUntil: true,
   startDate: true,
   intervalDays: true,
+  weekdays: true,
 } as const;
 
 /**
@@ -141,6 +143,7 @@ export async function extendRoutine(
     generatedUntil: Date | null;
     startDate: Date;
     intervalDays: number;
+    weekdays?: string | null;
   },
   now: Date,
 ): Promise<number> {
@@ -152,6 +155,7 @@ export async function extendRoutine(
   const doses = dosesForDays(parseScheduleTimes(routine.scheduleTimes), from, until, {
     days: routine.intervalDays,
     anchor: startOfAppDay(routine.startDate),
+    weekdays: parseWeekdays(routine.weekdays),
   }).filter(
     (d) => d.scheduledAt > now,
   );

@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { AccountStatus, Prisma, User } from '@prisma/client';
+import { AccountStatus, Prisma, RefreshClient, User } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { createHmac, randomInt, timingSafeEqual } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -27,6 +27,7 @@ import { ForgotPasswordDto, ResetPasswordDto } from './dto/forgot-password.dto';
 import { SmsService } from './sms.service';
 import { TokenPair } from './types/tokens.type';
 import { LoginThrottle } from './login-throttle';
+import { RefreshTokenService } from './refresh-token.service';
 import { ErrorCode, withCode } from '../common/filters/error-codes';
 
 // Verified against when the phone is unknown, so "no such user" costs the same
@@ -58,6 +59,7 @@ export class AuthService {
     private readonly config: ConfigService,
     private readonly sms: SmsService,
     private readonly audit: AuditService,
+    private readonly refreshTokens: RefreshTokenService,
   ) { }
 
   async register(
@@ -88,6 +90,8 @@ export class AuthService {
           upazilaId: dto.upazilaId,
           // Proof of consent: when the Privacy & terms box was ticked.
           termsAcceptedAt: new Date(),
+          // Round 18: when they agreed to the anonymous use of data.
+          researchConsentAt: new Date(),
         },
       });
     } catch (err) {
@@ -145,25 +149,42 @@ export class AuthService {
     }
 
     this.throttle.reset(throttleKey);
-    const tokens = await this.issueTokens(current);
+    const tokens = await this.issueTokens(current, dto.client === 'panel' ? RefreshClient.PANEL : RefreshClient.APP);
     return reactivated
       ? { user: sanitizeUser(current), tokens, reactivated: true }
       : { user: sanitizeUser(current), tokens };
   }
 
   /**
-   * Stateless JWT: nothing is stored server-side, so there is nothing to
-   * revoke. The client simply discards its token. (Suspended accounts are
-   * still cut off immediately - JwtAccessStrategy re-checks the user on
-   * every request.)
+   * Round 18: signs this device out by revoking the sign-in (refresh-token
+   * family) of the presented token. The short access token simply runs out
+   * (15 min); suspended or paused accounts are still cut off at once
+   * (JwtAccessStrategy re-checks the user on every request).
    */
-  async logout(_userId: string): Promise<void> {
-    return;
+  async logout(refreshToken: string | undefined): Promise<void> {
+    await this.refreshTokens.revokeByToken(refreshToken);
+  }
+
+  /**
+   * Round 18: a refresh token for a new access token and the next refresh
+   * token (rotation). 401 SESSION_EXPIRED when it is unknown, expired,
+   * revoked, reused, from before a password reset / pause, or the account
+   * is no longer active.
+   */
+  async refresh(refreshToken: string): Promise<{ tokens: TokenPair; client: RefreshClient }> {
+    const next = await this.refreshTokens.rotate(refreshToken);
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: next.userId } });
+    const accessToken = await this.signAccess(user, next.familyId);
+    return {
+      client: next.client,
+      tokens: { accessToken, refreshToken: next.token, refreshExpiresAt: next.expiresAt.toISOString() },
+    };
   }
 
   async changePassword(
     userId: string,
     dto: ChangePasswordDto,
+    sessionId?: string,
   ): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
@@ -190,6 +211,8 @@ export class AuthService {
       where: { id: userId },
       data: { passwordHash: newPasswordHash },
     });
+    // Round 18: every other signed-in device must sign in again; this one stays.
+    await this.refreshTokens.revokeAllForUser(userId, sessionId);
   }
 
   /**
@@ -313,19 +336,24 @@ export class AuthService {
     return hits.length > max;
   }
 
-  private async issueTokens(user: User): Promise<TokenPair> {
+  /** A sign-in: a short access token and a new refresh-token family. */
+  private async issueTokens(user: User, client: RefreshClient = RefreshClient.APP): Promise<TokenPair> {
+    const refresh = await this.refreshTokens.issue(user.id, client);
+    const accessToken = await this.signAccess(user, refresh.familyId);
+    return { accessToken, refreshToken: refresh.token, refreshExpiresAt: refresh.expiresAt.toISOString() };
+  }
+
+  private signAccess(user: User, familyId: string): Promise<string> {
     const payload: JwtPayload = {
       sub: user.id,
       phone: user.phone,
       role: user.role,
+      sid: familyId,
     };
-
-    const accessToken = await this.jwt.signAsync(payload, {
+    return this.jwt.signAsync(payload, {
       secret: this.config.getOrThrow<string>('JWT_ACCESS_SECRET'),
-      // Single long-lived token (MVP: no refresh flow).
-      expiresIn: this.config.get<string>('JWT_ACCESS_EXPIRES_IN', '30d') as any,
+      // Round 18: short-lived; the refresh token renews it.
+      expiresIn: this.config.get<string>('JWT_ACCESS_EXPIRES_IN', '15m') as any,
     });
-
-    return { accessToken };
   }
 }

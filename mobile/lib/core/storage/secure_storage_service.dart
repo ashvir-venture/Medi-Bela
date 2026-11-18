@@ -2,7 +2,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../constants/app_config.dart';
 
-/// The ONLY place the JWT access token is read or written.
+/// The ONLY place the access and refresh tokens are read or written.
 ///
 /// Backed by Keychain (iOS) / Keystore-encrypted prefs (Android). Tokens
 /// must never end up in the Drift database — Drift is a plain SQLite file
@@ -17,17 +17,24 @@ class SecureStorageService {
 
   final FlutterSecureStorage _storage;
 
-  Future<void> saveTokens({required String accessToken}) =>
-      _storage.write(key: SecureStorageKeys.accessToken, value: accessToken);
+  Future<void> saveTokens({required String accessToken, String? refreshToken}) async {
+    await _storage.write(key: SecureStorageKeys.accessToken, value: accessToken);
+    if (refreshToken != null) {
+      await _storage.write(key: SecureStorageKeys.refreshToken, value: refreshToken);
+    }
+  }
 
   Future<String?> readAccessToken() =>
       _storage.read(key: SecureStorageKeys.accessToken);
 
+  /// Round 18: the 60-day refresh token (rotated on every refresh).
+  Future<String?> readRefreshToken() =>
+      _storage.read(key: SecureStorageKeys.refreshToken);
+
   Future<void> clearTokens() async {
     await Future.wait([
       _storage.delete(key: SecureStorageKeys.accessToken),
-      // Leftover from builds that used a refresh token.
-      _storage.delete(key: SecureStorageKeys.legacyRefreshToken),
+      _storage.delete(key: SecureStorageKeys.refreshToken),
     ]);
   }
 

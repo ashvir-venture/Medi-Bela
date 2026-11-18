@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -16,6 +18,8 @@ import '../../health/domain/health_models.dart';
 import '../../medicine_schedule/domain/medicine_schedule_models.dart';
 import '../../prescription/presentation/confirm_prescription_screen.dart' show formatHhmm;
 import '../../../widgets/fit_label.dart';
+import '../../../core/utils/clock_label.dart';
+import '../../../notifications/notification_look.dart';
 
 /// The medicines due at [at] with large Later (red) and Taken (green)
 /// buttons, which work like the notification's own (Taken marks the whole
@@ -44,7 +48,7 @@ class DoseReminderScreen extends ConsumerWidget {
       icon: Icons.medication_outlined,
       image: 'assets/images/medicine_image.png',
       title: strings.reminderTitle,
-      when: TimeOfDay.fromDateTime(at).format(context),
+      when: TimeOfDay.fromDateTime(at).label(context),
       strings: strings,
       alarm: alarm,
       doneLabel: strings.takenAction,
@@ -235,6 +239,17 @@ class _ReminderScaffold extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
             children: [
+              // Round 18 (client point 9): the patient's round photo, if picked.
+              if (NotificationLook.current.photoPath != null) ...[
+                Center(
+                  child: CircleAvatar(
+                    key: const ValueKey('reminder-photo'),
+                    radius: 48,
+                    backgroundImage: FileImage(File(NotificationLook.current.photoPath!)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               ClipRRect(
                 borderRadius: BorderRadius.circular(20),
                 child: Image.asset(
@@ -281,7 +296,7 @@ class _ReminderScaffold extends StatelessWidget {
                               textStyle: theme.textTheme.titleLarge,
                             ),
                             onPressed: onLater,
-                            icon: const Icon(Icons.snooze, size: 28),
+                            icon: const Icon(Icons.snooze_outlined, size: 28),
                             label: FitLabel(Text(laterLabel, textAlign: TextAlign.center)),
                           ),
                         ),
@@ -316,7 +331,7 @@ class _Notice extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(top: 12),
-        child: Text(text, textAlign: TextAlign.center, style: TextStyle(color: context.palette.muted, fontSize: 16)),
+        child: Text(text, textAlign: TextAlign.center, style: TextStyle(color: context.palette.muted, fontSize: AppType.body)),
       );
 }
 

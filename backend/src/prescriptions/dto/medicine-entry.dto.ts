@@ -121,4 +121,21 @@ export class MedicineEntryDto {
   @Min(1)
   @Max(90)
   intervalDays?: number;
+
+  /** Round 18: "only when needed": no times; the patient logs each one. */
+  @IsOptional()
+  @IsBoolean()
+  asNeeded?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(24)
+  maxPerDay?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(48)
+  minGapHours?: number;
 }

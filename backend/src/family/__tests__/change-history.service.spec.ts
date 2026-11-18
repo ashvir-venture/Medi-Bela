@@ -49,7 +49,7 @@ describe('ChangeHistoryService', () => {
   it("the member's page goes through CaregiverAccessService (404 for anyone else)", async () => {
     const { service, caregivers, findMany } = setup();
     await service.forMember('carer', 'mother');
-    expect(caregivers.resolve).toHaveBeenCalledWith('carer', 'mother');
+    expect(caregivers.resolve).toHaveBeenCalledWith('carer', 'mother', 'view');
     expect((findMany.mock.calls[0] as any)[0].where.subjectUserId).toBe('mother');
     await expect(service.forMember('sister', 'mother')).rejects.toBeInstanceOf(NotFoundException);
   });

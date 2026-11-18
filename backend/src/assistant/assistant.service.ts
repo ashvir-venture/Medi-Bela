@@ -14,6 +14,8 @@ import {
   buildSystemPrompt,
   candidateBrandWords,
   clean,
+  medicineSourceNote,
+  mentionsAny,
   detectEmergency,
   detectRestrictedIntent,
   disclaimerFor,
@@ -311,7 +313,13 @@ export class AssistantService {
     if (!text) throw assistantUnavailable();
 
     // Over the cap: cut back to the last whole sentence, never mid-word.
-    const content = text.length > MAX_REPLY_CHARS ? trimToSentence(text.slice(0, MAX_REPLY_CHARS)) : text;
+    let content = text.length > MAX_REPLY_CHARS ? trimToSentence(text.slice(0, MAX_REPLY_CHARS)) : text;
+    // Round 18 (client point 16): about one of the user's own medicines, the
+    // fixed "talk to your doctor before changing anything" line goes under it.
+    const own = [...context.routines.map((r) => r.medicine), ...(context.box ?? []), ...(context.catalog ?? []).flatMap((c) => [c.brand, c.generic])];
+    if (mentionsAny(content, own)) content = `${content}
+
+${medicineSourceNote(lang)}`;
     return { content, kind: 'ANSWER' };
   }
 
@@ -425,7 +433,7 @@ export class AssistantService {
    */
   private async loadContext(userId: string, message: string) {
     const words = candidateBrandWords(message);
-    const [routines, reminders, catalog] = await Promise.all([
+    const [routines, reminders, catalog, box] = await Promise.all([
       this.prisma.medicineRoutine.findMany({
         where: { userId, active: true },
         orderBy: { createdAt: 'desc' },
@@ -450,6 +458,12 @@ export class AssistantService {
             select: { brandName: true, generic: { select: { name: true } }, form: { select: { name: true } } },
           })
         : Promise.resolve([]),
+      // Round 18 (client point 16): the medicine box, names only.
+      this.prisma.medicineStock.findMany({
+        where: { userId },
+        take: 20,
+        select: { name: true, kind: true, routine: { select: { medicineName: true, active: true } } },
+      }),
     ]);
     return {
       routines: routines.map((r: any) => ({
@@ -462,6 +476,10 @@ export class AssistantService {
         title: clean(r.title, 120),
         when: new Date(r.scheduledAt).toISOString().slice(0, 10),
       })),
+      box: (box as any[])
+        .filter((b) => !b.routine || b.routine.active)
+        .map((b) => clean(b.routine?.medicineName ?? b.name, 60) + (b.kind === 'SUPPLY' ? ' (supply)' : ''))
+        .filter((n) => n.length > 0),
       catalog: catalog.map((m: any) => ({
         brand: clean(m.brandName, 60),
         generic: clean(m.generic?.name, 80),

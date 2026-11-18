@@ -15,6 +15,7 @@ import '../../medicine_schedule/presentation/medicine_schedule_controller.dart';
 import '../../reminders/presentation/reminder_status_controller.dart';
 import '../domain/day_slots.dart';
 import 'home_top.dart';
+import '../../../core/utils/clock_label.dart';
 
 /// Round 14: easy mode for elders (the demo's easy home). Large text, today's
 /// medicine with one big Taken, the morning / afternoon / night list, a call
@@ -122,9 +123,9 @@ class EasyHomeBody extends ConsumerWidget {
               ),
             ),
             Row(children: [
-              Icon(Icons.schedule, size: 32, color: p.link),
+              Icon(Icons.schedule_outlined, size: 32, color: p.link),
               const SizedBox(width: 8),
-              Text(TimeOfDay.fromDateTime(at).format(context),
+              Text(TimeOfDay.fromDateTime(at).label(context),
                   style: TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: p.head)),
             ]),
             for (final d in open) ...[
@@ -134,7 +135,7 @@ class EasyHomeBody extends ConsumerWidget {
                   width: 64,
                   height: 64,
                   decoration: BoxDecoration(color: p.primaryContainer, borderRadius: BorderRadius.circular(16)),
-                  child: Icon(Icons.medication, size: 34, color: p.onPrimaryContainer),
+                  child: Icon(Icons.medication_outlined, size: 34, color: p.onPrimaryContainer),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -184,7 +185,7 @@ class EasyHomeBody extends ConsumerWidget {
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(
-                    '${slotLabel(s, slot.slot)}, ${TimeOfDay.fromDateTime(slot.doses.first.scheduledAt).format(context)}',
+                    '${slotLabel(s, slot.slot)}, ${TimeOfDay.fromDateTime(slot.doses.first.scheduledAt).label(context)}',
                     style: theme.textTheme.titleMedium,
                   ),
                   Text(slot.doses.map((d) => d.medicineName.split(' ').first).join(', '),
@@ -229,7 +230,7 @@ class EasyHomeBody extends ConsumerWidget {
                     side: BorderSide(color: p.bandLine, width: 1.5),
                   ),
                   onPressed: () => context.push(AppRoutes.settings),
-                  icon: const Icon(Icons.tune),
+                  icon: const Icon(Icons.tune_outlined),
                   label: Text(strings.settings),
                 ),
               ],
@@ -248,7 +249,7 @@ class EasyHomeBody extends ConsumerWidget {
                   InkWell(
                     onTap: () => context.push(AppRoutes.reminderCheck),
                     child: Row(children: [
-                      const Icon(Icons.alarm, size: 30, color: Color(0xFF3A2610)),
+                      const Icon(Icons.alarm_outlined, size: 30, color: Color(0xFF3A2610)),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(s.fixReminders,
@@ -269,7 +270,7 @@ class EasyHomeBody extends ConsumerWidget {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                     ),
                     onPressed: _preview ? null : () => openExternal(context, ref, 'tel:${c.phone}', fallbackCopy: c.phone),
-                    icon: const Icon(Icons.call, size: 30),
+                    icon: const Icon(Icons.call_outlined, size: 30),
                     label: Text(s.easyCall(c.name.split(' ').first)),
                   ),
                 ),
@@ -285,7 +286,7 @@ class EasyHomeBody extends ConsumerWidget {
                   side: BorderSide(color: theme.colorScheme.error, width: 1.5),
                 ),
                 onPressed: _preview ? null : () => openExternal(context, ref, 'tel:999', fallbackCopy: '999'),
-                icon: const Icon(Icons.call),
+                icon: const Icon(Icons.call_outlined),
                 label: Text(s.easyEmergency),
               ),
               const SizedBox(height: 12),

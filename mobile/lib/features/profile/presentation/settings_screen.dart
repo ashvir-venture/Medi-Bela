@@ -12,7 +12,9 @@ import '../../../providers/core_providers.dart';
 import '../../../router/app_router.dart';
 import '../../../widgets/first_use_tips.dart';
 import '../../../widgets/state_views.dart';
+import '../../auth/data/app_lock.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../family/presentation/caregiver_permissions.dart';
 import '../../family/presentation/family_controller.dart';
 import '../../reminders/presentation/reminder_status_controller.dart';
 import '../../help/presentation/help_screens.dart';
@@ -120,7 +122,7 @@ class _SettingsContentState extends ConsumerState<_SettingsContent> {
         // Round 14: the user's own ring gap, Later delay, rings, family alert.
         ListTile(
           contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.tune),
+          leading: const Icon(Icons.tune_outlined),
           title: Text(strings.r14.routineTitle),
           subtitle: Text(strings.r14.routineSubtitle),
           trailing: const Icon(Icons.chevron_right),
@@ -176,6 +178,10 @@ class _SettingsContentState extends ConsumerState<_SettingsContent> {
           value: !user.profileVisibleToFamily,
           onChanged: (hide) => _updateSetting({'profileVisibleToFamily': !hide}),
         ),
+        // Round 18: what the family caregiver may do (members only).
+        if (inFamily) const _CaregiverPermissionTile(),
+        // Round 18: unlock with fingerprint (this phone only).
+        const _FingerprintLockTile(),
         if (inFamily)
           ListTile(
             contentPadding: EdgeInsets.zero,
@@ -347,6 +353,72 @@ class _ReminderCheckTile extends ConsumerWidget {
             ),
       trailing: const Icon(Icons.chevron_right),
       onTap: () => context.push(AppRoutes.reminderCheck),
+    );
+  }
+}
+
+
+/// Round 18: "Unlock with fingerprint". Shown off and disabled (with the
+/// reason) on a phone without a usable fingerprint; turning it on asks for
+/// the fingerprint once.
+class _FingerprintLockTile extends ConsumerStatefulWidget {
+  const _FingerprintLockTile();
+
+  @override
+  ConsumerState<_FingerprintLockTile> createState() => _FingerprintLockTileState();
+}
+
+class _FingerprintLockTileState extends ConsumerState<_FingerprintLockTile> {
+  late final Future<bool> _available = ref.read(appLockControllerProvider.notifier).isAvailable();
+
+  @override
+  Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider).r18;
+    final lock = ref.watch(appLockControllerProvider);
+    return FutureBuilder<bool>(
+      future: _available,
+      builder: (context, snap) {
+        final available = snap.data ?? false;
+        return SwitchListTile(
+          key: const ValueKey('fingerprint-lock-switch'),
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Icons.fingerprint_rounded),
+          title: Text(s.fingerprintLock),
+          subtitle: Text(available || lock.enabled ? s.fingerprintLockSub : s.fingerprintUnavailable),
+          value: lock.enabled,
+          onChanged: available || lock.enabled
+              ? (on) async {
+                  final ok = await ref.read(appLockControllerProvider.notifier).setEnabled(on, s.unlockReason);
+                  if (!ok && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.fingerprintNotTurnedOn)));
+                  }
+                }
+              : null,
+        );
+      },
+    );
+  }
+}
+
+
+/// Round 18: "What my caregiver can do" (View / Manage), for a member of a
+/// family with a caregiver; hidden for the caregiver and offline.
+class _CaregiverPermissionTile extends ConsumerWidget {
+  const _CaregiverPermissionTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(stringsProvider).r18;
+    final perms = ref.watch(caregiverPermissionsProvider).valueOrNull;
+    if (perms == null || !perms.applies) return const SizedBox.shrink();
+    return ListTile(
+      key: const ValueKey('caregiver-permission-tile'),
+      contentPadding: EdgeInsets.zero,
+      leading: const Icon(Icons.admin_panel_settings_outlined),
+      title: Text(s.permSettingsTitle),
+      subtitle: Text(s.permSettingsNow(perms.view, perms.manage)),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => showCaregiverPermissionSheet(context, ref, perms),
     );
   }
 }

@@ -8,20 +8,20 @@ import '../../../core/localization/app_strings.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../router/app_router.dart';
 import '../../prescription/presentation/prescription_screen.dart';
-import 'my_medicines_screen.dart';
-import 'today_medicine_screen.dart';
+import 'my_medicine_screen.dart';
 
-/// Segments of the Medicines tab, as written in `?tab=`.
+/// Segments of the Medicines tab, as written in `?tab=`. Round 18 (client
+/// point 7): Today and My medicines became one "My medicine" page; the old
+/// `?tab=mine` links open it too.
 enum MedicinesSegment {
   today('today'),
-  mine('mine'),
   prescriptions('prescriptions');
 
   const MedicinesSegment(this.query);
   final String query;
 
   static MedicinesSegment parse(String? value) =>
-      values.firstWhere((s) => s.query == value, orElse: () => MedicinesSegment.today);
+      value == 'prescriptions' ? MedicinesSegment.prescriptions : MedicinesSegment.today;
 }
 
 /// The Medicines tab: today's doses, my medicines and prescriptions under
@@ -51,8 +51,7 @@ class MedicinesTabScreen extends ConsumerWidget {
         ),
       ),
       body: switch (segment) {
-        MedicinesSegment.today => const TodaysMedicineScreen(),
-        MedicinesSegment.mine => const MyMedicinesScreen(),
+        MedicinesSegment.today => const MyMedicineScreen(),
         MedicinesSegment.prescriptions => const PrescriptionScreen(),
       },
       // Round 13: the medicine box, a long button under Today and My medicines.
@@ -61,8 +60,8 @@ class MedicinesTabScreen extends ConsumerWidget {
   }
 }
 
-/// Today · My medicines · Prescriptions, full width. Three equal segments
-/// are narrow on a small phone with the app's larger text, so each label
+/// My medicine · Prescriptions, full width. Segments
+/// can be narrow on a small phone with the app's larger text, so each label
 /// stays on one line and shrinks a little instead of breaking a word
 /// ("Prescriptio / ns").
 class MedicinesSegmentBar extends StatelessWidget {
@@ -91,8 +90,7 @@ class MedicinesSegmentBar extends StatelessWidget {
           padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 6)),
         ),
         segments: [
-          ButtonSegment(value: MedicinesSegment.today, label: label(strings.today)),
-          ButtonSegment(value: MedicinesSegment.mine, label: label(strings.myMedicines)),
+          ButtonSegment(value: MedicinesSegment.today, label: label(strings.r18.myMedicineTab)),
           ButtonSegment(value: MedicinesSegment.prescriptions, label: label(strings.prescriptionsButton)),
         ],
         selected: {selected},

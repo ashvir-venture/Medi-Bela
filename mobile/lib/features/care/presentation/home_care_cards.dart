@@ -38,7 +38,7 @@ class HomeCareCards extends ConsumerWidget {
               Row(children: [
                 Icon(Icons.favorite_outline, color: p.head),
                 const SizedBox(width: 8),
-                Expanded(child: Text(s.haveCondition, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16))),
+                Expanded(child: Text(s.haveCondition, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: AppType.body))),
               ]),
               const SizedBox(height: 4),
               Text(s.haveConditionSub, style: TextStyle(color: p.muted)),
@@ -62,7 +62,7 @@ class HomeCareCards extends ConsumerWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
           Expanded(child: Text(s.myCare, style: TextStyle(color: p.muted, fontWeight: FontWeight.w700))),
-          TextButton.icon(onPressed: () => context.push(myCarePath()), icon: const Icon(Icons.tune, size: 18), label: Text(s.customize)),
+          TextButton.icon(onPressed: () => context.push(myCarePath()), icon: const Icon(Icons.tune_outlined, size: 18), label: Text(s.customize)),
         ]),
         for (final code in care.conditions)
           Card(
@@ -77,8 +77,8 @@ class HomeCareCards extends ConsumerWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(conditionName(code, lookups, s.bn), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                        Text(careSummary(code, care, records, readings, s, lookups), maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.muted, fontSize: 13)),
+                        Text(conditionName(code, lookups, s.bn), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: AppType.body)),
+                        Text(careSummary(code, care, records, readings, s, lookups), maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.muted, fontSize: AppType.small)),
                       ]),
                     ),
                     const Icon(Icons.chevron_right),

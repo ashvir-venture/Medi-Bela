@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/localization/locale_controller.dart';
+import '../core/theme/app_theme.dart';
 
 /// Small label on anything the family caregiver did for the member
 /// ("by caregiver"), or a custom [label] such as "Self-added".
@@ -29,7 +30,7 @@ class TagChip extends ConsumerWidget {
           const SizedBox(width: 4),
           Text(
             label ?? strings.byCaregiver,
-            style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: AppType.small, color: color, fontWeight: FontWeight.w600),
           ),
         ],
       ),

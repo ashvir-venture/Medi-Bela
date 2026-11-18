@@ -249,6 +249,9 @@ d('MVP end-to-end flow', () => {
       'POST /api/auth/login',
       'POST /api/auth/forgot-password',
       'POST /api/auth/reset-password',
+      // Round 18: renewing a session and signing a device out need only the refresh token.
+      'POST /api/auth/refresh',
+      'POST /api/auth/logout',
       'GET /api/lookups',
       'GET /api/lookups/upazilas',
     ]);

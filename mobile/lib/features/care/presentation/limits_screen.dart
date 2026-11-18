@@ -187,18 +187,18 @@ class _LimitsScreenState extends ConsumerState<LimitsScreen> {
                 controller: _controller(spec.key),
                 keyboardType: TextInputType.numberWithOptions(decimal: spec.decimal),
                 textAlign: TextAlign.end,
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: AppType.title),
                 decoration: InputDecoration(suffixText: spec.unit(s, _unit), errorText: _errors[spec.key], errorMaxLines: 2, isDense: true),
               ),
             ),
           ]),
         );
     Widget section(IconData icon, ToneKind tone, String title, List<_LimitSpec> specs, {Widget? extra, String? hint}) => SectionCard(children: [
-          Row(children: [IconTile(icon, tone: tone, size: 36), const SizedBox(width: 10), Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17)))]),
+          Row(children: [IconTile(icon, tone: tone, size: 36), const SizedBox(width: 10), Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: AppType.title)))]),
           const SizedBox(height: 8),
           ?extra,
           for (var i = 0; i < specs.length; i++) row(specs[i], first: i == 0),
-          if (hint != null) ...[const SizedBox(height: 6), Text(hint, style: TextStyle(color: p.muted, fontSize: 13))],
+          if (hint != null) ...[const SizedBox(height: 6), Text(hint, style: TextStyle(color: p.muted, fontSize: AppType.small))],
         ]);
 
     final sugar = section(Icons.water_drop_outlined, ToneKind.primary, s.limSugar, _sugarSpecs,

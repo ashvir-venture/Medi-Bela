@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/localization/app_strings.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../features/auth/presentation/auth_controller.dart';
 import '../../../providers/core_providers.dart';
@@ -11,6 +12,7 @@ import '../domain/reading_rules.dart';
 import 'care_providers.dart';
 import 'care_widgets.dart';
 import 'crisis_sheet.dart';
+import '../../../core/utils/clock_label.dart';
 
 /// The reading kinds the form offers (API types).
 const readingTypes = ['BLOOD_SUGAR', 'BLOOD_PRESSURE', 'WEIGHT', 'TEMPERATURE', 'INSULIN', 'SLEEP', 'WATER', 'PEAK_FLOW'];
@@ -23,7 +25,7 @@ IconData readingIcon(String type) => switch (type) {
       'INSULIN' => Icons.vaccines_outlined,
       'SLEEP' => Icons.bedtime_outlined,
       'WATER' => Icons.local_drink_outlined,
-      'PEAK_FLOW' => Icons.air,
+      'PEAK_FLOW' => Icons.air_outlined,
       _ => Icons.monitor_heart_outlined,
     };
 
@@ -62,6 +64,8 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
   double _hours = 7;
   int _glasses = 6;
   TimeOfDay _at = TimeOfDay.now();
+  // Round 18 (client note point 3): a reading may be for an earlier day.
+  DateTime _day = DateUtils.dateOnly(DateTime.now());
   String? _error;
   bool _saving = false;
   final _v = TextEditingController();
@@ -92,7 +96,11 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
     final limits = care.limits;
     final unit = care.limitsOrNone.sugarUnit;
     final now = DateTime.now();
-    final recordedAt = DateTime(now.year, now.month, now.day, _at.hour, _at.minute);
+    final recordedAt = DateTime(_day.year, _day.month, _day.day, _at.hour, _at.minute);
+    if (recordedAt.isAfter(now.add(const Duration(minutes: 1)))) {
+      setState(() => _error = stringsOf(ref).r18.readingInFuture);
+      return;
+    }
     var value = '';
     String? unitText;
     final details = <String, dynamic>{};
@@ -223,7 +231,10 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
         for (final c in [_v, _s1, _d1, _s2, _d2, _pulse]) {
           c.clear();
         }
-        setState(() => _at = TimeOfDay.now());
+        setState(() {
+          _at = TimeOfDay.now();
+          _day = DateUtils.dateOnly(DateTime.now());
+        });
         return;
       }
       context.pop();
@@ -244,6 +255,7 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
   Widget build(BuildContext context) {
     final strings = stringsOf(ref);
     final s = strings.r15;
+    final r18 = strings.r18;
     final p = context.palette;
     final care = watchCareOf(ref, widget.who).valueOrNull ?? CareOverview.empty;
     final l = care.limits;
@@ -252,7 +264,7 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
     Widget bigField(TextEditingController c, String label) => TextField(
           controller: c,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
+          style: const TextStyle(fontSize: AppType.display, fontWeight: FontWeight.w800),
           decoration: InputDecoration(labelText: label),
         );
     Widget rangeNote(String text) => Container(
@@ -295,7 +307,7 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
           const SizedBox(height: 8),
           Row(children: [Expanded(child: bigField(_s2, s.upperShort)), const SizedBox(width: 10), Expanded(child: bigField(_d2, s.lowerShort))]),
           const SizedBox(height: 4),
-          Text(s.averageNote, style: TextStyle(color: p.muted, fontSize: 13)),
+          Text(s.averageNote, style: TextStyle(color: p.muted, fontSize: AppType.small)),
           const SizedBox(height: 14),
           Text(s.whichArm + s.optional, style: const TextStyle(fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
@@ -390,12 +402,26 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
           ),
           const SizedBox(height: 20),
           ...form,
+          const SizedBox(height: 14),
+          Card(
+            child: ListTile(
+              key: const ValueKey('reading-date'),
+              title: Text(r18.date, style: const TextStyle(fontWeight: FontWeight.w700)),
+              trailing: Text(r18.dayLabel(_day, DateTime.now()), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: AppType.body)),
+              onTap: () async {
+                final today = DateUtils.dateOnly(DateTime.now());
+                final d = await showDatePicker(context: context, initialDate: _day, firstDate: today.subtract(const Duration(days: 365)), lastDate: today);
+                if (d != null) setState(() => _day = d);
+              },
+            ),
+          ),
           if (_type != 'WATER' && _type != 'SLEEP') ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: 8),
             Card(
               child: ListTile(
+                key: const ValueKey('reading-time'),
                 title: Text(s.time, style: const TextStyle(fontWeight: FontWeight.w700)),
-                trailing: Text(s.n(_at.format(context)), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                trailing: Text(s.n(_at.label(context)), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: AppType.body)),
                 onTap: () async {
                   final t = await showTimePicker(context: context, initialTime: _at);
                   if (t != null) setState(() => _at = t);
@@ -430,7 +456,7 @@ class _Stepper extends StatelessWidget {
     return SectionCard(title: title, children: [
       Row(children: [
         IconButton.outlined(onPressed: onMinus, icon: const Icon(Icons.remove)),
-        Expanded(child: Text(value, textAlign: TextAlign.center, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800))),
+        Expanded(child: Text(value, textAlign: TextAlign.center, style: const TextStyle(fontSize: AppType.headline, fontWeight: FontWeight.w800))),
         IconButton.outlined(onPressed: onPlus, icon: const Icon(Icons.add)),
       ]),
       if (goal != null) ...[const SizedBox(height: 6), Text(goal!, textAlign: TextAlign.center, style: TextStyle(color: p.muted))],

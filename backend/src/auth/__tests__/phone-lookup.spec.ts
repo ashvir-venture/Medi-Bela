@@ -1,5 +1,6 @@
 import * as argon2 from 'argon2';
 import { AuthService } from '../auth.service';
+import { fakeRefresh } from '../../test-utils/fake-refresh';
 
 /** Seeded staff phones are stored as written (01...); app sign-ups as +880... */
 function setup(users: any[]) {
@@ -13,7 +14,7 @@ function setup(users: any[]) {
   const sms = { send: jest.fn(async () => true) };
   const config = { getOrThrow: () => 'test-secret', get: () => undefined };
   const jwt = { signAsync: jest.fn(async () => 'token') };
-  const service = new AuthService(prisma, jwt as any, config as any, sms as any, { record: jest.fn() } as any);
+  const service = new AuthService(prisma, jwt as any, config as any, sms as any, { record: jest.fn() } as any, fakeRefresh());
   return { service, prisma, sms };
 }
 

@@ -2590,3 +2590,124 @@ ON CONFLICT ("name") DO NOTHING;
 ALTER TABLE "medicine_routines" ADD COLUMN     "conditionCode" TEXT;
 
 
+
+-- ===== prisma/pending-sql/018_round18_refresh_tokens.sql =====
+-- Round 18 (owner, 2026-11-17): refresh tokens. The app keeps a 60-day
+-- refresh token, the panel a 7-day one in an httpOnly cookie; access tokens
+-- last 15 minutes. Only SHA-256 hashes are stored. Additive.
+
+-- CreateEnum
+CREATE TYPE "RefreshClient" AS ENUM ('APP', 'PANEL');
+
+-- CreateTable
+CREATE TABLE "refresh_tokens" (
+    "id" UUID NOT NULL,
+    "userId" UUID NOT NULL,
+    "familyId" UUID NOT NULL,
+    "tokenHash" TEXT NOT NULL,
+    "client" "RefreshClient" NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "usedAt" TIMESTAMP(3),
+    "revokedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "refresh_tokens_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "refresh_tokens_tokenHash_key" ON "refresh_tokens"("tokenHash");
+
+-- CreateIndex
+CREATE INDEX "refresh_tokens_userId_idx" ON "refresh_tokens"("userId");
+
+-- CreateIndex
+CREATE INDEX "refresh_tokens_familyId_idx" ON "refresh_tokens"("familyId");
+
+-- AddForeignKey
+ALTER TABLE "refresh_tokens" ADD CONSTRAINT "refresh_tokens_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+
+
+-- ===== prisma/pending-sql/019_round18_caregiver_permissions.sql =====
+-- Round 18 (owner, 2026-11-17): what a member lets the family caregiver do.
+-- View (see) and Manage (change), both off by default; Manage implies View.
+-- caregiverPermissionAt = when the member answered (NULL = ask). Additive.
+
+-- AlterTable
+ALTER TABLE "family_members" ADD COLUMN     "caregiverCanManage" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "caregiverCanView" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "caregiverPermissionAt" TIMESTAMP(3);
+
+
+-- Manage includes View (the API stores both when Manage is on).
+ALTER TABLE "family_members" ADD CONSTRAINT "family_members_manage_implies_view" CHECK (NOT "caregiverCanManage" OR "caregiverCanView");
+
+
+-- ===== prisma/pending-sql/020_round18_medicines_and_box.sql =====
+-- Round 18 (owner, 2026-11-17; client note points 1, 5, 6): Add medicine 2.0
+-- and medicine box 2.0. Certain days (weekdays), only when needed (asNeeded
+-- with maxPerDay / minGapHours, also on prescription lines), tablet colour /
+-- shape, pack photo, note; box items with no reminder (a medicine at home or
+-- a care supply), the unit a count is in (ml for a syrup), use per day and
+-- when to remind. Additive (routineId becomes optional).
+
+-- CreateEnum
+CREATE TYPE "StockKind" AS ENUM ('MEDICINE', 'SUPPLY');
+
+-- AlterTable
+ALTER TABLE "prescription_medicines" ADD COLUMN     "asNeeded" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "maxPerDay" INTEGER,
+ADD COLUMN     "minGapHours" INTEGER;
+
+-- AlterTable
+ALTER TABLE "medicine_routines" ADD COLUMN     "asNeeded" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "maxPerDay" INTEGER,
+ADD COLUMN     "minGapHours" INTEGER,
+ADD COLUMN     "note" TEXT,
+ADD COLUMN     "packPhotoUrl" TEXT,
+ADD COLUMN     "pillColor" TEXT,
+ADD COLUMN     "pillShape" TEXT,
+ADD COLUMN     "weekdays" TEXT;
+
+-- AlterTable
+ALTER TABLE "medicine_stocks" ADD COLUMN     "kind" "StockKind" NOT NULL DEFAULT 'MEDICINE',
+ADD COLUMN     "name" TEXT,
+ADD COLUMN     "perDay" DOUBLE PRECISION,
+ADD COLUMN     "refillDays" INTEGER,
+ADD COLUMN     "unit" TEXT,
+ALTER COLUMN "routineId" DROP NOT NULL;
+
+
+-- Limits the API also checks.
+ALTER TABLE "medicine_routines" ADD CONSTRAINT "medicine_routines_max_per_day" CHECK ("maxPerDay" IS NULL OR "maxPerDay" BETWEEN 1 AND 24);
+ALTER TABLE "medicine_routines" ADD CONSTRAINT "medicine_routines_min_gap_hours" CHECK ("minGapHours" IS NULL OR "minGapHours" BETWEEN 1 AND 48);
+ALTER TABLE "prescription_medicines" ADD CONSTRAINT "prescription_medicines_max_per_day" CHECK ("maxPerDay" IS NULL OR "maxPerDay" BETWEEN 1 AND 24);
+ALTER TABLE "prescription_medicines" ADD CONSTRAINT "prescription_medicines_min_gap_hours" CHECK ("minGapHours" IS NULL OR "minGapHours" BETWEEN 1 AND 48);
+-- A box item without a reminder must have a name.
+ALTER TABLE "medicine_stocks" ADD CONSTRAINT "medicine_stocks_named" CHECK ("routineId" IS NOT NULL OR "name" IS NOT NULL);
+ALTER TABLE "medicine_stocks" ADD CONSTRAINT "medicine_stocks_per_day" CHECK ("perDay" IS NULL OR "perDay" > 0);
+ALTER TABLE "medicine_stocks" ADD CONSTRAINT "medicine_stocks_refill_days" CHECK ("refillDays" IS NULL OR "refillDays" BETWEEN 1 AND 30);
+
+
+-- ===== prisma/pending-sql/021_round18_prescription_pages.sql =====
+-- Round 18 (owner, 2026-11-17; client point 2): every page of a prescription,
+-- uploaded from the phone straight to Cloudinary (imageUrl stays page 1).
+-- Additive; older rows keep an empty list.
+
+-- AlterTable
+ALTER TABLE "prescriptions" ADD COLUMN     "pageUrls" TEXT[] DEFAULT ARRAY[]::TEXT[];
+
+
+-- At most 5 pages (the API also checks).
+ALTER TABLE "prescriptions" ADD CONSTRAINT "prescriptions_page_count" CHECK (cardinality("pageUrls") <= 5);
+
+
+-- ===== prisma/pending-sql/022_round18_research_consent.sql =====
+-- Round 18 (owner, 2026-11-17; client point 17): consent, required at sign-up,
+-- to the use of health data without name or phone to improve the service.
+-- Additive; older accounts stay NULL.
+
+-- AlterTable
+ALTER TABLE "users" ADD COLUMN     "researchConsentAt" TIMESTAMP(3);
+
+

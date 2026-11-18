@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, UnauthorizedException } from '
 import * as argon2 from 'argon2';
 import { AuthService } from '../auth.service';
 import { JwtAccessStrategy } from '../strategies/jwt-access.strategy';
+import { fakeRefresh } from '../../test-utils/fake-refresh';
 
 const PHONE = '+8801712345678';
 
@@ -24,7 +25,7 @@ function setup(opts: { user?: any | null } = {}) {
   prisma.$transaction = async (fn: any) => fn(prisma);
   const sms = { send: jest.fn(async (_to: string, _text: string) => true) };
   const config = { getOrThrow: () => 'test-secret', get: () => undefined };
-  const service = new AuthService(prisma, {} as any, config as any, sms as any, { record: jest.fn() } as any);
+  const service = new AuthService(prisma, {} as any, config as any, sms as any, { record: jest.fn() } as any, fakeRefresh());
   const sentCode = () => /(\d{6})/.exec((sms.send.mock.calls.at(-1) as any)[1])![1];
   const flush = () => new Promise((r) => setImmediate(r));
   return { service, prisma, sms, user, sentCode, flush, getCode: () => code, setCode: (c: any) => (code = c) };

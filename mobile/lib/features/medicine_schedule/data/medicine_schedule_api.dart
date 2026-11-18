@@ -93,6 +93,17 @@ class MedicineScheduleApi {
     return ManagedRoutine.fromJson(response.data!);
   }
 
+  /// Round 18 "Took one now" (as-needed medicine). Online; the answer has
+  /// today's times and whether it went over the daily most / was too soon.
+  Future<AsNeededResult> tookAsNeeded(String routineId, {String? forUserId, DateTime? takenAt}) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '${ApiEndpoints.medicineRoutine(routineId)}/took',
+      data: {if (takenAt != null) 'takenAt': takenAt.toUtc().toIso8601String()},
+      queryParameters: {'forUserId': ?forUserId},
+    );
+    return AsNeededResult.fromJson(response.data!);
+  }
+
   Future<void> removeRoutine(String id, {String? forUserId}) async {
     await _dio.delete(
       ApiEndpoints.medicineRoutine(id),

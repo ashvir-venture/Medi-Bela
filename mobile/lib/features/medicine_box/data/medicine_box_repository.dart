@@ -36,6 +36,36 @@ class MedicineBoxApi {
     return MedicineBox.fromJson(response.data!);
   }
 
+  /// Round 18: one medicine's count with its unit and when to remind (Add medicine form).
+  Future<MedicineBox> saveItem(String routineId, double quantity, {String? unit, int? refillDays, String? forUserId}) async {
+    final response = await _dio.put<Map<String, dynamic>>(
+      ApiEndpoints.medicineBox,
+      data: {
+        'items': [
+          {'routineId': routineId, 'quantity': quantity, 'unit': ?unit, 'refillDays': ?refillDays},
+        ],
+      },
+      queryParameters: _for(forUserId),
+    );
+    return MedicineBox.fromJson(response.data!);
+  }
+
+  /// Round 18: a box item with no reminder (a medicine at home, a care supply).
+  Future<MedicineBox> addExtra(Map<String, dynamic> body, {String? forUserId}) async {
+    final response = await _dio.post<Map<String, dynamic>>('${ApiEndpoints.medicineBox}/extras', data: body, queryParameters: _for(forUserId));
+    return MedicineBox.fromJson(response.data!);
+  }
+
+  Future<MedicineBox> updateExtra(String id, Map<String, dynamic> body, {String? forUserId}) async {
+    final response = await _dio.patch<Map<String, dynamic>>('${ApiEndpoints.medicineBox}/extras/$id', data: body, queryParameters: _for(forUserId));
+    return MedicineBox.fromJson(response.data!);
+  }
+
+  Future<MedicineBox> removeExtra(String id, {String? forUserId}) async {
+    final response = await _dio.delete<Map<String, dynamic>>('${ApiEndpoints.medicineBox}/extras/$id', queryParameters: _for(forUserId));
+    return MedicineBox.fromJson(response.data!);
+  }
+
   Future<void> ignore(String routineId) => _dio.post<void>(ApiEndpoints.medicineBoxIgnore(routineId));
 }
 
@@ -107,23 +137,7 @@ class MedicineBoxRepository {
 
   Future<void> _store(MedicineBox box) async {
     // Kept as the server sent it (re-read through MedicineBox.fromJson).
-    await _write(_boxKey, {
-      'startedAt': box.startedAt?.toUtc().toIso8601String(),
-      'items': [
-        for (final i in box.items)
-          {
-            'routineId': i.routineId,
-            'medicineName': i.medicineName,
-            'dosage': i.dosage,
-            'doseAmount': i.doseAmount,
-            'formName': i.formName,
-            'unitsPerDose': i.unitsPerDose,
-            'quantity': i.quantity,
-            'countedAt': i.countedAt?.toUtc().toIso8601String(),
-            'remaining': i.remaining,
-          },
-      ],
-    });
+    await _write(_boxKey, box.toJson());
   }
 
   Future<Map<String, dynamic>?> _read(String key) async {

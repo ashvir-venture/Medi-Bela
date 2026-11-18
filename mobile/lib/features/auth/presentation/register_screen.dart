@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/localization/app_strings.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../core/utils/phone.dart';
 import '../../../router/app_router.dart';
@@ -30,6 +33,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   PersonalDetails _details = const PersonalDetails();
   // Round 11: Register stays disabled until the Privacy & terms box is ticked.
   bool _acceptedTerms = false;
+  // Round 18 (client point 17): required too.
+  bool _acceptedResearch = false;
 
   @override
   void dispose() {
@@ -60,6 +65,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           languagePreference: locale.languageCode.toUpperCase(),
           details: _details.toJson(),
           acceptTerms: _acceptedTerms,
+          acceptResearch: _acceptedResearch,
         );
 
     if (!mounted) return;
@@ -67,7 +73,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     result.when(
       // Round 15: the "My care" step comes last (with Later).
-      success: (_) => context.go('/health/my-care?step=1'),
+      success: (_) {
+        // Round 18: offer to save the new password (password manager).
+        TextInput.finishAutofillContext();
+        context.go('/health/my-care?step=1');
+      },
       failure: (message) => setState(() => _errorMessage = message),
     );
   }
@@ -84,7 +94,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             padding: const EdgeInsets.all(24),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
-              child: Form(
+              child: AutofillGroup(child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -108,6 +118,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     TextFormField(
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
+                      autofillHints: const [AutofillHints.telephoneNumber, AutofillHints.username],
                       textInputAction: TextInputAction.next,
                       decoration: InputDecoration(
                         labelText: strings.phone,
@@ -138,6 +149,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     TextFormField(
                       controller: _passwordController,
                       obscureText: true,
+                      autofillHints: const [AutofillHints.newPassword],
                       textInputAction: TextInputAction.next,
                       decoration: InputDecoration(
                         labelText: strings.password,
@@ -151,6 +163,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     TextFormField(
                       controller: _confirmPasswordController,
                       obscureText: true,
+                      autofillHints: const [AutofillHints.newPassword],
                       textInputAction: TextInputAction.done,
                       decoration: InputDecoration(
                         labelText: strings.confirmPassword,
@@ -169,10 +182,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       value: _acceptedTerms,
                       onChanged: (v) => setState(() => _acceptedTerms = v),
                     ),
+                    CheckboxListTile(
+                      key: const ValueKey('research-consent'),
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      value: _acceptedResearch,
+                      onChanged: (v) => setState(() => _acceptedResearch = v ?? false),
+                      title: Text(strings.r18.researchConsent, style: const TextStyle(fontSize: AppType.small)),
+                    ),
                     const SizedBox(height: 16),
                     ElevatedButton(
                       key: const Key('registerButton'),
-                      onPressed: _isSubmitting || !_acceptedTerms ? null : _submit,
+                      onPressed: _isSubmitting || !_acceptedTerms || !_acceptedResearch ? null : _submit,
                       child: _isSubmitting
                           ? const SizedBox(
                               height: 20,
@@ -192,7 +213,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                   ],
                 ),
-              ),
+              )),
             ),
           ),
         ),

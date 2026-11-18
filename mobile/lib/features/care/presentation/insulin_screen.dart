@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../widgets/labeled_field.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/core_providers.dart';
 import '../../health/domain/health_models.dart';
@@ -108,7 +109,7 @@ class _InsulinScreenState extends ConsumerState<InsulinScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setInner) => AlertDialog(
           title: Text(s.penNew),
-          content: Column(mainAxisSize: MainAxisSize.min, children: [
+          content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             ListTile(
               contentPadding: EdgeInsets.zero,
               title: Text(s.penOpenedOn),
@@ -118,9 +119,17 @@ class _InsulinScreenState extends ConsumerState<InsulinScreen> {
                 if (d != null) setInner(() => opened = d);
               },
             ),
-            TextField(controller: life, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: s.penLifeDays, suffixText: s.daysUnit)),
-            TextField(controller: remind, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: s.penRemindBefore, suffixText: s.daysUnit)),
-          ]),
+            // Round 18: labels above the fields (they were cut inside the border).
+            LabeledField(
+              label: s.penLifeDays,
+              child: TextField(controller: life, keyboardType: TextInputType.number, decoration: InputDecoration(suffixText: s.daysUnit)),
+            ),
+            const SizedBox(height: 12),
+            LabeledField(
+              label: s.penRemindBefore,
+              child: TextField(controller: remind, keyboardType: TextInputType.number, decoration: InputDecoration(suffixText: s.daysUnit)),
+            ),
+          ])),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(MaterialLocalizations.of(ctx).cancelButtonLabel)),
             FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(s.save)),
@@ -195,7 +204,7 @@ class _InsulinScreenState extends ConsumerState<InsulinScreen> {
             SectionCard(children: [
               const Align(alignment: Alignment.centerLeft, child: IconTile(Icons.vaccines_outlined)),
               const SizedBox(height: 8),
-              Text(s.noInsulin, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
+              Text(s.noInsulin, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: AppType.title)),
               const SizedBox(height: 4),
               Text(s.noInsulinSub, style: TextStyle(color: p.muted)),
               const SizedBox(height: 8),
@@ -223,7 +232,7 @@ class _InsulinScreenState extends ConsumerState<InsulinScreen> {
                                   injectionFor[d.id]?.injectionSite == null ? '' : tr(injectionSiteNames[injectionFor[d.id]!.injectionSite]!, s.bn),
                                 )
                               : s.insulinDue(timeLabel(context, d.scheduledAt.toLocal(), s)),
-                          style: TextStyle(color: p.muted, fontSize: 13),
+                          style: TextStyle(color: p.muted, fontSize: AppType.small),
                         ),
                       ]),
                     ),
@@ -240,7 +249,7 @@ class _InsulinScreenState extends ConsumerState<InsulinScreen> {
                   _Legend(color: p.warningStrong, text: s.usedToday),
                   _Legend(color: p.line2, text: s.usedEarlier),
                   const SizedBox(height: 6),
-                  Text(s.bodyFacesYou, style: TextStyle(color: p.muted, fontSize: 12)),
+                  Text(s.bodyFacesYou, style: TextStyle(color: p.muted, fontSize: AppType.tiny)),
                 ]),
               ),
             ]),
@@ -269,7 +278,7 @@ class _InsulinScreenState extends ConsumerState<InsulinScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            Text(s.whoGave + s.optional, style: TextStyle(color: p.muted, fontSize: 13)),
+            Text(s.whoGave + s.optional, style: TextStyle(color: p.muted, fontSize: AppType.small)),
             const SizedBox(height: 6),
             Wrap(spacing: 8, children: [
               for (final e in injectionGiverNames.entries) PillButton(label: tr(e.value, s.bn), selected: _who == e.key, onTap: () => setState(() => _who = e.key)),
@@ -279,7 +288,7 @@ class _InsulinScreenState extends ConsumerState<InsulinScreen> {
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(s.unitsGiven, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  if (due != null) Text(s.prescribedUnits(s.n(due.dosage)), style: TextStyle(color: p.muted, fontSize: 13)),
+                  if (due != null) Text(s.prescribedUnits(s.n(due.dosage)), style: TextStyle(color: p.muted, fontSize: AppType.small)),
                 ]),
               ),
               SizedBox(
@@ -288,7 +297,7 @@ class _InsulinScreenState extends ConsumerState<InsulinScreen> {
                   controller: _units,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   textAlign: TextAlign.end,
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                  style: const TextStyle(fontSize: AppType.headline, fontWeight: FontWeight.w800),
                 ),
               ),
             ]),
@@ -315,7 +324,7 @@ class _InsulinScreenState extends ConsumerState<InsulinScreen> {
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(s.penInUse(shortDate(parseDate(pen['openedOn'] as String), s)), style: const TextStyle(fontWeight: FontWeight.w700)),
-                    Text(s.penUseBy(shortDate(penInfo.useBy, s), ((pen['remindDaysBefore'] as num?) ?? 0).toInt()), style: TextStyle(color: p.muted2, fontSize: 13)),
+                    Text(s.penUseBy(shortDate(penInfo.useBy, s), ((pen['remindDaysBefore'] as num?) ?? 0).toInt()), style: TextStyle(color: p.muted2, fontSize: AppType.small)),
                     if (penInfo.warn)
                       Padding(
                         padding: const EdgeInsets.only(top: 6),
@@ -372,7 +381,7 @@ class _Legend extends StatelessWidget {
         child: Row(children: [
           Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
           const SizedBox(width: 8),
-          Expanded(child: Text(text, style: const TextStyle(fontSize: 14))),
+          Expanded(child: Text(text, style: const TextStyle(fontSize: AppType.small))),
         ]),
       );
 }
@@ -403,7 +412,7 @@ class _SiteTile extends StatelessWidget {
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
           Text(name, style: TextStyle(fontWeight: FontWeight.w700, color: fg)),
-          Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: today || selected ? fg : p.muted)),
+          Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: AppType.tiny, color: today || selected ? fg : p.muted)),
         ]),
       ),
     );

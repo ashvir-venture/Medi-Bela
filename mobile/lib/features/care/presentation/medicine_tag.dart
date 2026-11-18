@@ -44,7 +44,7 @@ class ConditionTagField extends ConsumerWidget {
             ),
         ]),
         const SizedBox(height: 4),
-        Text(s.medicineTagNote, style: TextStyle(color: p.muted, fontSize: 12)),
+        Text(s.medicineTagNote, style: TextStyle(color: p.muted, fontSize: AppType.tiny)),
       ]),
     );
   }
@@ -86,7 +86,7 @@ class MedicinesForBlock extends ConsumerWidget {
         if (mine.isEmpty)
           Text(s.noMedsForThis, style: TextStyle(color: p.muted))
         else ...[
-          if (!c.who.isMember) Text(s.takeRegularly, style: TextStyle(color: p.muted, fontSize: 13)),
+          if (!c.who.isMember) Text(s.takeRegularly, style: TextStyle(color: p.muted, fontSize: AppType.small)),
           for (final r in mine)
             Container(
               decoration: BoxDecoration(border: Border(top: BorderSide(color: p.line3))),
@@ -105,7 +105,7 @@ class MedicinesForBlock extends ConsumerWidget {
                               final known = d.where((v) => v != null).length;
                               return known == 0 ? r.dosage : s.allDosesDays(d.where((v) => v == 1).length, known);
                             }(),
-                      style: TextStyle(color: p.muted, fontSize: 13),
+                      style: TextStyle(color: p.muted, fontSize: AppType.small),
                     ),
                   ]),
                 ),

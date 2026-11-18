@@ -29,7 +29,7 @@ export class HealthRecordsController {
     @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
     @Query('type', new ParseEnumPipe(HealthRecordType, { optional: true })) type?: HealthRecordType,
   ) {
-    const acting = await this.caregivers.resolve(userId, forUserId);
+    const acting = await this.caregivers.resolve(userId, forUserId, 'view');
     return this.records.list(acting.subjectId, type);
   }
 

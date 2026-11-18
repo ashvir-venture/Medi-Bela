@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { AppointmentKind, OwnTestStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { assertOwnUpload } from '../uploads/upload-purpose';
 import { AuditService } from '../audit/audit.service';
 import { ActingFor, CaregiverAccessService } from '../family/caregiver-access.service';
 import { CloudinaryService } from '../prescriptions/lib/cloudinary.service';
@@ -332,7 +333,18 @@ export class RecordsService {
 
   // --- Photos ------------------------------------------------------------
 
-  async addPhoto(acting: ActingFor, owner: { ownTestId: string } | { recordPrescriptionId: string }, buffer: Buffer, filename: string) {
+  /** Round 18: a page the phone uploaded straight to Cloudinary (purpose "record"). */
+  async addDirectPhoto(acting: ActingFor, owner: { ownTestId: string } | { recordPrescriptionId: string }, publicId: string) {
+    assertOwnUpload('record', acting.subjectId, publicId);
+    return this.addPhoto(acting, owner, null, publicId);
+  }
+
+  async addPhoto(
+    acting: ActingFor,
+    owner: { ownTestId: string } | { recordPrescriptionId: string },
+    buffer: Buffer | null,
+    filenameOrPublicId: string,
+  ) {
     const where = 'ownTestId' in owner ? { ownTestId: owner.ownTestId } : { recordPrescriptionId: owner.recordPrescriptionId };
     const parent =
       'ownTestId' in owner
@@ -341,7 +353,9 @@ export class RecordsService {
     if (!parent || parent.userId !== acting.subjectId) throw new NotFoundException('Record not found');
     const count = await this.prisma.recordPhoto.count({ where });
     if (count >= MAX_PHOTOS) throw new BadRequestException(`Up to ${MAX_PHOTOS} pages`);
-    const imageUrl = await this.cloudinary.uploadPrivateImage(buffer, filename, 'records');
+    const imageUrl = buffer
+      ? await this.cloudinary.uploadPrivateImage(buffer, filenameOrPublicId, 'records')
+      : await this.cloudinary.confirmDirectUpload(filenameOrPublicId);
     const row = await this.prisma.recordPhoto.create({ data: { userId: acting.subjectId, ...where, imageUrl, page: count + 1 } });
     if (acting.byCaregiver) {
       await this.audit.record({

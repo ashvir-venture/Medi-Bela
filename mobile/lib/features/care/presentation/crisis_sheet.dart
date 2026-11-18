@@ -77,8 +77,8 @@ class CrisisSheet extends ConsumerWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: p.later)),
-              Text(reading, style: const TextStyle(fontSize: 16)),
+              Text(title, style: TextStyle(fontSize: AppType.appBar, fontWeight: FontWeight.w700, color: p.later)),
+              Text(reading, style: const TextStyle(fontSize: AppType.body)),
             ]),
           ),
         ]),
@@ -106,7 +106,7 @@ class CrisisSheet extends ConsumerWidget {
             FilledButton.icon(
               style: FilledButton.styleFrom(backgroundColor: p.later, foregroundColor: p.onLater),
               onPressed: () => openExternal(context, ref, 'tel:999', fallbackCopy: '999'),
-              icon: const Icon(Icons.phone),
+              icon: const Icon(Icons.phone_outlined),
               label: Text(s.call999),
             ),
           ]),
@@ -128,9 +128,9 @@ class CrisisSheet extends ConsumerWidget {
           ),
         ]),
         const SizedBox(height: 10),
-        Text(tr(helpline16263, bn), style: TextStyle(color: p.muted, fontSize: 13)),
+        Text(tr(helpline16263, bn), style: TextStyle(color: p.muted, fontSize: AppType.small)),
         const SizedBox(height: 4),
-        Text(tr(crisisNoExtraMedicine, bn), style: TextStyle(color: p.muted, fontSize: 13)),
+        Text(tr(crisisNoExtraMedicine, bn), style: TextStyle(color: p.muted, fontSize: AppType.small)),
       ]),
     );
   }

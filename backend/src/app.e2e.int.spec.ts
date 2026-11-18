@@ -33,8 +33,9 @@ d('HTTP end-to-end (real AppModule + Postgres)', () => {
   it('auth works end to end with a single JWT (register, login, protected call, bad token)', async () => {
     const r = await http().post('/api/auth/register').send({ phone: '01711000001', name: 'Local User', password: 'pass1234', ...(await signupDetails(prisma)) }).expect(201);
     expect(r.body.user.phone).toBe('01711000001');                       // stored as typed (no +880 added)
-    expect(Object.keys(r.body.tokens)).toEqual(['accessToken']);
-    expect(JSON.stringify(r.body)).not.toMatch(/passwordHash|refresh/i);
+    // Round 18: a short access token and a refresh token (never its hash).
+    expect(Object.keys(r.body.tokens).sort()).toEqual(['accessToken', 'refreshExpiresAt', 'refreshToken']);
+    expect(JSON.stringify(r.body)).not.toMatch(/passwordHash|tokenHash/i);
     const login = await http().post('/api/auth/login').send({ phone: '+88 01711-000001', password: 'pass1234' }).expect(200);
     await http().get('/api/family').set(auth(login.body.tokens.accessToken)).expect(404);   // authenticated, just no family yet
     await http().get('/api/family').set(auth('not-a-token')).expect(401);

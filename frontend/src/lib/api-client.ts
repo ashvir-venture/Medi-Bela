@@ -7,6 +7,7 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001/api';
 
 const TOKEN_KEY = 'carebridge_admin_access_token';
+// Before Round 18 a refresh token was never issued; the key is only cleared.
 const REFRESH_KEY = 'carebridge_admin_refresh_token';
 
 export interface AdminUser {
@@ -24,6 +25,51 @@ export function clearTokens() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_KEY);
   mePromise = null;
+}
+
+/**
+ * Round 18: the access token lasts 15 minutes; the 7-day refresh token lives
+ * in an httpOnly cookie the page can't read (sent only to /api/auth). One
+ * refresh at a time: requests that hit 401 together wait for the same one.
+ */
+let refreshing: Promise<boolean> | null = null;
+
+export function refreshSession(): Promise<boolean> {
+  if (!refreshing) {
+    refreshing = fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    })
+      .then(async (res) => {
+        if (!res.ok) return false;
+        const body = (await res.json()) as { tokens?: { accessToken?: string } };
+        if (!body.tokens?.accessToken) return false;
+        saveTokens(body.tokens.accessToken);
+        return true;
+      })
+      .catch(() => false)
+      .finally(() => {
+        refreshing = null;
+      });
+  }
+  return refreshing;
+}
+
+/** Signs this browser out on the server too (revokes the cookie's sign-in), then locally. */
+export async function logout(): Promise<void> {
+  try {
+    await fetch(`${API_BASE_URL}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+  } catch {
+    // offline: the cookie still runs out in 7 days
+  }
+  clearTokens();
 }
 
 // --- Session ---
@@ -113,6 +159,7 @@ export function errorText(code: string | undefined, serverMessage: string | unde
 async function request<T>(
   path: string,
   options: RequestInit = {},
+  retried = false,
 ): Promise<T> {
   const token = getAccessToken();
   const isFormData = options.body instanceof FormData;
@@ -121,6 +168,8 @@ async function request<T>(
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
       ...options,
+      // The sign-in sets the refresh cookie (cross-site: panel and API differ).
+      ...(path === '/auth/login' ? { credentials: 'include' as const } : {}),
       headers: {
         ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -137,7 +186,9 @@ async function request<T>(
   const isLoginRequest = path === '/auth/login';
 
   if (response.status === 401 && !isLoginRequest) {
-    // Protected endpoint: the access token is expired or invalid.
+    // Round 18: the access token ran out; renew it once and repeat the call.
+    if (!retried && (await refreshSession())) return request<T>(path, options, true);
+    // The refresh token is gone too: sign in again.
     clearTokens();
     if (typeof window !== 'undefined') {
       window.location.href = '/login';
@@ -179,7 +230,7 @@ export async function login(
 ): Promise<{ user: AdminUser; tokens: { accessToken: string } }> {
   return request('/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ phone, password }),
+    body: JSON.stringify({ phone, password, client: 'panel' }),
   });
 }
 
@@ -388,6 +439,10 @@ export interface PrescriptionMedicine {
   formId: number | null;
   /** Every N days; 1 = every day. */
   intervalDays: number;
+  /** Round 18: "only when needed" (no times). */
+  asNeeded?: boolean;
+  maxPerDay?: number | null;
+  minGapHours?: number | null;
   medicine: CatalogMedicine | null;
   mealTiming: LookupRow | null;
 }
@@ -407,6 +462,8 @@ export interface PrescriptionListItem {
   status: PrescriptionStatus;
   /** null once the patient deleted their account (the photo is erased). */
   imageUrl: string | null;
+  /** Round 18: every page (signed links); empty for older single-photo uploads. */
+  pageUrls?: string[];
   createdAt: string;
   reviewedAt: string | null;
   previousPrescriptionId: string | null;
@@ -501,6 +558,9 @@ export interface MedicineEntryInput {
   continuous?: boolean;
   formId?: number;
   intervalDays?: number;
+  asNeeded?: boolean;
+  maxPerDay?: number;
+  minGapHours?: number;
 }
 
 export function saveMedicines(prescriptionId: string, medicines: MedicineEntryInput[]) {

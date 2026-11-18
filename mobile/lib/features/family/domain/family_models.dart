@@ -207,6 +207,7 @@ class MemberStatusDetail {
     required this.doses,
     this.paused = false,
     this.easyMode,
+    this.permissions,
   });
 
   final String userId;
@@ -214,6 +215,8 @@ class MemberStatusDetail {
   final bool shared;
   final List<MemberDoseStatus> doses;
   final bool paused;
+  /// Round 18: what the member allows the caregiver (only sent to the caregiver).
+  final MemberGrant? permissions;
   /// Round 14: the member's easy mode; only sent to their caregiver (null otherwise).
   final bool? easyMode;
 
@@ -228,6 +231,7 @@ class MemberStatusDetail {
       shared: json['shared'] as bool? ?? false,
       paused: member['paused'] as bool? ?? false,
       easyMode: member['easyMode'] as bool?,
+      permissions: MemberGrant.fromJson(member['permissions'] as Map<String, dynamic>?),
       doses: (json['doses'] as List<dynamic>? ?? [])
           .map((d) => MemberDoseStatus.fromJson(d as Map<String, dynamic>))
           .toList(),
@@ -310,4 +314,50 @@ class CaregiverChangesPage {
 
   final List<CaregiverChange> items;
   final String? nextCursor;
+}
+
+
+/// Round 18: what a member lets the family caregiver do. Manage includes View.
+class MemberGrant {
+  const MemberGrant({required this.view, required this.manage, required this.answered});
+
+  final bool view;
+  final bool manage;
+  final bool answered;
+
+  static MemberGrant? fromJson(Map<String, dynamic>? json) => json == null
+      ? null
+      : MemberGrant(
+          view: json['view'] as bool? ?? false,
+          manage: json['manage'] as bool? ?? false,
+          answered: json['answered'] as bool? ?? false,
+        );
+}
+
+/// Round 18: my own answer (GET /family/permissions). [applies] is false for
+/// a caregiver or someone not in a family with a caregiver.
+class CaregiverPermissions {
+  const CaregiverPermissions({
+    required this.applies,
+    required this.view,
+    required this.manage,
+    required this.answered,
+    this.caregiverName,
+  });
+
+  final bool applies;
+  final bool view;
+  final bool manage;
+  final bool answered;
+  final String? caregiverName;
+
+  bool get needsAnswer => applies && !answered;
+
+  factory CaregiverPermissions.fromJson(Map<String, dynamic> json) => CaregiverPermissions(
+        applies: json['applies'] as bool? ?? false,
+        view: json['view'] as bool? ?? false,
+        manage: json['manage'] as bool? ?? false,
+        answered: json['answered'] as bool? ?? true,
+        caregiverName: (json['caregiver'] as Map<String, dynamic>?)?['name'] as String?,
+      );
 }

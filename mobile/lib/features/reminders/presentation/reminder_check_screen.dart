@@ -175,7 +175,7 @@ class PhoneBrandSteps extends ConsumerWidget {
           children: [
             Text(s.brandTitle(shown), style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 4),
-            Text(s.brandStepsHelp, style: TextStyle(color: p.muted, fontSize: 14)),
+            Text(s.brandStepsHelp, style: TextStyle(color: p.muted, fontSize: AppType.small)),
             const SizedBox(height: 10),
             for (var i = 0; i < steps.length; i++)
               Padding(
@@ -192,7 +192,7 @@ class PhoneBrandSteps extends ConsumerWidget {
                           style: TextStyle(color: p.onPrimaryContainer, fontWeight: FontWeight.w800)),
                     ),
                     const SizedBox(width: 10),
-                    Expanded(child: Text(steps[i], style: const TextStyle(fontSize: 15, height: 1.4))),
+                    Expanded(child: Text(steps[i], style: const TextStyle(fontSize: AppType.body, height: 1.4))),
                   ],
                 ),
               ),

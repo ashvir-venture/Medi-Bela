@@ -17,6 +17,7 @@ import '../../medicine_schedule/domain/medicine_schedule_models.dart';
 import '../domain/family_models.dart';
 import 'family_controller.dart';
 import '../../../widgets/fit_label.dart';
+import '../../../core/utils/clock_label.dart';
 
 /// A family member's medicine status for today, online-only: name / time /
 /// status, On time / Late / Missed (the server decides what is shareable).
@@ -75,7 +76,15 @@ class MemberStatusScreen extends ConsumerWidget {
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                if (iAmCaregiver) ...[
+                // Round 18: only what the member allows (View / Manage).
+                if (iAmCaregiver && detail.permissions != null && !detail.permissions!.view) ...[
+                  _PermissionNote(text: strings.r18.memberNoView(detail.name), icon: Icons.lock_outline),
+                  const SizedBox(height: 20),
+                ] else if (iAmCaregiver) ...[
+                  if (detail.permissions != null && !detail.permissions!.manage) ...[
+                    _PermissionNote(text: strings.r18.memberViewOnly(detail.name), icon: Icons.visibility_outlined),
+                    const SizedBox(height: 12),
+                  ],
                   _CaregiverShortcuts(userId: userId, name: detail.name),
                   if (detail.asCaregiver) ...[
                     const SizedBox(height: 12),
@@ -104,6 +113,29 @@ class MemberStatusScreen extends ConsumerWidget {
           },
         ),
       ),
+    );
+  }
+}
+
+/// Round 18: why the caregiver sees less (the member's permission).
+class _PermissionNote extends StatelessWidget {
+  const _PermissionNote({required this.text, required this.icon});
+
+  final String text;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Container(
+      key: const ValueKey('member-permission-note'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: p.navyContainer, borderRadius: BorderRadius.circular(12)),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(icon, size: 20, color: p.onNavyContainer),
+        const SizedBox(width: 10),
+        Expanded(child: Text(text, style: TextStyle(color: p.onNavyContainer, fontSize: AppType.small, height: AppType.bodyHeight))),
+      ]),
     );
   }
 }
@@ -163,6 +195,15 @@ class _CaregiverShortcuts extends ConsumerWidget {
             ),
           ],
         ),
+        // Round 18 (client point 14): the member's ring gap, rings and when
+        // the caregiver is told (saving needs the member's Manage permission).
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          key: const ValueKey('member-reminder-timings'),
+          onPressed: () => context.push(AppRoutes.reminderRulesPath(forUserId: userId, name: name)),
+          icon: const Icon(Icons.timer_outlined),
+          label: Text(strings.r18.memberTimingsButton),
+        ),
         // Rounds 15-16: the member's conditions, readings and records.
         MemberCareSection(memberId: userId, memberName: name),
         const SizedBox(height: 12),
@@ -170,7 +211,7 @@ class _CaregiverShortcuts extends ConsumerWidget {
         OutlinedButton.icon(
           key: const ValueKey('member-change-history'),
           onPressed: () => context.push(AppRoutes.memberChangesPath(userId, name)),
-          icon: const Icon(Icons.history),
+          icon: const Icon(Icons.history_outlined),
           label: Text(strings.r17.changeHistory),
         ),
       ],
@@ -324,14 +365,14 @@ class _DoseTileState extends ConsumerState<_DoseTile> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(dose.medicineName, style: theme.textTheme.titleMedium),
-                      Text(TimeOfDay.fromDateTime(dose.scheduledAt).format(context),
+                      Text(TimeOfDay.fromDateTime(dose.scheduledAt).label(context),
                           style: TextStyle(color: context.palette.muted)),
                     ],
                   ),
                 ),
                 if (outcome == null)
                   Chip(
-                    label: Text(label, style: TextStyle(color: color, fontSize: 12)),
+                    label: Text(label, style: TextStyle(color: color, fontSize: AppType.tiny)),
                     visualDensity: VisualDensity.compact,
                     backgroundColor: color.withValues(alpha: 0.1),
                     side: BorderSide.none,

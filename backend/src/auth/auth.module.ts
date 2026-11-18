@@ -4,6 +4,8 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { SmsService } from './sms.service';
+import { RefreshTokenService } from './refresh-token.service';
+import { RefreshTokenCleanupJob } from './refresh-token-cleanup.job';
 import { JwtAccessStrategy } from './strategies/jwt-access.strategy';
 
 @Module({
@@ -12,7 +14,7 @@ import { JwtAccessStrategy } from './strategies/jwt-access.strategy';
     JwtModule.register({}),
   ],
   controllers: [AuthController],
-  providers: [AuthService, SmsService, JwtAccessStrategy],
-  exports: [AuthService, PassportModule],
+  providers: [AuthService, SmsService, JwtAccessStrategy, RefreshTokenService, RefreshTokenCleanupJob],
+  exports: [AuthService, PassportModule, RefreshTokenService],
 })
 export class AuthModule {}

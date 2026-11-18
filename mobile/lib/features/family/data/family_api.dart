@@ -55,6 +55,17 @@ class FamilyApi {
         .toList();
   }
 
+  /// Round 18: what I let the family caregiver do.
+  Future<CaregiverPermissions> getPermissions() async {
+    final res = await _dio.get<Map<String, dynamic>>(ApiEndpoints.familyPermissions);
+    return CaregiverPermissions.fromJson(res.data!);
+  }
+
+  Future<CaregiverPermissions> setPermissions({required bool view, required bool manage}) async {
+    final res = await _dio.put<Map<String, dynamic>>(ApiEndpoints.familyPermissions, data: {'view': view, 'manage': manage});
+    return CaregiverPermissions.fromJson(res.data!);
+  }
+
   Future<void> acceptInvitation(String invitationId) async {
     await _dio.post(ApiEndpoints.acceptInvitation(invitationId));
   }

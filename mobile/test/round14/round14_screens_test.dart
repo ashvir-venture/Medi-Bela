@@ -27,7 +27,7 @@ MedicineDoseModel dose(String id, DateTime at, {String status = 'PENDING'}) => M
 
 Future<void> pump(WidgetTester tester, Widget child, {String lang = 'en', List<Override> overrides = const []}) async {
   SharedPreferences.setMockInitialValues({'pref_language_code': lang});
-  tester.view.physicalSize = const Size(1080, 4200);
+  tester.view.physicalSize = const Size(1080, 7000);
   tester.view.devicePixelRatio = 2.6;
   addTearDown(tester.view.reset);
   final container = ProviderContainer(overrides: [
@@ -146,8 +146,9 @@ void main() {
   testWidgets('what notifications look like: full page vs normal, no medicine names', (tester) async {
     await pump(tester, const NotificationLookScreen(), lang: 'bn');
     final s = bnStrings.r14;
-    expect(find.text(s.npFullPage), findsNWidgets(3));
-    expect(find.text(s.npNormal), findsNWidgets(2));
+    // Round 18 adds the urgent reading (full page) and changes made (normal).
+    expect(find.text(s.npFullPage, skipOffstage: false), findsNWidgets(4));
+    expect(find.text(s.npNormal, skipOffstage: false), findsNWidgets(3));
     expect(find.text(s.npMedicineSample), findsOneWidget);
   });
 

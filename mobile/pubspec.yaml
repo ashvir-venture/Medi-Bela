@@ -56,6 +56,7 @@ dependencies:
   # Round 17: ask the assistant by voice (the phone's speech recognizer,
   # bn-BD / en; owner approved 2026-11-10 / 2026-11-12).
   speech_to_text: ^7.5.0
+  local_auth: ^3.0.2
 
 dev_dependencies:
   flutter_test:
@@ -77,6 +78,19 @@ flutter:
     - assets/images/
     # About us team photos, 320x320 (Round 11).
     - assets/images/team/
+  # Round 18 (owner 2026-11-17): one bundled font for English and Bengali,
+  # the same as the management panel. Hind Siliguri by Indian Type Foundry,
+  # SIL Open Font License (assets/fonts/OFL.txt), from github.com/google/fonts.
+  fonts:
+    - family: HindSiliguri
+      fonts:
+        - asset: assets/fonts/HindSiliguri-Regular.ttf
+        - asset: assets/fonts/HindSiliguri-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/HindSiliguri-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/HindSiliguri-Bold.ttf
+          weight: 700
 
 # Round 16: pdf 3.12 caps archive below 4.1, but image 4.11 needs a newer
 # archive (an upstream mismatch); keep image (pulled in by pdf) below 4.11.

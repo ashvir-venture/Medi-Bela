@@ -10,6 +10,7 @@ import '../../health/domain/health_models.dart';
 import '../../health/presentation/health_controller.dart';
 import '../domain/care_content.dart';
 import '../domain/care_models.dart';
+import '../../../core/utils/clock_label.dart';
 
 /// My care (cached GET /care), updated live from the local copy.
 final careOverviewProvider = StreamProvider<CareOverview>((ref) => ref.watch(careRepositoryProvider).watchCare());
@@ -98,7 +99,7 @@ IconData conditionIcon(String code) => switch (code) {
       'heart' => Icons.favorite_border,
       'kidney' => Icons.water_outlined,
       'cancer' => Icons.event_available_outlined,
-      'asthma' => Icons.air,
+      'asthma' => Icons.air_outlined,
       'thyroid' => Icons.monitor_heart_outlined,
       'pregnancy' => Icons.child_friendly_outlined,
       _ => Icons.healing_outlined,
@@ -128,11 +129,11 @@ String dayLabel(DateTime d, Round15Strings s, {DateTime? now}) {
 String inDaysLabel(DateTime d, Round15Strings s, {DateTime? now}) =>
     s.inDays(dateOnly(d).difference(dateOnly(now ?? DateTime.now())).inDays);
 
-String timeLabel(BuildContext context, DateTime t, Round15Strings s) => s.n(TimeOfDay.fromDateTime(t).format(context));
+String timeLabel(BuildContext context, DateTime t, Round15Strings s) => s.n(TimeOfDay.fromDateTime(t).label(context));
 
 String hhmmLabel(BuildContext context, String hhmm, Round15Strings s) {
   final p = hhmm.split(':');
-  return s.n(TimeOfDay(hour: int.parse(p[0]), minute: int.parse(p[1])).format(context));
+  return s.n(TimeOfDay(hour: int.parse(p[0]), minute: int.parse(p[1])).label(context));
 }
 
 /// A number for display: whole numbers without decimals.

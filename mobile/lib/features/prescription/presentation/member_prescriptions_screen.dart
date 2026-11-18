@@ -44,7 +44,7 @@ class _MemberPrescriptionsScreenState extends ConsumerState<MemberPrescriptionsS
     if (file == null || !mounted) return;
     setState(() => _uploading = true);
     try {
-      await ref.read(prescriptionApiProvider).uploadForMember(forUserId: widget.userId, imagePath: file.path);
+      await ref.read(prescriptionApiProvider).uploadForMember(forUserId: widget.userId, pages: [file.path]);
       ref.invalidate(serverPrescriptionsProvider(widget.userId));
       messenger.showSnackBar(SnackBar(content: Text(strings.uploadedForMember)));
     } on DioException catch (e) {
@@ -122,7 +122,7 @@ class _MemberPrescriptionsScreenState extends ConsumerState<MemberPrescriptionsS
         onPressed: _uploading ? null : _chooseSource,
         icon: _uploading
             ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-            : const Icon(Icons.upload_file),
+            : const Icon(Icons.upload_file_outlined),
         label: Text(strings.uploadPrescription),
       ),
     );

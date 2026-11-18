@@ -15,13 +15,15 @@ import '../../../widgets/state_views.dart';
 import '../../medicine_schedule/presentation/medicine_schedule_controller.dart';
 import '../domain/prescription_models.dart';
 import 'prescription_controller.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/clock_label.dart';
 
 /// "HH:mm" -> the phone's time format (e.g. 8:00 AM).
 String formatHhmm(BuildContext context, String hhmm) {
   final parts = hhmm.split(':');
   if (parts.length != 2) return hhmm;
   final time = TimeOfDay(hour: int.tryParse(parts[0]) ?? 0, minute: int.tryParse(parts[1]) ?? 0);
-  return time.format(context);
+  return time.label(context);
 }
 
 String toHhmm(TimeOfDay t) => '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
@@ -231,7 +233,7 @@ class _ConfirmPrescriptionScreenState extends ConsumerState<ConfirmPrescriptionS
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
                       onPressed: _saving ? null : _requestEdit,
-                      icon: const Icon(Icons.edit_note),
+                      icon: const Icon(Icons.edit_note_outlined),
                       label: Text(strings.requestEditButton),
                     ),
                   ],
@@ -309,8 +311,8 @@ class _LineCard extends StatelessWidget {
                   children: [
                     for (var i = 0; i < choice.times.length; i++)
                       ActionChip(
-                        avatar: const Icon(Icons.schedule, size: 18),
-                        label: Text(formatHhmm(context, choice.times[i]), style: const TextStyle(fontSize: 16)),
+                        avatar: const Icon(Icons.schedule_outlined, size: 18),
+                        label: Text(formatHhmm(context, choice.times[i]), style: const TextStyle(fontSize: AppType.body)),
                         onPressed: enabled
                             ? () async {
                                 final parts = choice.times[i].split(':');

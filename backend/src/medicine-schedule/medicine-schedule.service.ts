@@ -29,11 +29,13 @@ export class MedicineScheduleService {
   }
 
   /** Doses scheduled for the caller's local "today" (interpreted in the app timezone, see time.util.ts). */
+  // Round 18: "only when needed" doses are logs, not schedule: left out of
+  // today / upcoming / history (and so of x-of-y and On time / Missed).
   async getTodaysSchedule(userId: string) {
     await this.sweepMissedDoses(userId);
     const { start, end } = this.dayBounds(new Date());
     const doses = await this.prisma.medicineDose.findMany({
-      where: { userId, scheduledAt: { gte: start, lt: end } },
+      where: { userId, scheduledAt: { gte: start, lt: end }, routine: { asNeeded: false } },
       include: { routine: true },
       orderBy: { scheduledAt: 'asc' },
     });
@@ -47,7 +49,7 @@ export class MedicineScheduleService {
     const windowEnd = addAppDays(todayEnd, days);
 
     const doses = await this.prisma.medicineDose.findMany({
-      where: { userId, scheduledAt: { gte: todayEnd, lt: windowEnd } },
+      where: { userId, scheduledAt: { gte: todayEnd, lt: windowEnd }, routine: { asNeeded: false } },
       include: { routine: true },
       orderBy: { scheduledAt: 'asc' },
     });
@@ -74,7 +76,7 @@ export class MedicineScheduleService {
   async getDoseHistory(userId: string, from: Date, to: Date) {
     await this.sweepMissedDoses(userId);
     const doses = await this.prisma.medicineDose.findMany({
-      where: { userId, scheduledAt: { gte: from, lte: to } },
+      where: { userId, scheduledAt: { gte: from, lte: to }, routine: { asNeeded: false } },
       include: { routine: true },
       orderBy: { scheduledAt: 'desc' },
     });

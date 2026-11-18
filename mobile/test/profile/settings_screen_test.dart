@@ -19,6 +19,8 @@ import 'package:mobile/features/profile/presentation/settings_screen.dart';
 import 'package:mobile/features/reminders/domain/reminder_status.dart';
 import 'package:mobile/features/reminders/presentation/reminder_status_controller.dart';
 import 'package:mobile/providers/core_providers.dart';
+import 'package:mobile/features/auth/data/app_lock.dart';
+import 'package:mobile/features/family/presentation/caregiver_permissions.dart';
 
 const _user = UserModel(
   id: 'u1',
@@ -80,6 +82,10 @@ void main() {
         familyRepositoryProvider.overrideWithValue(_FakeFamilyRepository(db, family)),
         connectivityStreamProvider.overrideWith((ref) => Stream.value(online)),
         reminderStatusProvider.overrideWith((ref) async => ReminderStatus.allOk),
+        // Round 18: no network in tests.
+        caregiverPermissionsProvider.overrideWith((ref) async =>
+            const CaregiverPermissions(applies: true, view: false, manage: false, answered: true, caregiverName: 'Rafi')),
+        biometricAuthProvider.overrideWithValue(_NoBio()),
       ],
       child: const MaterialApp(home: SettingsScreen()),
     ));
@@ -145,4 +151,13 @@ void main() {
     expect(deactivate.enabled, isFalse);
     expect(delete.enabled, isFalse);
   });
+}
+
+
+class _NoBio implements BiometricAuth {
+  @override
+  Future<bool> isAvailable() async => false;
+
+  @override
+  Future<bool> authenticate(String reason) async => false;
 }

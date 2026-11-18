@@ -28,6 +28,10 @@ export interface MedicineFormRow {
   startDate: string; // yyyy-mm-dd or ''
   instructions: string;
   verified: boolean;
+  /** Round 18: "only when needed": no times; the patient logs each one. */
+  asNeeded: boolean;
+  maxPerDay: string; // '' = not written
+  minGapHours: string;
 }
 
 export function medicineToRow(m: PrescriptionMedicine): MedicineFormRow {
@@ -56,6 +60,9 @@ export function medicineToRow(m: PrescriptionMedicine): MedicineFormRow {
     startDate: m.startDate ? m.startDate.slice(0, 10) : '',
     instructions: m.instructions ?? '',
     verified: m.verified,
+    asNeeded: m.asNeeded ?? false,
+    maxPerDay: m.maxPerDay?.toString() ?? '',
+    minGapHours: m.minGapHours?.toString() ?? '',
   };
 }
 
@@ -77,6 +84,9 @@ export function emptyRow(key: string): MedicineFormRow {
     startDate: '',
     instructions: '',
     verified: false,
+    asNeeded: false,
+    maxPerDay: '',
+    minGapHours: '',
   };
 }
 
@@ -95,6 +105,8 @@ function everyText(intervalDays: number) {
 export function rowProblems(row: MedicineFormRow): string[] {
   const problems: string[] = [];
   if (!row.medicineName.trim()) problems.push('medicine');
+  // Round 18: an "only when needed" line needs no times or length.
+  if (row.asNeeded) return problems;
   const times = Number(row.timesPerDay);
   if (!times) problems.push('times per day');
   else if (row.scheduleTimes.filter(Boolean).length !== times) problems.push('dose times');
@@ -118,6 +130,30 @@ export function rowToEntry(row: MedicineFormRow, mealTimings: LookupRow[]): Medi
   const meal = mealTimings.find((m) => m.id === mealTimingId)?.name;
   const scheduleTimes = row.scheduleTimes.filter(Boolean);
   const intervalDays = Math.max(1, Number(row.intervalDays) || 1);
+  const maxPerDay = Number(row.maxPerDay) || undefined;
+
+  if (row.asNeeded) {
+    return {
+      id: row.id,
+      medicineId: row.medicineId ?? undefined,
+      medicineName: row.medicineName.trim(),
+      strength: row.strength.trim() || undefined,
+      doseAmount: row.doseAmount.trim() || undefined,
+      dosage: [row.strength.trim(), row.doseAmount.trim()].filter(Boolean).join(', ') || '-',
+      frequency: ['When needed', maxPerDay ? `at most ${maxPerDay} a day` : '', meal].filter(Boolean).join(', '),
+      duration: row.continuous || !durationDays ? 'Continuous' : plural(durationDays, 'day', 'days'),
+      instructions: row.instructions.trim() || undefined,
+      durationDays,
+      continuous: row.continuous || !durationDays,
+      mealTimingId,
+      startDate: row.startDate || undefined,
+      formId: Number(row.formId) || undefined,
+      intervalDays: 1,
+      asNeeded: true,
+      maxPerDay,
+      minGapHours: Number(row.minGapHours) || undefined,
+    };
+  }
 
   return {
     id: row.id,
@@ -166,7 +202,8 @@ export function MedicineSummary({
   const every = Number(row.intervalDays) || 1;
   const parts = [
     [row.strength, row.doseAmount].filter(Boolean).join(', '),
-    times
+    row.asNeeded ? `when needed${Number(row.maxPerDay) ? `, at most ${row.maxPerDay}/day` : ''}` : '',
+    !row.asNeeded && times
       ? `${times}×${every > 1 ? ` every ${every} days` : '/day'}${row.scheduleTimes.length ? ` (${row.scheduleTimes.join(', ')})` : ''}`
       : '',
     meal ?? '',
@@ -320,6 +357,48 @@ export function MedicineRowEditor({
             placeholder="e.g. 1 tablet"
           />
         </div>
+        <div className="field span-2">
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={row.asNeeded}
+              onChange={(e) => onChange({ ...row, asNeeded: e.target.checked })}
+              disabled={disabled}
+            />
+            Only when needed (no set times; the patient taps &quot;Took one now&quot;)
+          </label>
+        </div>
+        {row.asNeeded && (
+          <>
+            <div className="field">
+              <label htmlFor={`${row.key}-max`}>At most per day (optional)</label>
+              <input
+                id={`${row.key}-max`}
+                type="number"
+                min={1}
+                max={24}
+                className="input"
+                value={row.maxPerDay}
+                onChange={(e) => set('maxPerDay', e.target.value)}
+                disabled={disabled}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor={`${row.key}-gap`}>Hours between (optional)</label>
+              <input
+                id={`${row.key}-gap`}
+                type="number"
+                min={1}
+                max={48}
+                className="input"
+                value={row.minGapHours}
+                onChange={(e) => set('minGapHours', e.target.value)}
+                disabled={disabled}
+              />
+            </div>
+          </>
+        )}
+        {!row.asNeeded && (
         <div className="field">
           <label htmlFor={`${row.key}-times`}>Times per day</label>
           <input
@@ -333,6 +412,8 @@ export function MedicineRowEditor({
             disabled={disabled}
           />
         </div>
+        )}
+        {!row.asNeeded && (
         <div className="field">
           <label htmlFor={`${row.key}-repeat`}>Repeat</label>
           <select
@@ -362,6 +443,7 @@ export function MedicineRowEditor({
             </>
           )}
         </div>
+        )}
         <div className="field">
           <label htmlFor={`${row.key}-meal`}>Meal timing</label>
           <select
@@ -378,7 +460,7 @@ export function MedicineRowEditor({
             ))}
           </select>
         </div>
-        {row.scheduleTimes.length > 0 && (
+        {!row.asNeeded && row.scheduleTimes.length > 0 && (
           <div className="field span-2">
             <label>Dose times (24h)</label>
             <div className="time-row">

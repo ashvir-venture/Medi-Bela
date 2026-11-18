@@ -68,4 +68,13 @@ export class RegisterDto {
   @IsBoolean()
   @Equals(true, { message: 'You must agree to the Privacy & terms' })
   acceptTerms: boolean;
+
+  /**
+   * Round 18 (client point 17; owner 2026-11-17: required to register):
+   * consent to use the user's health data, without name or phone, to
+   * improve the service.
+   */
+  @IsBoolean()
+  @Equals(true, { message: 'You must agree to the anonymous use of data' })
+  acceptResearch: boolean;
 }

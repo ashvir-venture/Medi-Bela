@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { AuthService, SUSPENDED_MESSAGE } from '../auth.service';
+import { fakeRefresh } from '../../test-utils/fake-refresh';
 
 const PHONE = '+8801712345678';
 
@@ -32,7 +33,7 @@ async function setup(accountStatus: string) {
   const config = { getOrThrow: () => 'test-secret', get: () => undefined };
   const jwt = { signAsync: jest.fn(async () => 'token') };
   const audit = { record: jest.fn(async () => undefined) };
-  const service = new AuthService(prisma, jwt as any, config as any, sms as any, audit as any);
+  const service = new AuthService(prisma, jwt as any, config as any, sms as any, audit as any, fakeRefresh());
   const flush = () => new Promise((r) => setImmediate(r));
   const sentCode = () => /(\d{6})/.exec((sms.send.mock.calls.at(-1) as any)[1])![1];
   return { service, prisma, user, sms, audit, flush, sentCode };

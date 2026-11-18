@@ -131,7 +131,7 @@ class _DoctorPickerState extends ConsumerState<DoctorPicker> {
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(d.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  if (d.line.isNotEmpty) Text(d.line, style: TextStyle(color: p.muted, fontSize: 13)),
+                  if (d.line.isNotEmpty) Text(d.line, style: TextStyle(color: p.muted, fontSize: AppType.small)),
                 ]),
               ),
               if (on) Icon(Icons.check, color: Theme.of(context).colorScheme.primary),
@@ -149,7 +149,7 @@ class _DoctorPickerState extends ConsumerState<DoctorPicker> {
     ].where((d) => shownIds.add('${d.mine}:${d.id}')).toList();
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      TextField(controller: _q, onChanged: _search, decoration: InputDecoration(prefixIcon: const Icon(Icons.search), hintText: s.searchDoctor)),
+      TextField(controller: _q, onChanged: _search, decoration: InputDecoration(prefixIcon: const Icon(Icons.search_outlined), hintText: s.searchDoctor)),
       const SizedBox(height: 8),
       for (final d in list) option(d),
       if (!_typing)

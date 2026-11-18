@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsString, MinLength } from 'class-validator';
+import { IsIn, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class LoginDto {
   // Kept as typed (trimmed): AuthService matches it exactly first, so a seeded
@@ -11,4 +11,9 @@ export class LoginDto {
   @IsString()
   @MinLength(1)
   password: string;
+
+  /** Round 18: 'panel' = the management panel (7-day refresh token in an httpOnly cookie); default the app. */
+  @IsOptional()
+  @IsIn(['app', 'panel'])
+  client?: 'app' | 'panel';
 }

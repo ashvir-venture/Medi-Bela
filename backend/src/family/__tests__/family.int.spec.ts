@@ -197,6 +197,12 @@ d('FamilyService (real Postgres)', () => {
       const { owner } = await familyOf();
       const m = await makeUser(prisma, 'Mem'); await join(owner, m);
       await withDoses(m, [{ h: 0.1 }]);
+      // Round 18: only with the member's Manage permission (off by default).
+      const before: any = await svc.getMemberStatus(owner.id, m.id);
+      expect(before.doses[0].id).toBeUndefined();
+      expect(before.member.easyMode).toBeUndefined();
+      expect(before.member.permissions).toEqual({ view: false, manage: false, answered: false });
+      await prisma.familyMember.update({ where: { userId: m.id }, data: { caregiverCanView: true, caregiverCanManage: true } });
       const res: any = await svc.getMemberStatus(owner.id, m.id);
       expect(res.doses[0].id).toEqual(expect.any(String));
       expect(res.member.easyMode).toBe(false);

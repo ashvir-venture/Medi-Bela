@@ -13,6 +13,7 @@ import { LoginThrottle } from '../auth/login-throttle';
 import { ErrorCode, withCode } from '../common/filters/error-codes';
 import { AuditService } from '../audit/audit.service';
 import { FamilyMembershipService } from '../family/family-membership.service';
+import type { ActingFor } from '../family/caregiver-access.service';
 import { pauseSchedules } from '../medicine-schedule/rolling-dose.job';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CloudinaryService } from '../prescriptions/lib/cloudinary.service';
@@ -82,7 +83,7 @@ export class UsersService {
    * ring has finished (FAMILY_ALERT_TOO_EARLY otherwise), the same rule as
    * the API's start-up warning for .env.
    */
-  async updateReminderTiming(userId: string, dto: UpdateReminderTimingDto) {
+  async updateReminderTiming(userId: string, dto: UpdateReminderTimingDto, acting?: ActingFor) {
     const current = await this.prisma.user.findUnique({ where: { id: userId }, select: OWN_TIMING_SELECT });
     if (!current) throw new NotFoundException('User not found');
     const keep = <T>(value: T | undefined, old: T) => (value === undefined ? old : value);
@@ -101,6 +102,18 @@ export class UsersService {
       );
     }
     await this.prisma.user.update({ where: { id: userId }, data: next });
+    // Round 18: a caregiver's change for a member is audited (the controller tells the member).
+    if (acting?.byCaregiver) {
+      await this.audit.record({
+        actorId: acting.actorId,
+        subjectUserId: userId,
+        action: 'user.reminder_timing',
+        entityType: 'user',
+        entityId: userId,
+        before: { ...current },
+        after: { ...next, byCaregiver: true },
+      });
+    }
     return this.getReminderTiming(userId);
   }
 
@@ -154,10 +167,14 @@ export class UsersService {
     const now = new Date();
     const images = await this.prisma.prescription.findMany({
       where: { userId, imageUrl: { not: null } },
-      select: { imageUrl: true },
+      select: { imageUrl: true, pageUrls: true },
     });
     // Round 16: report and record-only prescription photos are erased too.
     const recordPhotos = await this.prisma.recordPhoto.findMany({ where: { userId }, select: { imageUrl: true } });
+    const packPhotos = await this.prisma.medicineRoutine.findMany({
+      where: { userId, packPhotoUrl: { not: null } },
+      select: { packPhotoUrl: true },
+    });
     const unusableHash = await argon2.hash(randomBytes(32).toString('hex'));
 
     const departure = await this.prisma.$transaction(async (tx) => {
@@ -176,7 +193,9 @@ export class UsersService {
           status: { in: [PrescriptionStatus.PENDING, PrescriptionStatus.AWAITING_CONFIRMATION] },
         },
       });
-      await tx.prescription.updateMany({ where: { userId }, data: { imageUrl: null } });
+      await tx.prescription.updateMany({ where: { userId }, data: { imageUrl: null, pageUrls: [] } });
+      // Round 18: the medicines' pack photos go too.
+      await tx.medicineRoutine.updateMany({ where: { userId }, data: { packPhotoUrl: null } });
 
       await tx.healthRecord.deleteMany({ where: { userId } });
       await tx.healthReminder.deleteMany({ where: { userId } });
@@ -229,7 +248,10 @@ export class UsersService {
     this.passwordThrottle.reset(userId);
     await this.notifications.endSessions(userId);
     await this.family.notifyAfterCommit(departure);
-    await Promise.all(images.map((i) => this.cloudinary.deleteImageByUrl(i.imageUrl!)));
+    // Round 18: every page (page 1 is also imageUrl) and the pack photos.
+    const pages = new Set(images.flatMap((i) => [i.imageUrl!, ...i.pageUrls]));
+    await Promise.all([...pages].map((url) => this.cloudinary.deleteImageByUrl(url)));
+    await Promise.all(packPhotos.map((r) => this.cloudinary.deleteImageByUrl(r.packPhotoUrl!)));
     await Promise.all(recordPhotos.map((i) => this.cloudinary.deleteImageByUrl(i.imageUrl)));
   }
 

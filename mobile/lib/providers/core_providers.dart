@@ -39,6 +39,8 @@ import '../notifications/reminder_preference.dart';
 import '../router/app_router.dart';
 import '../sync/sync_handler.dart';
 import '../sync/sync_service.dart';
+import '../core/network/direct_uploader.dart';
+import '../core/localization/app_strings.dart';
 
 /// One Drift database for the app's lifetime.
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
@@ -105,7 +107,7 @@ final familyRepositoryProvider = Provider<FamilyRepository>((ref) {
 // ---- Prescription (local-first drafts + outbox) ----
 
 final prescriptionApiProvider = Provider<PrescriptionApi>((ref) {
-  return PrescriptionApi(ref.watch(dioClientProvider).dio);
+  return PrescriptionApi(ref.watch(dioClientProvider).dio, uploader: ref.watch(directUploaderProvider));
 });
 
 final prescriptionLocalRepositoryProvider =
@@ -210,6 +212,9 @@ final personalReminderRepositoryProvider = Provider<PersonalReminderRepository>(
   );
 });
 
+/// Round 18: photos from the phone straight to Cloudinary.
+final directUploaderProvider = Provider<DirectUploader>((ref) => DirectUploader(ref.watch(dioClientProvider).dio));
+
 final medicineBoxApiProvider = Provider<MedicineBoxApi>((ref) {
   return MedicineBoxApi(ref.watch(dioClientProvider).dio);
 });
@@ -237,7 +242,7 @@ final medicineBoxAlertsProvider = Provider<MedicineBoxAlerts>((ref) {
 
 // ---- My care and health records 2.0 (Rounds 15-16) ----
 
-final careApiProvider = Provider<CareApi>((ref) => CareApi(ref.watch(dioClientProvider).dio));
+final careApiProvider = Provider<CareApi>((ref) => CareApi(ref.watch(dioClientProvider).dio, uploader: ref.watch(directUploaderProvider)));
 
 final careRepositoryProvider = Provider<CareRepository>((ref) {
   return CareRepository(api: ref.watch(careApiProvider), database: ref.watch(appDatabaseProvider));
@@ -264,6 +269,16 @@ final syncHandlersProvider = Provider<List<SyncHandler>>((ref) {
     PrescriptionSyncHandler(
       api: ref.watch(prescriptionApiProvider),
       database: ref.watch(appDatabaseProvider),
+      // Round 18: after the last try, a notification (and the draft's red badge).
+      onFailed: (draftId) async {
+        final s = ref.read(stringsProvider).r18;
+        await ref.read(localNotificationsGatewayProvider).show(ScheduledReminder(
+              id: uploadFailedNotificationId(draftId),
+              title: s.uploadFailedTitle,
+              body: s.uploadFailedBody,
+              at: DateTime.now(),
+            ));
+      },
     ),
     DoseSyncHandler(
       api: ref.watch(medicineScheduleApiProvider),
@@ -290,3 +305,7 @@ final syncServiceProvider = Provider<SyncService>((ref) {
   ref.onDispose(service.dispose);
   return service;
 });
+
+
+/// Round 18: one notification per failed draft (an id outside the reminder ranges).
+int uploadFailedNotificationId(String draftId) => 1900000000 + (draftId.hashCode & 0x3FFFFFF);

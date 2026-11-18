@@ -1,3 +1,4 @@
+import { IsString, MaxLength } from 'class-validator';
 import {
   BadRequestException,
   Body,
@@ -16,7 +17,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { CaregiverAccessService } from '../family/caregiver-access.service';
+import { CaregiverAccessService, CaregiverNeed } from '../family/caregiver-access.service';
 import { prescriptionImageMulterOptions } from '../prescriptions/lib/prescription-image.storage';
 import { RecordsService } from './records.service';
 import {
@@ -31,6 +32,13 @@ import {
 } from './dto/records.dto';
 
 /** Round 16. `?forUserId=` = the family caregiver acting for that member. */
+/** Round 18: a directly uploaded photo's public id. */
+class DirectPhotoDto {
+  @IsString()
+  @MaxLength(200)
+  publicId: string;
+}
+
 @Controller('records')
 export class RecordsController {
   constructor(
@@ -38,8 +46,9 @@ export class RecordsController {
     private readonly caregivers: CaregiverAccessService,
   ) {}
 
-  private acting(userId: string, forUserId?: string) {
-    return this.caregivers.resolve(userId, forUserId);
+  /** Round 18: reads need the member's View permission, changes their Manage permission. */
+  private acting(userId: string, forUserId?: string, need: CaregiverNeed = 'manage') {
+    return this.caregivers.resolve(userId, forUserId, need);
   }
 
   @Get()
@@ -47,7 +56,7 @@ export class RecordsController {
     @CurrentUser('id') userId: string,
     @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
   ) {
-    return this.records.overview((await this.acting(userId, forUserId)).subjectId);
+    return this.records.overview((await this.acting(userId, forUserId, 'view')).subjectId);
   }
 
   @Get('doctors/search')
@@ -56,7 +65,7 @@ export class RecordsController {
     @Query() query: DoctorSearchDto,
     @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
   ) {
-    return this.records.searchDoctors((await this.acting(userId, forUserId)).subjectId, query.q);
+    return this.records.searchDoctors((await this.acting(userId, forUserId, 'view')).subjectId, query.q);
   }
 
   @Post('my-doctors')
@@ -141,6 +150,18 @@ export class RecordsController {
     return this.records.addPhoto(await this.acting(userId, forUserId), { ownTestId: id }, image.buffer, image.originalname);
   }
 
+  /** Round 18: a report page the phone uploaded straight to Cloudinary. */
+  @Post('tests/:id/photos/direct')
+  @HttpCode(HttpStatus.CREATED)
+  async addTestPhotoDirect(
+    @CurrentUser('id') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: DirectPhotoDto,
+    @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
+  ) {
+    return this.records.addDirectPhoto(await this.acting(userId, forUserId), { ownTestId: id }, dto.publicId);
+  }
+
   // --- Record-only prescriptions ---
 
   @Post('prescriptions')
@@ -187,6 +208,18 @@ export class RecordsController {
       image.buffer,
       image.originalname,
     );
+  }
+
+  /** Round 18: a page the phone uploaded straight to Cloudinary. */
+  @Post('prescriptions/:id/photos/direct')
+  @HttpCode(HttpStatus.CREATED)
+  async addPrescriptionPhotoDirect(
+    @CurrentUser('id') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: DirectPhotoDto,
+    @Query('forUserId', new ParseUUIDPipe({ optional: true })) forUserId?: string,
+  ) {
+    return this.records.addDirectPhoto(await this.acting(userId, forUserId), { recordPrescriptionId: id }, dto.publicId);
   }
 
   @Delete('photos/:id')

@@ -6,10 +6,12 @@ import '../core/localization/app_strings.dart';
 import '../core/localization/locale_controller.dart';
 import '../core/theme/app_theme.dart';
 import '../features/auth/presentation/auth_controller.dart';
+import '../features/family/presentation/caregiver_permissions.dart';
 import '../features/prescription/presentation/prescription_screen.dart';
 import '../router/app_router.dart';
 import 'connectivity_banner.dart';
 import 'double_back_to_exit.dart';
+import 'fit_label.dart';
 import 'first_use_tips.dart';
 import 'nav_history.dart';
 
@@ -73,6 +75,8 @@ class MainScaffold extends ConsumerWidget {
         child: Column(
           children: [
             const ConnectivityBanner(),
+            // Round 18: asks a new member what the caregiver may do (once).
+            const CaregiverPermissionPrompt(),
             Expanded(child: child),
           ],
         ),
@@ -136,7 +140,7 @@ class _AiIcon extends StatelessWidget {
             child: Text(
               'AI',
               style: TextStyle(
-                fontSize: 11,
+                fontSize: AppType.tiny,
                 fontWeight: FontWeight.w800,
                 color: Theme.of(context).colorScheme.onPrimary,
               ),
@@ -191,7 +195,7 @@ class _BottomBar extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: AppType.tiny,
                       fontWeight: on ? FontWeight.w700 : FontWeight.w600,
                       color: on ? scheme.primary : p.muted,
                     ),
@@ -280,7 +284,7 @@ class QuickAddSheet extends ConsumerWidget {
           borderRadius: BorderRadius.circular(16),
           onTap: () => open(go),
           child: Container(
-            constraints: const BoxConstraints(minHeight: 112),
+            constraints: const BoxConstraints(minHeight: 128),
             padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,8 +296,11 @@ class QuickAddSheet extends ConsumerWidget {
                   child: Icon(icon, color: fg, size: 26),
                 ),
                 const SizedBox(height: 8),
-                Text(title, style: Theme.of(context).textTheme.titleMedium),
-                Text(sub, style: TextStyle(color: p.muted2, fontSize: 13)),
+                // Round 18 (owner's screenshot): one line for the title, at
+                // most two for the hint, so all four tiles keep one size.
+                FitLabel(Text(title, style: Theme.of(context).textTheme.titleMedium)),
+                const SizedBox(height: 2),
+                Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.muted2, fontSize: AppType.small, height: 1.3)),
               ],
             ),
           ),
@@ -312,7 +319,8 @@ class QuickAddSheet extends ConsumerWidget {
             const SizedBox(height: 14),
             // Round 17: first-use tip.
             const InlineFirstUseTips(screen: TipsScreen.quickAdd),
-            Row(
+            IntrinsicHeight(child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
                   child: tileButton(Icons.medication_outlined, p.primaryContainer, p.onPrimaryContainer, s.qAddMedicine,
@@ -324,9 +332,10 @@ class QuickAddSheet extends ConsumerWidget {
                       s.qPrescriptionSub, (c) => openPrescriptionEntryForm(c)),
                 ),
               ],
-            ),
+            )),
             const SizedBox(height: 12),
-            Row(
+            IntrinsicHeight(child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
                   child: tileButton(Icons.monitor_heart_outlined, p.okContainer, p.onOkContainer, s.qReading,
@@ -338,7 +347,7 @@ class QuickAddSheet extends ConsumerWidget {
                       (c) => c.push(AppRoutes.personalReminderForm)),
                 ),
               ],
-            ),
+            )),
             const SizedBox(height: 8),
             ListTile(
               contentPadding: EdgeInsets.zero,

@@ -16,16 +16,18 @@ typedef CreatePrescriptionDraft = Future<String> Function({
   String? note,
   String? imageLocalPath,
   String? previousPrescriptionId,
+  List<String>? pages,
 });
 
 final createPrescriptionDraftProvider = Provider<CreatePrescriptionDraft>(
   (ref) {
     final repo = ref.watch(prescriptionLocalRepositoryProvider);
-    return ({String? note, String? imageLocalPath, String? previousPrescriptionId}) =>
+    return ({String? note, String? imageLocalPath, String? previousPrescriptionId, List<String>? pages}) =>
         repo.createAndQueue(
           note: note,
           imageLocalPath: imageLocalPath,
           previousPrescriptionId: previousPrescriptionId,
+          pages: pages,
         );
   },
 );

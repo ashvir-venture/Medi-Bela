@@ -34,7 +34,7 @@ class FullScreenPermissionScreen extends ConsumerWidget {
           data: (s) => ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              Icon(Icons.alarm_on, size: 64, color: theme.colorScheme.primary),
+              Icon(Icons.alarm_on_outlined, size: 64, color: theme.colorScheme.primary),
               const SizedBox(height: 12),
               Text(strings.fullScreenHelp, style: theme.textTheme.bodyLarge),
               const SizedBox(height: 20),
@@ -161,7 +161,7 @@ class _FullScreenPromptOnceState extends ConsumerState<FullScreenPromptOnce> {
     final setUp = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        icon: const Icon(Icons.alarm_on, size: 40),
+        icon: const Icon(Icons.alarm_on_outlined, size: 40),
         title: Text(strings.fullScreenTitle),
         content: Text(strings.fullScreenPrompt),
         actions: [

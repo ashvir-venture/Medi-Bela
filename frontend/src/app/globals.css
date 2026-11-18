@@ -2175,3 +2175,14 @@ a.brand:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* Round 18: multi-page prescriptions in the workspace. */
+.prescription-page + .prescription-page {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+.prescription-page-label {
+  margin: 0 0 6px;
+  font-weight: 600;
+}

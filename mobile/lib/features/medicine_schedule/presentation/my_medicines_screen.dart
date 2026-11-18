@@ -72,7 +72,8 @@ class MyMedicinesScreen extends ConsumerWidget {
               itemBuilder: (context, i) => _RoutineCard(
                 routine: routines[i],
                 strings: strings,
-                onTap: () => _openForm(context, ref, routine: routines[i]),
+                // Round 18 (client point 6): tapping opens the medicine's page.
+                onTap: () => context.push(AppRoutes.medicinePath(routines[i].id, forUserId: forUserId, name: memberName)),
               ),
             );
           },

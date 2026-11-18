@@ -5,9 +5,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_config.dart';
 
 /// Light / dark / follow the phone. A per-device choice (not synced to the
-/// account), saved in SharedPreferences; defaults to the phone's setting.
+/// account), saved in SharedPreferences. A new install starts in light mode
+/// (owner 2026-11-17: the app opened dark on dark phones); a saved choice,
+/// "System" included, wins.
 class ThemeModeController extends StateNotifier<ThemeMode> {
-  ThemeModeController() : super(ThemeMode.system) {
+  ThemeModeController() : super(ThemeMode.light) {
     _restore();
   }
 
@@ -23,9 +25,9 @@ class ThemeModeController extends StateNotifier<ThemeMode> {
   }
 }
 
-/// Unknown or missing values mean "follow the phone".
+/// Unknown or missing values mean light (the default for a new install).
 ThemeMode parseThemeMode(String? value) =>
-    ThemeMode.values.firstWhere((m) => m.name == value, orElse: () => ThemeMode.system);
+    ThemeMode.values.firstWhere((m) => m.name == value, orElse: () => ThemeMode.light);
 
 final themeModeControllerProvider =
     StateNotifierProvider<ThemeModeController, ThemeMode>(

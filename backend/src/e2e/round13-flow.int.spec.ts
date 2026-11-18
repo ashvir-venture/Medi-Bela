@@ -29,7 +29,7 @@ d('Rounds 12-13: access and calculations', () => {
     const phone = `017600${String(seq).padStart(5, '0')}`;
     const res = await http()
       .post('/api/auth/register')
-      .send({ phone, name, password: 'pass1234', acceptTerms: true, ...(await signupDetails(prisma)) })
+      .send({ phone, name, password: 'pass1234', acceptTerms: true, acceptResearch: true, ...(await signupDetails(prisma)) })
       .expect(201);
     if (role !== 'USER') await prisma.user.update({ where: { id: res.body.user.id }, data: { role } });
     return { token: res.body.tokens.accessToken as string, id: res.body.user.id as string, phone };
@@ -41,6 +41,8 @@ d('Rounds 12-13: access and calculations', () => {
     for (const m of members) {
       const inv = await http().post('/api/family/invitations').set(auth(carer.token)).send({ phone: m.phone }).expect(201);
       await http().post(`/api/family/invitations/${inv.body.id}/accept`).set(auth(m.token)).expect(201);
+      // Round 18: the member lets the caregiver see and change things.
+      await http().put('/api/family/permissions').set(auth(m.token)).send({ view: true, manage: true }).expect(200);
     }
   }
 

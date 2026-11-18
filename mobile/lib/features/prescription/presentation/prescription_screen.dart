@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +11,7 @@ import '../../../core/localization/locale_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/core_providers.dart';
 import '../../../router/app_router.dart';
+import '../../../widgets/fit_label.dart';
 import '../../../widgets/load_more_list.dart';
 import '../../../widgets/state_views.dart';
 import '../domain/prescription_draft_model.dart';
@@ -69,19 +73,23 @@ class _PrescriptionScreenState extends ConsumerState<PrescriptionScreen> {
             },
             child: LoadMoreListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-              itemCount: drafts.length + fromCaregiver.length,
+              // Round 18: the add button heads the list (it was a floating
+              // button next to the AI button on this tab root).
+              itemCount: drafts.length + fromCaregiver.length + 1,
               separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (context, index) => index < drafts.length
-                  ? _DraftTile(draft: drafts[index])
-                  : ServerPrescriptionTile(prescription: fromCaregiver[index - drafts.length]),
+              itemBuilder: (context, index) => index == 0
+                  ? FilledButton.icon(
+                      key: const ValueKey('prescription-add'),
+                      onPressed: () => _openEntryForm(context),
+                      icon: const Icon(Icons.photo_camera_outlined),
+                      label: Text(strings.newPrescriptionEntry),
+                    )
+                  : index - 1 < drafts.length
+                      ? _DraftTile(draft: drafts[index - 1])
+                      : ServerPrescriptionTile(prescription: fromCaregiver[index - 1 - drafts.length]),
             ),
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openEntryForm(context),
-        icon: const Icon(Icons.add),
-        label: Text(strings.newPrescriptionEntry),
       ),
     );
   }
@@ -90,11 +98,12 @@ class _PrescriptionScreenState extends ConsumerState<PrescriptionScreen> {
 }
 
 /// [rejectedServerId] set = re-upload of that rejected prescription.
-void openPrescriptionEntryForm(BuildContext context, {String? rejectedServerId}) {
+/// [autoCamera]: the camera opens at once (client point 2); off in widget tests.
+void openPrescriptionEntryForm(BuildContext context, {String? rejectedServerId, bool autoCamera = true}) {
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    builder: (_) => _PrescriptionEntryForm(rejectedServerId: rejectedServerId),
+    builder: (_) => _PrescriptionEntryForm(rejectedServerId: rejectedServerId, autoCamera: autoCamera),
   );
 }
 
@@ -106,10 +115,13 @@ class _DraftTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final strings = ref.watch(stringsProvider);
-    final (icon, color, label) = _statusDisplay(context, strings);
+    final online = ref.watch(connectivityStreamProvider).valueOrNull ?? true;
+    final (icon, color, label) = _statusDisplay(context, strings, online);
 
     return Card(
       child: ListTile(
+        // Round 18: "Upload failed. Tap to retry".
+        onTap: draft.status == 'failed' ? () => _retry(ref) : null,
         leading: Icon(
           draft.imageLocalPath != null
               ? Icons.image_outlined
@@ -128,7 +140,7 @@ class _DraftTile extends ConsumerWidget {
               children: [
                 Icon(icon, size: 14, color: color),
                 const SizedBox(width: 4),
-                Text(label, style: TextStyle(color: color, fontSize: 12)),
+                Text(label, style: TextStyle(color: color, fontSize: AppType.tiny)),
               ],
             ),
             if (draft.serverStatus == 'REJECTED' && draft.rejectionReason != null)
@@ -136,7 +148,7 @@ class _DraftTile extends ConsumerWidget {
                 padding: const EdgeInsets.only(top: 2),
                 child: Text(
                   '${strings.rejectionReason}: ${draft.rejectionReason}',
-                  style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: AppType.tiny),
                 ),
               ),
             if (draft.serverStatus == 'AWAITING_CONFIRMATION' && draft.serverId != null)
@@ -174,25 +186,39 @@ class _DraftTile extends ConsumerWidget {
   /// priority while the upload itself hasn't completed yet; once synced,
   /// the server's review status (still PENDING vs ACTIVE/REJECTED/...) is
   /// what the user actually cares about.
-  (IconData, Color, String) _statusDisplay(BuildContext context, AppStrings strings) {
+  Future<void> _retry(WidgetRef ref) async {
+    await ref.read(prescriptionLocalRepositoryProvider).markQueued(draft.id);
+    final sync = ref.read(syncServiceProvider);
+    await sync.resetFailedEntries();
+    await sync.drainQueue();
+  }
+
+  (IconData, Color, String) _statusDisplay(BuildContext context, AppStrings strings, bool online) {
+    final p = context.palette;
+    // Round 18: Uploading… / Waiting for internet / Upload failed, tap to retry.
     if (draft.status == 'failed') {
-      return (Icons.error_outline, Theme.of(context).colorScheme.error, 'Failed to upload');
+      return (Icons.error_outline, p.later, strings.r18.uploadFailedTap);
     }
     if (draft.status != 'synced') {
-      return (Icons.schedule, Colors.orange, strings.pendingSyncBadge);
+      return online
+          ? (Icons.cloud_upload_outlined, p.head, strings.r18.uploading)
+          : (Icons.wifi_off_rounded, p.muted, strings.r18.waitingForInternet);
     }
     return switch (draft.serverStatus) {
-      'ACTIVE' => (Icons.check_circle, Colors.green, strings.statusActive),
-      'ENDED' => (Icons.check_circle_outline, Colors.grey, strings.statusEnded),
-      'AWAITING_CONFIRMATION' => (Icons.fact_check_outlined, Colors.blue, strings.statusAwaitingConfirmation),
-      'REJECTED' => (Icons.cancel_outlined, Theme.of(context).colorScheme.error, strings.statusRejected),
-      _ => (Icons.hourglass_top, Colors.orange, strings.statusPending),
+      'ACTIVE' => (Icons.check_circle_rounded, p.taken, strings.statusActive),
+      'ENDED' => (Icons.check_circle_outline, p.muted, strings.statusEnded),
+      'AWAITING_CONFIRMATION' => (Icons.fact_check_outlined, p.head, strings.statusAwaitingConfirmation),
+      'REJECTED' => (Icons.cancel_outlined, p.later, strings.statusRejected),
+      _ => (Icons.hourglass_top_rounded, p.onWarnContainer, strings.statusPending),
     };
   }
 }
 
 class _PrescriptionEntryForm extends ConsumerStatefulWidget {
-  const _PrescriptionEntryForm({this.rejectedServerId});
+  const _PrescriptionEntryForm({this.rejectedServerId, this.autoCamera = true});
+
+  /// Opens the camera at once (client point 2); off in widget tests.
+  final bool autoCamera;
 
   /// Server id of the rejected prescription this re-uploads, if any.
   final String? rejectedServerId;
@@ -204,8 +230,20 @@ class _PrescriptionEntryForm extends ConsumerStatefulWidget {
 
 class _PrescriptionEntryFormState extends ConsumerState<_PrescriptionEntryForm> {
   final _noteController = TextEditingController();
-  String? _imagePath;
+  /// Round 18 (client point 2): the pages, in order (up to [maxPages]).
+  final List<String> _pages = [];
   bool _isSaving = false;
+
+  static const maxPages = 5;
+
+  @override
+  void initState() {
+    super.initState();
+    // Client: tapping opens the camera straight away.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.autoCamera) _camera();
+    });
+  }
 
   @override
   void dispose() {
@@ -213,102 +251,158 @@ class _PrescriptionEntryFormState extends ConsumerState<_PrescriptionEntryForm> 
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final file = await picker.pickImage(
-      source: ImageSource.gallery,
+  Future<void> _camera({bool replaceLast = false}) async {
+    final file = await ImagePicker().pickImage(
+      source: ImageSource.camera,
       maxWidth: prescriptionPhotoMaxSide,
       maxHeight: prescriptionPhotoMaxSide,
       imageQuality: prescriptionPhotoQuality,
     );
-    if (file != null) {
-      setState(() => _imagePath = file.path);
-    }
+    if (file == null || !mounted) return;
+    setState(() {
+      if (replaceLast && _pages.isNotEmpty) _pages.removeLast();
+      if (_pages.length < maxPages) _pages.add(file.path);
+    });
+  }
+
+  /// Up to 2 photos at a time from the gallery (owner 2026-11-17).
+  Future<void> _gallery() async {
+    final room = maxPages - _pages.length;
+    if (room <= 0) return;
+    final files = await ImagePicker().pickMultiImage(
+      limit: room < 2 ? 2 : 2,
+      maxWidth: prescriptionPhotoMaxSide,
+      maxHeight: prescriptionPhotoMaxSide,
+      imageQuality: prescriptionPhotoQuality,
+    );
+    if (!mounted) return;
+    setState(() => _pages.addAll(files.take(room < 2 ? room : 2).map((f) => f.path)));
   }
 
   Future<void> _save() async {
     setState(() => _isSaving = true);
     final create = ref.read(createPrescriptionDraftProvider);
     await create(
-      note: _noteController.text.trim().isEmpty
-          ? null
-          : _noteController.text.trim(),
-      imageLocalPath: _imagePath,
+      note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
+      pages: List.of(_pages),
       previousPrescriptionId: widget.rejectedServerId,
     );
+    // The outbox uploads it in the background; the user can leave now.
+    unawaited(ref.read(syncServiceProvider).drainQueue());
     if (!mounted) return;
     Navigator.of(context).pop();
-    final strings = ref.read(stringsProvider);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(strings.draftSavedOffline)),
+      SnackBar(content: Text(ref.read(stringsProvider).r18.sentInBackground)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final strings = ref.watch(stringsProvider);
+    final s = strings.r18;
+    final p = context.palette;
     final isReupload = widget.rejectedServerId != null;
-    // The server needs a photo; a re-upload is only useful with a new one.
-    final canSave = !_isSaving && (!isReupload || _imagePath != null);
+    final canSave = !_isSaving && _pages.isNotEmpty;
+    final full = _pages.length >= maxPages;
 
     return Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            isReupload ? strings.reuploadPrescription : strings.newPrescriptionEntry,
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          if (isReupload) ...[
-            const SizedBox(height: 8),
-            Text(strings.reuploadHint, style: const TextStyle(fontSize: 13)),
-          ],
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.amber.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              strings.uploadPendingNotice,
-              style: TextStyle(fontSize: 13, color: context.palette.caution),
-            ),
-          ),
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: _pickImage,
-            icon: const Icon(Icons.photo_camera_outlined),
-            label: Text(_imagePath == null ? strings.attachImage : '1 photo attached'),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _noteController,
-            maxLines: 4,
-            decoration: InputDecoration(labelText: strings.prescriptionNote),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: canSave ? _save : null,
-            child: _isSaving
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
+      padding: EdgeInsets.only(left: 20, right: 20, top: 8, bottom: MediaQuery.of(context).viewInsets.bottom + 20),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(isReupload ? strings.reuploadPrescription : strings.newPrescriptionEntry, style: Theme.of(context).textTheme.titleLarge),
+            if (isReupload) ...[
+              const SizedBox(height: 6),
+              Text(strings.reuploadHint, style: TextStyle(fontSize: AppType.small, color: p.muted)),
+            ],
+            const SizedBox(height: 12),
+            if (_pages.isNotEmpty) ...[
+              SizedBox(
+                height: 120,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _pages.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, i) => Stack(children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.file(File(_pages[i]), width: 90, height: 120, fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(width: 90, height: 120, color: p.surface2)),
                     ),
-                  )
-                : Text(strings.saveDraft),
-          ),
-        ],
+                    Positioned(
+                      top: 2,
+                      right: 2,
+                      child: IconButton.filledTonal(
+                        key: ValueKey('rx-page-remove-$i'),
+                        visualDensity: VisualDensity.compact,
+                        iconSize: 16,
+                        onPressed: () => setState(() => _pages.removeAt(i)),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(s.pagesN(_pages.length, maxPages), style: TextStyle(color: p.muted, fontSize: AppType.small)),
+              const SizedBox(height: 10),
+              Row(children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const ValueKey('rx-retake'),
+                    onPressed: () => _camera(replaceLast: true),
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: FitLabel(Text(s.retake)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const ValueKey('rx-add-page'),
+                    onPressed: full ? null : _camera,
+                    icon: const Icon(Icons.add_a_photo_outlined),
+                    label: FitLabel(Text(s.addPage)),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 8),
+            ] else ...[
+              FilledButton.icon(
+                key: const ValueKey('rx-camera'),
+                onPressed: _camera,
+                icon: const Icon(Icons.photo_camera_outlined),
+                label: Text(s.takePhoto),
+              ),
+              const SizedBox(height: 8),
+            ],
+            OutlinedButton.icon(
+              key: const ValueKey('rx-gallery'),
+              onPressed: full ? null : _gallery,
+              icon: const Icon(Icons.photo_library_outlined),
+              label: Text(s.fromGallery),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(s.twoAtATime, style: TextStyle(color: p.muted, fontSize: AppType.small)),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _noteController,
+              maxLines: 3,
+              decoration: InputDecoration(labelText: strings.prescriptionNote),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              key: const ValueKey('rx-send'),
+              onPressed: canSave ? _save : null,
+              child: _isSaving
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : Text(s.sendToPharmacist),
+            ),
+          ],
+        ),
       ),
     );
   }

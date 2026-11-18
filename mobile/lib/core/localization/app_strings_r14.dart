@@ -280,7 +280,9 @@ const Round14Strings enRound14 = Round14Strings(
     ],
     'samsung': [
       'Settings → Apps → Medi-Bela → Battery: Unrestricted',
-      'Settings → Battery → Background usage limits: take Medi-Bela out of Sleeping apps',
+      'Settings → Battery → Background usage limits: take Medi-Bela out of Sleeping / Deep sleeping apps',
+      // Round 18 (client: Samsung A52, reminder late while in recents).
+      'Same page → Never sleeping apps → add Medi-Bela',
       'Alarms & reminders: Allowed',
     ],
     'transsion': [
@@ -427,7 +429,8 @@ const Round14Strings bnRound14 = Round14Strings(
     ],
     'samsung': [
       'সেটিংস → অ্যাপস → Medi-Bela → ব্যাটারি: Unrestricted',
-      'সেটিংস → ব্যাটারি → ব্যাকগ্রাউন্ড ব্যবহারের সীমা: Sleeping apps থেকে Medi-Bela সরান',
+      'সেটিংস → ব্যাটারি → ব্যাকগ্রাউন্ড ব্যবহারের সীমা: Sleeping / Deep sleeping apps থেকে Medi-Bela সরান',
+      'একই পাতায় → Never sleeping apps → Medi-Bela যোগ করুন',
       'Alarms & reminders: অনুমতি দিন',
     ],
     'transsion': [

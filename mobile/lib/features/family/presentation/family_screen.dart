@@ -6,10 +6,12 @@ import '../../../core/localization/app_strings.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../core/utils/phone.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../providers/core_providers.dart';
 import '../../../router/app_router.dart';
 import '../../../widgets/state_views.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../domain/family_models.dart';
+import 'caregiver_permissions.dart';
 import 'family_controller.dart';
 
 class FamilyScreen extends ConsumerWidget {
@@ -20,10 +22,8 @@ class FamilyScreen extends ConsumerWidget {
     final strings = ref.watch(stringsProvider);
     final membersState = ref.watch(familyMembersControllerProvider);
     final myId = ref.watch(authControllerProvider).value?.id;
-    final members = membersState.value ?? const <FamilyMemberModel>[];
-    // Only the caregiver may invite (the server enforces this too; the button
-    // is hidden so members aren't offered an action that would be refused).
-    final isCaregiver = members.any((m) => m.userId == myId && m.role == 'CAREGIVER');
+    // Only the caregiver gets the Invite button (_FamilyContent; the server
+    // enforces this too, so members aren't offered an action it would refuse).
 
     return Scaffold(
       appBar: AppBar(title: Text(strings.myFamily)),
@@ -46,16 +46,15 @@ class FamilyScreen extends ConsumerWidget {
               ),
             ],
           ),
-          data: (members) => _FamilyContent(members: members, myId: myId),
+          data: (members) => _FamilyContent(
+            members: members,
+            myId: myId,
+            onInvite: () => _showInviteDialog(context, ref),
+          ),
         ),
       ),
-      floatingActionButton: isCaregiver
-          ? FloatingActionButton.extended(
-              onPressed: () => _showInviteDialog(context, ref),
-              icon: const Icon(Icons.person_add_alt_1),
-              label: Text(strings.inviteMember),
-            )
-          : null,
+      // Round 18: Invite is a button in the list (under the members), not a
+      // floating button beside the AI button on this tab root.
     );
   }
 
@@ -68,10 +67,11 @@ class FamilyScreen extends ConsumerWidget {
 }
 
 class _FamilyContent extends ConsumerWidget {
-  const _FamilyContent({required this.members, required this.myId});
+  const _FamilyContent({required this.members, required this.myId, required this.onInvite});
 
   final List<FamilyMemberModel> members;
   final String? myId;
+  final VoidCallback onInvite;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -125,16 +125,28 @@ class _FamilyContent extends ConsumerWidget {
           );
         }
         if (index == members.length + 1) {
-          // Only me in the family: explain how to see anyone's status.
-          return members.length <= 1
-              ? Padding(
+          // Only me in the family: explain how to see anyone's status. The
+          // caregiver's Invite button sits right here (Round 18).
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (members.length <= 1)
+                Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text(
                     strings.inviteToSeeStatus,
                     style: TextStyle(color: context.palette.subtle),
                   ),
-                )
-              : const SizedBox.shrink();
+                ),
+              if (viewerIsCaregiver)
+                OutlinedButton.icon(
+                  key: const ValueKey('family-invite'),
+                  onPressed: onInvite,
+                  icon: const Icon(Icons.person_add_alt_1_rounded),
+                  label: Text(strings.inviteMember),
+                ),
+            ],
+          );
         }
         if (index == members.length + 2) {
           // Transparency: members should know what the family can see.
@@ -169,7 +181,7 @@ class _FamilyContent extends ConsumerWidget {
                 Card(
                   child: ListTile(
                     key: const ValueKey('family-my-changes'),
-                    leading: const Icon(Icons.history),
+                    leading: const Icon(Icons.history_outlined),
                     title: Text(strings.r17.changesForMe),
                     subtitle: Text(strings.r17.changesForMeSub),
                     trailing: const Icon(Icons.chevron_right),
@@ -314,25 +326,25 @@ class _SummaryChips extends ConsumerWidget {
     if (!summary.shared) {
       return Text(
         strings.statusNotShared,
-        style: TextStyle(color: context.palette.subtle, fontSize: 12),
+        style: TextStyle(color: context.palette.subtle, fontSize: AppType.tiny),
       );
     }
     if (summary.total == 0) {
       return Text(
         strings.noDosesToday,
-        style: TextStyle(color: context.palette.subtle, fontSize: 12),
+        style: TextStyle(color: context.palette.subtle, fontSize: AppType.tiny),
       );
     }
     return Wrap(
       spacing: 6,
       children: [
         Text('${strings.doseTaken}: ${summary.taken}/${summary.total}',
-            style: const TextStyle(fontSize: 12)),
+            style: const TextStyle(fontSize: AppType.tiny)),
         if (summary.missed > 0)
           Text(
             '${strings.doseMissed}: ${summary.missed}',
             style: TextStyle(
-              fontSize: 12,
+              fontSize: AppType.tiny,
               fontWeight: FontWeight.w700,
               color: Theme.of(context).colorScheme.error,
             ),
@@ -383,7 +395,7 @@ class _FamilyActivitySection extends ConsumerWidget {
 
   static IconData _eventIcon(String kind) => switch (kind) {
         'JOINED' => Icons.person_add_alt_1_outlined,
-        'LEFT' => Icons.logout,
+        'LEFT' => Icons.logout_outlined,
         'REMOVED' => Icons.person_remove_outlined,
         'CAREGIVER_CHANGED' => Icons.verified_user_outlined,
         _ => Icons.groups_outlined,
@@ -488,7 +500,7 @@ class _InvitationTile extends ConsumerWidget {
                       Expanded(
                         child: Text(
                           strings.invitationWarning,
-                          style: TextStyle(fontSize: 13, color: context.palette.warningStrong),
+                          style: TextStyle(fontSize: AppType.small, color: context.palette.warningStrong),
                         ),
                       ),
                     ],
@@ -525,8 +537,16 @@ class _InvitationTile extends ConsumerWidget {
 
     if (!context.mounted) return;
     result.when(
-      success: (_) {
+      success: (_) async {
         ref.read(familyInvitationsControllerProvider.notifier).load();
+        // Round 18: right after joining, the member decides what the caregiver may do.
+        if (!accept) return;
+        try {
+          final perms = await ref.read(familyApiProvider).getPermissions();
+          if (perms.needsAnswer && context.mounted) await showCaregiverPermissionSheet(context, ref, perms);
+        } catch (_) {
+          // Offline: the prompt asks on the next start.
+        }
       },
       failure: (message) {
         ScaffoldMessenger.of(context).showSnackBar(

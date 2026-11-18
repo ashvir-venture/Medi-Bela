@@ -21,6 +21,18 @@ double unitsPerDoseOf(String? doseAmount) {
   return value != null && value > 0 ? value : 1;
 }
 
+/// Round 18 (client point 6): one dose in the box's own unit. A syrup
+/// counted in ml with a dose of "2 tsp" uses 10 ml (a teaspoon is 5 ml, a
+/// tablespoon 15 ml). Same rule as the server (boxUnitsPerDose).
+double boxUnitsPerDoseOf(String? doseAmount, String? boxUnit) {
+  final n = unitsPerDoseOf(doseAmount);
+  if (boxUnit != 'ml' || doseAmount == null) return n;
+  final t = doseAmount.toLowerCase();
+  if (RegExp('tbsp|tablespoon|টেবিল').hasMatch(t)) return n * 15;
+  if (RegExp('tsp|teaspoon|spoon|চামচ').hasMatch(t)) return n * 5;
+  return n;
+}
+
 /// "8", "2.5": no trailing ".0".
 String formatUnits(double n) => n == n.roundToDouble() ? n.toInt().toString() : n.toStringAsFixed(1);
 
@@ -36,6 +48,13 @@ class MedicineBoxItem {
     this.quantity,
     this.countedAt,
     this.remaining,
+    this.unit,
+    this.perDay,
+    this.refillDays = 3,
+    this.daysLeft,
+    this.asNeeded = false,
+    this.pillColor,
+    this.pillShape,
   });
 
   final String routineId;
@@ -48,6 +67,17 @@ class MedicineBoxItem {
   final DateTime? countedAt;
   /// What the server counted as left (doses taken there since [countedAt]).
   final double? remaining;
+  /// Round 18: what the count is in (tablet, ml, puff...).
+  final String? unit;
+  /// Round 18: units used a day on average (null for an as-needed medicine).
+  final double? perDay;
+  /// Round 18: remind when this many days are left.
+  final int refillDays;
+  /// Round 18: how long it lasts, from the server.
+  final int? daysLeft;
+  final bool asNeeded;
+  final String? pillColor;
+  final String? pillShape;
 
   bool get counted => quantity != null;
 
@@ -66,6 +96,14 @@ class MedicineBoxItem {
     return left == null ? null : (left / unitsPerDose + 1e-9).floor();
   }
 
+  /// Round 18: whole days left (client: "20 ml a day from 200 ml = 10 days").
+  int? daysLeftWith(int pendingTaken) {
+    final left = remainingWith(pendingTaken);
+    final day = perDay;
+    if (left == null || day == null || day <= 0) return null;
+    return (left / day + 1e-9).floor();
+  }
+
   factory MedicineBoxItem.fromJson(Map<String, dynamic> json) => MedicineBoxItem(
         routineId: json['routineId'] as String,
         medicineName: json['medicineName'] as String,
@@ -76,14 +114,100 @@ class MedicineBoxItem {
         quantity: (json['quantity'] as num?)?.toDouble(),
         countedAt: json['countedAt'] == null ? null : DateTime.parse(json['countedAt'] as String),
         remaining: (json['remaining'] as num?)?.toDouble(),
+        unit: json['unit'] as String?,
+        perDay: (json['perDay'] as num?)?.toDouble(),
+        refillDays: json['refillDays'] as int? ?? 3,
+        daysLeft: json['daysLeft'] as int?,
+        asNeeded: json['asNeeded'] as bool? ?? false,
+        pillColor: json['pillColor'] as String?,
+        pillShape: json['pillShape'] as String?,
       );
+
+  Map<String, dynamic> toJson() => {
+        'routineId': routineId,
+        'medicineName': medicineName,
+        'dosage': dosage,
+        'doseAmount': doseAmount,
+        'formName': formName,
+        'unitsPerDose': unitsPerDose,
+        'quantity': quantity,
+        'countedAt': countedAt?.toUtc().toIso8601String(),
+        'remaining': remaining,
+        'unit': unit,
+        'perDay': perDay,
+        'refillDays': refillDays,
+        'daysLeft': daysLeft,
+        'asNeeded': asNeeded,
+        'pillColor': pillColor,
+        'pillShape': pillShape,
+      };
+}
+
+/// Round 18 (client point 5): a box item with no reminder: a medicine kept
+/// at home, or a care supply (insulin, test strips, needles, lancets...).
+class BoxExtra {
+  const BoxExtra({
+    required this.id,
+    required this.kind,
+    required this.name,
+    this.unit,
+    this.perDay,
+    this.refillDays = 5,
+    required this.quantity,
+    required this.countedAt,
+    required this.remaining,
+    this.daysLeft,
+  });
+
+  final String id;
+  /// MEDICINE | SUPPLY
+  final String kind;
+  final String name;
+  final String? unit;
+  final double? perDay;
+  final int refillDays;
+  final double quantity;
+  final DateTime countedAt;
+  final double remaining;
+  final int? daysLeft;
+
+  bool get isSupply => kind == 'SUPPLY';
+  bool get low => daysLeft != null && daysLeft! < refillDays;
+
+  factory BoxExtra.fromJson(Map<String, dynamic> json) => BoxExtra(
+        id: json['id'] as String,
+        kind: json['kind'] as String? ?? 'MEDICINE',
+        name: json['name'] as String? ?? '',
+        unit: json['unit'] as String?,
+        perDay: (json['perDay'] as num?)?.toDouble(),
+        refillDays: json['refillDays'] as int? ?? 5,
+        quantity: (json['quantity'] as num?)?.toDouble() ?? 0,
+        countedAt: DateTime.parse(json['countedAt'] as String),
+        remaining: (json['remaining'] as num?)?.toDouble() ?? 0,
+        daysLeft: json['daysLeft'] as int?,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'kind': kind,
+        'name': name,
+        'unit': unit,
+        'perDay': perDay,
+        'refillDays': refillDays,
+        'quantity': quantity,
+        'countedAt': countedAt.toUtc().toIso8601String(),
+        'remaining': remaining,
+        'daysLeft': daysLeft,
+      };
 }
 
 class MedicineBox {
-  const MedicineBox({this.startedAt, this.items = const []});
+  const MedicineBox({this.startedAt, this.items = const [], this.extras = const []});
 
   final DateTime? startedAt;
   final List<MedicineBoxItem> items;
+  /// Round 18: medicines with no reminder and care supplies.
+  final List<BoxExtra> extras;
 
   bool get started => startedAt != null;
 
@@ -99,7 +223,16 @@ class MedicineBox {
         items: (json['items'] as List<dynamic>? ?? const [])
             .map((i) => MedicineBoxItem.fromJson(i as Map<String, dynamic>))
             .toList(),
+        extras: (json['extras'] as List<dynamic>? ?? const [])
+            .map((i) => BoxExtra.fromJson(i as Map<String, dynamic>))
+            .toList(),
       );
+
+  Map<String, dynamic> toJson() => {
+        'startedAt': startedAt?.toUtc().toIso8601String(),
+        'items': [for (final i in items) i.toJson()],
+        'extras': [for (final x in extras) x.toJson()],
+      };
 }
 
 /// What the box should say after a dose: nothing, "running low" (3 doses

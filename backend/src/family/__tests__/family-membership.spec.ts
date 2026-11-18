@@ -20,6 +20,10 @@ function setup(members: any[]) {
       update: jest.fn(async ({ where, data }: any) => {
         rows = rows.map((r) => (r.id === where.id ? { ...r, ...data } : r));
       }),
+      updateMany: jest.fn(async ({ data }: any) => {
+        rows = rows.map((r) => ({ ...r, ...data }));
+        return { count: rows.length };
+      }),
     },
     familyInvitation: { deleteMany: jest.fn(async () => ({ count: 0 })) },
     family: { delete: jest.fn(async () => ({})) },
@@ -61,6 +65,8 @@ describe('leave and caregiver handover', () => {
     const pushed = (s.notifications.notify.mock.calls as any[])[0][0];
     expect(pushed.map((n: any) => n.userId).sort()).toEqual(['early', 'late']);
     expect(pushed[0].data).toEqual({ kind: 'caregiver_changed' });
+    // Round 18: permissions given to the old caregiver don't pass on; everyone is asked again.
+    expect(s.rows().every((r) => r.caregiverCanView === false && r.caregiverCanManage === false && r.caregiverPermissionAt === null)).toBe(true);
   });
 
   it('the last member leaves: the family is removed', async () => {

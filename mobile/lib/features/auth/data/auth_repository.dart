@@ -41,10 +41,12 @@ class AuthRepository {
     String? languagePreference,
     Map<String, dynamic> details = const {},
     required bool acceptTerms,
+    bool acceptResearch = false,
   }) async {
     try {
       final (user, tokens) = await _api.register(
         acceptTerms: acceptTerms,
+        acceptResearch: acceptResearch,
         phone: phone,
         name: name,
         password: password,
@@ -76,7 +78,9 @@ class AuthRepository {
   Future<void> logout() async {
     try {
       // Don't wait on a slow server: after 5s just forget the session locally.
-      await _api.logout().timeout(const Duration(seconds: 5));
+      // Round 18: revokes this phone's sign-in (its refresh token) on the server.
+      final refresh = await _secureStorage.readRefreshToken();
+      await _api.logout(refreshToken: refresh).timeout(const Duration(seconds: 5));
     } catch (_) {
       // Best-effort: even if the server call fails (e.g. offline), the
       // device must still forget the session.
@@ -196,7 +200,7 @@ class AuthRepository {
     if (previous != null && previous.id != user.id) {
       await _db.clearAllUserData();
     }
-    await _secureStorage.saveTokens(accessToken: tokens.accessToken);
+    await _secureStorage.saveTokens(accessToken: tokens.accessToken, refreshToken: tokens.refreshToken);
     await _cacheUser(user);
   }
 

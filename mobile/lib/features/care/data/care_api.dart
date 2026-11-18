@@ -1,13 +1,15 @@
 import 'package:dio/dio.dart';
 
 import '../../../core/constants/api_endpoints.dart';
+import '../../../core/network/direct_uploader.dart';
 
 /// GET/PUT /care (Round 15) and /records (Round 16). `forUserId` = the
 /// caregiver acting for that member (online only, like other caregiver screens).
 class CareApi {
-  CareApi(this._dio);
+  CareApi(this._dio, {DirectUploader? uploader}) : _uploader = uploader ?? DirectUploader(_dio);
 
   final Dio _dio;
+  final DirectUploader _uploader;
 
   Map<String, dynamic> _for(String? forUserId) => {'forUserId': ?forUserId};
 
@@ -96,10 +98,11 @@ class CareApi {
       _dio.delete<void>(ApiEndpoints.recordsPrescription(id), queryParameters: _for(forUserId));
 
   /// One page photo (already shrunk) of a test report or a record prescription.
+  /// Round 18: straight to Cloudinary (DirectUploader), then attached.
   Future<void> addPhoto({required String path, String? testId, String? prescriptionId, String? forUserId}) async {
-    final form = FormData.fromMap({'image': await MultipartFile.fromFile(path)});
+    final publicId = await _uploader.upload(path, purpose: 'record', forUserId: forUserId);
     final url = testId != null ? ApiEndpoints.recordsTestPhotos(testId) : ApiEndpoints.recordsPrescriptionPhotos(prescriptionId!);
-    await _dio.post<void>(url, data: form, queryParameters: _for(forUserId));
+    await _dio.post<void>('$url/direct', data: {'publicId': publicId}, queryParameters: _for(forUserId));
   }
 
   Future<void> deletePhoto(String id, {String? forUserId}) =>

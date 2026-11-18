@@ -30,7 +30,8 @@ class SecureStorageKeys {
   SecureStorageKeys._();
 
   static const String accessToken = 'auth_access_token';
-  static const String legacyRefreshToken = 'auth_refresh_token'; // no longer used; only deleted
+  /// Round 18: the refresh token (the same key older builds once used).
+  static const String refreshToken = 'auth_refresh_token';
   // Last FCM token successfully registered with the backend. Secure storage
   // (not prefs/Drift): a push token is a delivery credential for this device.
   static const String registeredPushToken = 'push_registered_token';
@@ -58,4 +59,6 @@ class PrefsKeys {
   /// Round 17: first-use tips seen on this phone, one bool per screen
   /// (`pref_tips_seen_home`, ...; widgets/first_use_tips.dart).
   static const String tipsSeenPrefix = 'pref_tips_seen_';
+  /// Round 18: unlock with fingerprint (this phone only; off by default).
+  static const String appLock = 'pref_app_lock';
 }

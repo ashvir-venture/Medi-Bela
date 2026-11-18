@@ -84,7 +84,7 @@ class DiabetesSugarHero extends StatelessWidget {
       SectionCard(
         title: s.fastingSeven,
         trailing: l?.fastingLow != null && l?.fastingHigh != null
-            ? Text(s.rangeFasting(sugarText(l!.fastingLow!, unit), sugarText(l.fastingHigh!, unit)), style: TextStyle(color: p.muted, fontSize: 13))
+            ? Text(s.rangeFasting(sugarText(l!.fastingLow!, unit), sugarText(l.fastingHigh!, unit)), style: TextStyle(color: p.muted, fontSize: AppType.small))
             : null,
         children: [
           if (hasAny)
@@ -110,7 +110,7 @@ class DiabetesSugarHero extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Row(children: [Expanded(child: Text(k)), Text(v, style: const TextStyle(fontWeight: FontWeight.w700))]),
             ),
-          if (rows.isNotEmpty) Text('${sugarUnitText(unit)}${l?.doctorNote == null ? '' : ' · ${s.setBy(l!.doctorNote!)}'}', style: TextStyle(color: p.muted, fontSize: 12)),
+          if (rows.isNotEmpty) Text('${sugarUnitText(unit)}${l?.doctorNote == null ? '' : ' · ${s.setBy(l!.doctorNote!)}'}', style: TextStyle(color: p.muted, fontSize: AppType.tiny)),
         ],
       ),
       Row(children: [
@@ -155,16 +155,16 @@ class BpHero extends StatelessWidget {
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(color: done ? p.okContainer : p.surface2, borderRadius: BorderRadius.circular(12)),
             child: Row(children: [
-              Icon(done ? Icons.check : Icons.schedule, size: 18, color: done ? p.onOkContainer : p.muted),
+              Icon(done ? Icons.check : Icons.schedule_outlined, size: 18, color: done ? p.onOkContainer : p.muted),
               const SizedBox(width: 6),
-              Expanded(child: Text(done ? label : '$label · ${s.due}', style: TextStyle(color: done ? p.onOkContainer : p.ink, fontSize: 13))),
+              Expanded(child: Text(done ? label : '$label · ${s.due}', style: TextStyle(color: done ? p.onOkContainer : p.ink, fontSize: AppType.small))),
             ]),
           ),
         );
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       SectionCard(children: [
-        Text(s.lastReading, style: TextStyle(color: p.muted, fontSize: 13)),
+        Text(s.lastReading, style: TextStyle(color: p.muted, fontSize: AppType.small)),
         Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
           Text(last == null ? '—' : s.n('${last.systolic}/${last.diastolic}'), style: TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: p.head)),
           const SizedBox(width: 6),
@@ -174,7 +174,7 @@ class BpHero extends StatelessWidget {
         ]),
         if (last != null)
           Text('${dayLabel(last.recordedAt, s)}, ${timeLabel(context, last.recordedAt.toLocal(), s)}${last.pulse == null ? '' : ', ${s.pulse} ${s.n(last.pulse!)}'}',
-              style: TextStyle(color: p.muted, fontSize: 13)),
+              style: TextStyle(color: p.muted, fontSize: AppType.small)),
         const SizedBox(height: 10),
         StatRow([
           StatBox(label: s.morningAvg, value: avg(am), sub: s.sevenDays),
@@ -195,13 +195,13 @@ class BpHero extends StatelessWidget {
           ),
         if (pulses.isNotEmpty) ...[
           const SizedBox(height: 6),
-          Text('${s.pulse}: ${s.n(_avg(pulses))}/min (${s.sevenDays})', style: TextStyle(color: p.muted, fontSize: 13)),
+          Text('${s.pulse}: ${s.n(_avg(pulses))}/min (${s.sevenDays})', style: TextStyle(color: p.muted, fontSize: AppType.small)),
         ],
         const SizedBox(height: 10),
         Row(children: [
           Expanded(child: FilledButton.icon(onPressed: () => context.push(readingPath('BLOOD_PRESSURE', c.who)), icon: const Icon(Icons.add), label: FitLabel(Text(s.logBp)))),
           const SizedBox(width: 8),
-          Expanded(child: OutlinedButton.icon(onPressed: () => context.push(limitsPath(c.who)), icon: const Icon(Icons.track_changes, size: 18), label: FitLabel(Text(s.change)))),
+          Expanded(child: OutlinedButton.icon(onPressed: () => context.push(limitsPath(c.who)), icon: const Icon(Icons.track_changes_outlined, size: 18), label: FitLabel(Text(s.change)))),
         ]),
       ]),
     ]);
@@ -231,7 +231,7 @@ class PregnancyHero extends ConsumerWidget {
     final g = gestation(due, DateTime.now());
     if (g == null || due == null) {
       return SectionCard(title: s.addDueDate, subtitle: s.addDueDateSub, children: [
-        FilledButton.icon(onPressed: () => _pickDue(context, ref), icon: const Icon(Icons.event), label: Text(s.dueDate)),
+        FilledButton.icon(onPressed: () => _pickDue(context, ref), icon: const Icon(Icons.event_outlined), label: Text(s.dueDate)),
       ]);
     }
     return Card(
@@ -243,15 +243,15 @@ class PregnancyHero extends ConsumerWidget {
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(s.pregnancy, style: TextStyle(color: p.onPrimaryContainer, fontSize: 13)),
-                Text(s.weeksDays(g.weeks, g.days), style: TextStyle(color: p.onPrimaryContainer, fontSize: 28, fontWeight: FontWeight.w800)),
+                Text(s.pregnancy, style: TextStyle(color: p.onPrimaryContainer, fontSize: AppType.small)),
+                Text(s.weeksDays(g.weeks, g.days), style: TextStyle(color: p.onPrimaryContainer, fontSize: AppType.display, fontWeight: FontWeight.w800)),
                 Text(s.trimester(g.trimester), style: TextStyle(color: p.muted2)),
               ]),
             ),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text(s.dueDate, style: TextStyle(color: p.muted, fontSize: 13)),
+              Text(s.dueDate, style: TextStyle(color: p.muted, fontSize: AppType.small)),
               Text(shortDate(due, s), style: const TextStyle(fontWeight: FontWeight.w700)),
-              Text(s.weeksToGo(g.weeksLeft), style: TextStyle(color: p.muted, fontSize: 13)),
+              Text(s.weeksToGo(g.weeksLeft), style: TextStyle(color: p.muted, fontSize: AppType.small)),
             ]),
           ]),
           const SizedBox(height: 10),
@@ -299,7 +299,7 @@ class AncBlock extends ConsumerWidget {
                   onTap: () => context.push(visitFormPath(id: anc[i].id, kind: 'ANC', condition: 'pregnancy', who: c.who)),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(s.checkupN(anc[i].number ?? i + 1), style: const TextStyle(fontWeight: FontWeight.w700)),
-                    Text('${shortDate(anc[i].day, s)}${anc[i].done ? '' : ', ${inDaysLabel(anc[i].day, s)}'}', style: TextStyle(color: p.muted, fontSize: 13)),
+                    Text('${shortDate(anc[i].day, s)}${anc[i].done ? '' : ', ${inDaysLabel(anc[i].day, s)}'}', style: TextStyle(color: p.muted, fontSize: AppType.small)),
                   ]),
                 ),
               ),
@@ -325,12 +325,12 @@ class AncBlock extends ConsumerWidget {
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(color: p.surface2, borderRadius: BorderRadius.circular(12)),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(s.checkedEachVisit, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-            Text(tr(ancChecked, s.bn), style: TextStyle(color: p.muted, fontSize: 13)),
+            Text(s.checkedEachVisit, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: AppType.small)),
+            Text(tr(ancChecked, s.bn), style: TextStyle(color: p.muted, fontSize: AppType.small)),
           ]),
         ),
         const SizedBox(height: 6),
-        Text(tr(ancGuideline, s.bn), style: TextStyle(color: p.muted, fontSize: 12)),
+        Text(tr(ancGuideline, s.bn), style: TextStyle(color: p.muted, fontSize: AppType.tiny)),
       ],
     );
   }
@@ -366,7 +366,7 @@ class _KicksBlockState extends ConsumerState<KicksBlock> {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(s.countingMovements, style: const TextStyle(fontWeight: FontWeight.w700)),
-              Text(s.kicksFrom28(28 - g.weeks), style: TextStyle(color: p.muted, fontSize: 13)),
+              Text(s.kicksFrom28(28 - g.weeks), style: TextStyle(color: p.muted, fontSize: AppType.small)),
             ]),
           ),
         ]),
@@ -375,7 +375,7 @@ class _KicksBlockState extends ConsumerState<KicksBlock> {
     final recent = c.care.logs.where((l) => l.kind == CareLogKind.kicks).take(3).toList();
     return SectionCard(
       title: s.kicksTitle,
-      trailing: recent.isEmpty ? null : Text(s.lastOn(dayLabel(recent.first.loggedAt, s)), style: TextStyle(color: p.muted, fontSize: 13)),
+      trailing: recent.isEmpty ? null : Text(s.lastOn(dayLabel(recent.first.loggedAt, s)), style: TextStyle(color: p.muted, fontSize: AppType.small)),
       children: [
         if (_started != null) ...[
           Container(
@@ -384,13 +384,13 @@ class _KicksBlockState extends ConsumerState<KicksBlock> {
             child: Text('${s.n(_count)} ${s.times}', textAlign: TextAlign.center, style: TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: p.head)),
           ),
           const SizedBox(height: 6),
-          Text(s.kicksStarted(timeLabel(context, _started!, s)), textAlign: TextAlign.center, style: TextStyle(color: p.muted, fontSize: 13)),
+          Text(s.kicksStarted(timeLabel(context, _started!, s)), textAlign: TextAlign.center, style: TextStyle(color: p.muted, fontSize: AppType.small)),
           const SizedBox(height: 8),
           FilledButton.icon(
             style: FilledButton.styleFrom(backgroundColor: p.taken, foregroundColor: p.onTaken, minimumSize: const Size.fromHeight(64)),
             onPressed: () => setState(() => _count++),
-            icon: const Icon(Icons.favorite),
-            label: Text(s.babyMoved, style: const TextStyle(fontSize: 18)),
+            icon: const Icon(Icons.favorite_outlined),
+            label: Text(s.babyMoved, style: const TextStyle(fontSize: AppType.title)),
           ),
           const SizedBox(height: 8),
           OutlinedButton(
@@ -407,7 +407,7 @@ class _KicksBlockState extends ConsumerState<KicksBlock> {
             child: Text(s.finishSave),
           ),
         ] else
-          FilledButton.icon(onPressed: () => setState(() => _started = DateTime.now()), icon: const Icon(Icons.play_arrow), label: Text(s.startCounting)),
+          FilledButton.icon(onPressed: () => setState(() => _started = DateTime.now()), icon: const Icon(Icons.play_arrow_outlined), label: Text(s.startCounting)),
         for (final k in recent)
           Padding(
             padding: const EdgeInsets.only(top: 6),
@@ -466,7 +466,7 @@ class PregnancyVitalsBlock extends ConsumerWidget {
           child: Text(s.startWeight),
         ),
       const SizedBox(height: 6),
-      Text(tr(pregnancyBpNote, s.bn), style: TextStyle(color: p.muted, fontSize: 13)),
+      Text(tr(pregnancyBpNote, s.bn), style: TextStyle(color: p.muted, fontSize: AppType.small)),
       const SizedBox(height: 8),
       Row(children: [
         Expanded(child: FilledButton(onPressed: () => context.push(readingPath('BLOOD_PRESSURE', c.who)), child: FitLabel(Text(s.logBp)))),
@@ -495,7 +495,7 @@ class TdBlock extends ConsumerWidget {
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(s.tdVaccine, style: const TextStyle(fontWeight: FontWeight.w700)),
-            Text('$text. ${tr(tdNote, s.bn)}', style: TextStyle(color: p.muted, fontSize: 13)),
+            Text('$text. ${tr(tdNote, s.bn)}', style: TextStyle(color: p.muted, fontSize: AppType.small)),
           ]),
         ),
         OutlinedButton(
@@ -557,12 +557,12 @@ class _BirthPlanBlockState extends ConsumerState<BirthPlanBlock> {
       InkWell(
         onTap: () => setState(() => _open = !_open),
         child: Row(children: [
-          const IconTile(Icons.checklist, tone: ToneKind.ok, size: 36),
+          const IconTile(Icons.checklist_outlined, tone: ToneKind.ok, size: 36),
           const SizedBox(width: 10),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(s.birthPlan, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-              Text(s.birthPlanReady(ready), style: TextStyle(color: p.muted, fontSize: 13)),
+              Text(s.birthPlan, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: AppType.body)),
+              Text(s.birthPlanReady(ready), style: TextStyle(color: p.muted, fontSize: AppType.small)),
             ]),
           ),
           Icon(_open ? Icons.expand_less : Icons.expand_more),
@@ -576,7 +576,7 @@ class _BirthPlanBlockState extends ConsumerState<BirthPlanBlock> {
             child: TextField(controller: _fields![k], decoration: InputDecoration(labelText: labels[k]!.$1, hintText: labels[k]!.$2)),
           ),
         SwitchListTile(contentPadding: EdgeInsets.zero, value: _money, onChanged: (v) => setState(() => _money = v), title: Text(s.bpMoney)),
-        Text(tr(birthPlanNote, s.bn), style: TextStyle(color: p.muted, fontSize: 13)),
+        Text(tr(birthPlanNote, s.bn), style: TextStyle(color: p.muted, fontSize: AppType.small)),
         const SizedBox(height: 8),
         FilledButton(
           onPressed: () => runCareAction(
@@ -629,7 +629,7 @@ class HeartHero extends StatelessWidget {
           ]),
         )
       else
-        Text(limit == null ? s.weightNoLimit : s.weightAlertNote(numText(limit, s)), style: TextStyle(color: p.muted, fontSize: 13)),
+        Text(limit == null ? s.weightNoLimit : s.weightAlertNote(numText(limit, s)), style: TextStyle(color: p.muted, fontSize: AppType.small)),
       const SizedBox(height: 10),
       Row(children: [
         Expanded(child: FilledButton(onPressed: () => context.push(readingPath('WEIGHT', c.who)), child: FitLabel(Text(s.logWeight)))),
@@ -673,7 +673,7 @@ class KidneyHero extends ConsumerWidget {
     Future<void> save(Map<String, dynamic> m) => runCareAction(context, ref, () => CareActions(ref, c.who).updateSetting('kidney', m));
     return SectionCard(
       title: s.creatinineResults,
-      trailing: results.isEmpty ? null : Text(s.lastResult(shortDate(results.last.day, s)), style: TextStyle(color: p.muted, fontSize: 13)),
+      trailing: results.isEmpty ? null : Text(s.lastResult(shortDate(results.last.day, s)), style: TextStyle(color: p.muted, fontSize: AppType.small)),
       children: [
         TrendBars(points: pts, empty: s.noResults, unit: 'mg/dL'),
         Align(
@@ -756,7 +756,7 @@ class AsthmaHero extends ConsumerWidget {
           child: Text(s.relieverWarn, style: TextStyle(color: p.onWarnContainer)),
         )
       else
-        Text(s.relieverNote, style: TextStyle(color: p.muted, fontSize: 13)),
+        Text(s.relieverNote, style: TextStyle(color: p.muted, fontSize: AppType.small)),
       if (zone != null) ...[
         const SizedBox(height: 8),
         Row(children: [
@@ -765,7 +765,7 @@ class AsthmaHero extends ConsumerWidget {
             tone: switch (zone.zone) { PeakFlowZone.green => ToneKind.ok, PeakFlowZone.yellow => ToneKind.warn, PeakFlowZone.red => ToneKind.error },
           ),
           const SizedBox(width: 8),
-          Expanded(child: Text(s.basedOnBest(best!), style: TextStyle(color: p.muted, fontSize: 13))),
+          Expanded(child: Text(s.basedOnBest(best!), style: TextStyle(color: p.muted, fontSize: AppType.small))),
         ]),
       ],
       const SizedBox(height: 10),
@@ -773,7 +773,7 @@ class AsthmaHero extends ConsumerWidget {
         Expanded(
           child: FilledButton.icon(
             onPressed: () => runCareAction(context, ref, () => CareActions(ref, c.who).addLog(CareLogKind.reliever, {'puffs': 1}, condition: 'asthma'), done: s.relieverLogged),
-            icon: const Icon(Icons.air),
+            icon: const Icon(Icons.air_outlined),
             label: FitLabel(Text(s.usedReliever)),
           ),
         ),
@@ -827,7 +827,7 @@ class ThyroidHero extends StatelessWidget {
     return SectionCard(
       title: s.tshResults,
       trailing: next != null
-          ? StateChip(s.nextTest(inDaysLabel(next.day, s)), tone: ToneKind.navy, icon: Icons.schedule)
+          ? StateChip(s.nextTest(inDaysLabel(next.day, s)), tone: ToneKind.navy, icon: Icons.schedule_outlined)
           : TextButton(onPressed: () => context.push(testFormPath(kind: 'tsh', condition: 'thyroid', who: c.who)), child: Text(s.nextTestDate)),
       children: [
         TrendBars(points: pts, empty: s.noResults, unit: 'mIU/L'),
@@ -841,7 +841,7 @@ class ThyroidHero extends StatelessWidget {
           ]),
         ],
         const SizedBox(height: 6),
-        Text(tr(thyroidRecheckNote, s.bn), style: TextStyle(color: p.muted, fontSize: 13)),
+        Text(tr(thyroidRecheckNote, s.bn), style: TextStyle(color: p.muted, fontSize: AppType.small)),
         Align(
           alignment: Alignment.centerLeft,
           child: OutlinedButton.icon(
@@ -919,7 +919,7 @@ class CancerHero extends ConsumerWidget {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(color: p.violetContainer, borderRadius: BorderRadius.circular(16)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text(s.comingUp, style: TextStyle(color: p.onVioletContainer, fontWeight: FontWeight.w700, fontSize: 13)),
+          Text(s.comingUp, style: TextStyle(color: p.onVioletContainer, fontWeight: FontWeight.w700, fontSize: AppType.small)),
           for (final (day, time, label, remind) in soon.take(5))
             Padding(
               padding: const EdgeInsets.only(top: 8),
@@ -929,7 +929,7 @@ class CancerHero extends ConsumerWidget {
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
-                    Text([if (time != null) hhmmLabel(context, time, s), inDaysLabel(day, s)].join(', '), style: TextStyle(color: p.muted, fontSize: 13)),
+                    Text([if (time != null) hhmmLabel(context, time, s), inDaysLabel(day, s)].join(', '), style: TextStyle(color: p.muted, fontSize: AppType.small)),
                   ]),
                 ),
                 if (remind) StateChip(s.reminderOn, tone: ToneKind.navy, icon: Icons.check),

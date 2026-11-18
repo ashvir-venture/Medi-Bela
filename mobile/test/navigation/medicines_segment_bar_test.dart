@@ -35,12 +35,12 @@ double _lineHeight(WidgetTester tester, String text) =>
 
 void main() {
   for (final strings in [enStrings, bnStrings]) {
-    testWidgets('labels stay on one line on a small phone (${strings.today})', (tester) async {
+    testWidgets('labels stay on one line on a small phone (${strings.r18.myMedicineTab})', (tester) async {
       await _pump(tester, strings);
-      final oneLine = _lineHeight(tester, strings.today);
+      // Round 18: two segments, My medicine and Prescriptions.
+      final oneLine = _lineHeight(tester, strings.r18.myMedicineTab);
       // A broken word ("Prescriptio / ns") would make the paragraph two lines tall.
       expect(_lineHeight(tester, strings.prescriptionsButton), oneLine);
-      expect(_lineHeight(tester, strings.myMedicines), oneLine);
       expect(tester.takeException(), isNull); // no overflow
     });
   }

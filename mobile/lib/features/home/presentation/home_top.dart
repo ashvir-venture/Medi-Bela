@@ -17,7 +17,9 @@ import '../../medicine_schedule/presentation/medicine_schedule_controller.dart';
 import '../../prescription/presentation/prescription_screen.dart';
 import '../../reminders/presentation/reminder_status_controller.dart';
 import '../domain/day_slots.dart';
+import '../../../widgets/word_safe_text.dart';
 import '../../../widgets/fit_label.dart';
+import '../../../core/utils/clock_label.dart';
 
 /// Round 14, the demo's Home: a navy band (avatar → Profile, greeting and
 /// name, EN | বাং, the bell), today's date and the reminder check, then the
@@ -64,7 +66,7 @@ class HomeBand extends ConsumerWidget {
                       border: Border.all(color: const Color(0xFF5CC8D4), width: 2),
                     ),
                     child: Text(initial,
-                        style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700)),
+                        style: const TextStyle(color: Colors.white, fontSize: AppType.title, fontWeight: FontWeight.w700)),
                   ),
                 ),
               ),
@@ -73,11 +75,11 @@ class HomeBand extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(greeting(s, now), style: TextStyle(color: p.bandMuted, fontSize: 13)),
+                    Text(greeting(s, now), style: TextStyle(color: p.bandMuted, fontSize: AppType.small)),
                     Text(name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+                        style: const TextStyle(color: Colors.white, fontSize: AppType.title, fontWeight: FontWeight.w700)),
                   ],
                 ),
               ),
@@ -121,19 +123,19 @@ class HomeBand extends ConsumerWidget {
           const SizedBox(height: 14),
           Row(
             children: [
-              Expanded(child: Text(longDate(now, isBangla), style: TextStyle(color: p.bandMuted, fontSize: 14))),
+              Expanded(child: Text(longDate(now, isBangla), style: TextStyle(color: p.bandMuted, fontSize: AppType.small))),
               ActionChip(
                 onPressed: () => context.push(AppRoutes.reminderCheck),
                 backgroundColor: remindersOk ? p.band2 : const Color(0xFFF2B266),
                 side: BorderSide.none,
-                avatar: Icon(remindersOk ? Icons.circle : Icons.alarm,
+                avatar: Icon(remindersOk ? Icons.circle : Icons.alarm_outlined,
                     size: remindersOk ? 10 : 16, color: remindersOk ? const Color(0xFF79C985) : const Color(0xFF3A2610)),
                 label: Text(
                   remindersOk ? s.remindersWorking : s.fixReminders,
                   style: TextStyle(
                     color: remindersOk ? const Color(0xFFBDEBC4) : const Color(0xFF3A2610),
                     fontWeight: FontWeight.w700,
-                    fontSize: 13,
+                    fontSize: AppType.small,
                   ),
                 ),
               ),
@@ -168,7 +170,7 @@ const _bnDigitChars = '০১২৩৪৫৬৭৮৯';
 /// Western digits as Bengali digits (the demo writes numbers in Bangla).
 String bnDigits(String s) => s.replaceAllMapped(RegExp('[0-9]'), (m) => _bnDigitChars[int.parse(m[0]!)]);
 
-String _time(BuildContext context, DateTime t) => TimeOfDay.fromDateTime(t).format(context);
+String _time(BuildContext context, DateTime t) => TimeOfDay.fromDateTime(t).label(context);
 
 /// The "Today's medicine" card overlapping the band: x of y done, a bar with
 /// one piece per dose, the time to act on with its medicines, Taken (green)
@@ -295,7 +297,7 @@ class TodayHeroCard extends ConsumerWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(s.allDoneToday,
-                  style: TextStyle(color: p.onOkContainer, fontWeight: FontWeight.w700, fontSize: 16)),
+                  style: TextStyle(color: p.onOkContainer, fontWeight: FontWeight.w700, fontSize: AppType.body)),
             ),
           ]),
         )
@@ -328,7 +330,7 @@ class _SlotStripItem extends ConsumerWidget {
     final s = ref.watch(stringsProvider).r14;
     final p = context.palette;
     final (text, color, icon) = switch (view.state) {
-      SlotState.done when view.missed > 0 => (s.missedCount(view.missed), Theme.of(context).colorScheme.error, Icons.alarm),
+      SlotState.done when view.missed > 0 => (s.missedCount(view.missed), Theme.of(context).colorScheme.error, Icons.alarm_outlined),
       SlotState.done => (s.statusDone, p.onOkContainer, Icons.check),
       SlotState.none => (s.statusNone, p.ink, null),
       SlotState.late => (s.statusLate, p.onWarnContainer, null),
@@ -338,13 +340,13 @@ class _SlotStripItem extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(slotLabel(s, view.slot), style: TextStyle(color: p.muted, fontSize: 13)),
+        Text(slotLabel(s, view.slot), style: TextStyle(color: p.muted, fontSize: AppType.small)),
         Row(children: [
           if (icon != null) Icon(icon, size: 18, color: color),
           Flexible(
             child: Text(text,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 15)),
+                style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: AppType.body)),
           ),
         ]),
       ],
@@ -385,13 +387,13 @@ class _NextSlot extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.schedule, color: p.link, size: 22),
+              Icon(Icons.schedule_outlined, color: p.link, size: 22),
               const SizedBox(width: 8),
               Expanded(child: Text(at == null ? '' : _time(context, at), style: theme.textTheme.titleLarge)),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                 decoration: BoxDecoration(color: chip.$2, borderRadius: BorderRadius.circular(999)),
-                child: Text(chip.$1, style: TextStyle(color: chip.$3, fontWeight: FontWeight.w700, fontSize: 13)),
+                child: Text(chip.$1, style: TextStyle(color: chip.$3, fontWeight: FontWeight.w700, fontSize: AppType.small)),
               ),
             ],
           ),
@@ -403,7 +405,7 @@ class _NextSlot extends ConsumerWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(color: p.primaryContainer, borderRadius: BorderRadius.circular(12)),
-                  child: Icon(Icons.medication, color: p.onPrimaryContainer),
+                  child: Icon(Icons.medication_outlined, color: p.onPrimaryContainer),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -411,7 +413,7 @@ class _NextSlot extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(d.medicineName, style: theme.textTheme.titleMedium, maxLines: 2, overflow: TextOverflow.ellipsis),
-                      Text(d.dosage, style: TextStyle(color: p.muted, fontSize: 14)),
+                      Text(d.dosage, style: TextStyle(color: p.muted, fontSize: AppType.small)),
                     ],
                   ),
                 ),
@@ -489,7 +491,7 @@ class DoseOutcomeChip extends ConsumerWidget {
     final p = context.palette;
     final (text, bg, fg, icon) = switch (outcome) {
       DoseOutcome.onTime => (s.outcomeOnTime, p.okContainer, p.onOkContainer, Icons.check),
-      DoseOutcome.late => (s.outcomeLate, p.warnContainer, p.onWarnContainer, Icons.alarm),
+      DoseOutcome.late => (s.outcomeLate, p.warnContainer, p.onWarnContainer, Icons.alarm_outlined),
       DoseOutcome.missed => (s.outcomeMissed, p.errorContainer, p.onErrorContainer, Icons.close),
     };
     return Wrap(
@@ -502,7 +504,7 @@ class DoseOutcomeChip extends ConsumerWidget {
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(icon, size: 14, color: fg),
             const SizedBox(width: 4),
-            Text(text, style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 13)),
+            Text(text, style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: AppType.small)),
           ]),
         ),
         if (given)
@@ -510,7 +512,7 @@ class DoseOutcomeChip extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
             decoration: BoxDecoration(color: p.navyContainer, borderRadius: BorderRadius.circular(999)),
             child: Text(s.givenByCaregiver,
-                style: TextStyle(color: p.onNavyContainer, fontWeight: FontWeight.w700, fontSize: 13)),
+                style: TextStyle(color: p.onNavyContainer, fontWeight: FontWeight.w700, fontSize: AppType.small)),
           ),
       ],
     );
@@ -542,10 +544,9 @@ class HomeServices extends ConsumerWidget {
                     child: Icon(icon, color: fg, size: 26),
                   ),
                   const SizedBox(height: 8),
-                  Text(label,
+                  WordSafeText(label,
                       textAlign: TextAlign.center,
-                      maxLines: 2,
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: p.ink)),
+                      style: TextStyle(fontSize: AppType.small, fontWeight: FontWeight.w600, color: p.ink, height: 1.25)),
                 ],
               ),
             ),

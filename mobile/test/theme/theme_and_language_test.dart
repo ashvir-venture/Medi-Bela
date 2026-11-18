@@ -13,9 +13,10 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('theme mode', () {
-    test('unknown or missing values follow the phone', () {
-      expect(parseThemeMode(null), ThemeMode.system);
-      expect(parseThemeMode('purple'), ThemeMode.system);
+    test('unknown or missing values mean light (new installs start light)', () {
+      expect(parseThemeMode(null), ThemeMode.light);
+      expect(parseThemeMode('purple'), ThemeMode.light);
+      expect(parseThemeMode('system'), ThemeMode.system);
       expect(parseThemeMode('dark'), ThemeMode.dark);
     });
 
