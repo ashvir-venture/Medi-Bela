@@ -1,37 +1,49 @@
-# Backup and restore (Neon)
+# Backup and restore (Supabase)
+
+Since 2026-11-18 the database is Supabase (Postgres 17, region
+ap-southeast-1). Neon was used before; its old project is an archive only.
 
 ## What protects the data
 
-- **Neon point-in-time restore (history retention).** Neon keeps the
-  database's change history for the plan's retention window (check the
-  project's *History retention* setting; raise it if the plan allows). Any
-  moment inside that window can be restored as a new branch.
-- **Logical dumps** (`pg_dump`) you take yourself, kept outside Neon. Do one
-  before every schema change and weekly.
+- **Supabase backups.** Daily backups, and point-in-time recovery (PITR) as
+  an add-on, depend on the project's plan (Pro and up). Check Project →
+  Database → Backups to see what this project has. On the free plan there is
+  no backup you can restore from the dashboard, so the dumps below are the
+  only copy.
+- **Logical dumps** (`pg_dump`) you take yourself, kept outside Supabase. Do
+  one before every schema change and weekly.
 
-## Restore to a moment (Neon branch)
+## Restore from a Supabase backup
 
-Use this after a bad deploy, a wrong bulk change or deleted data.
+Use this after a bad deploy, a wrong bulk change or deleted data, when the
+plan includes backups.
 
-1. Neon → Branches → *Create branch* → *From a point in time* → pick a time
-   just before the problem.
-2. Check the new branch in the SQL editor (e.g. the rows you lost exist).
-3. Either point Render's `DATABASE_URL` at the new branch and redeploy, or
-   copy the needed rows back by hand. Don't overwrite the main branch until
-   you have checked the restored one.
+1. Project → Database → Backups → pick a daily backup (or, with PITR, a
+   moment just before the problem) → Restore.
+2. A restore replaces the project's database and takes it offline for a few
+   minutes; turn on `MAINTENANCE_MODE=true` on Render first, back to `false`
+   after the check.
+3. Check the rows you lost exist (SQL editor), then the drift check below.
+
+If you only need a few rows back, restore a `pg_dump` into a separate
+database instead and copy them across by hand.
 
 ## Logical dump and restore
 
 ```bash
-# Dump (custom format, no Neon-specific roles)
-pg_dump "$NEON_DIRECT_URL" -Fc --no-owner --no-privileges -f medibela-$(date +%F).dump
+# Dump (custom format, no Supabase-specific roles or ownership)
+pg_dump "$DB_URL" -Fc --no-owner --no-privileges --schema=public -f medibela-$(date +%F).dump
 
-# Restore into an EMPTY database (a new Neon branch/database, or local Postgres)
+# Restore into an EMPTY database (a new Supabase project, or local Postgres)
 pg_restore -d "$TARGET_URL" --no-owner --no-privileges --exit-on-error medibela-YYYY-MM-DD.dump
 ```
 
-Use the direct (non-pooled) connection string for both. `pg_dump` must be
-the same major version as the server or newer.
+`DB_URL` is the **Session pooler** string (port 5432, `?sslmode=require`),
+the same one the app uses; the direct `db.<ref>.supabase.co` host is IPv6
+only. Do not use the Transaction pooler (port 6543) for `pg_dump`.
+`--schema=public` keeps Supabase's own schemas (auth, storage, ...) out of
+the dump: Medi-Bela only uses `public`. `pg_dump` must be the same major
+version as the server (17) or newer.
 
 Check after restoring:
 
@@ -60,6 +72,5 @@ password-protected archive), never in the repository or a shared drive.
 | indexes / constraints | 92 / 270 both sides | 91 / 270 both sides |
 | `prisma migrate diff` source → restored | empty | empty |
 
-The Neon point-in-time restore itself has to be tried in the Neon console
-(create a branch from 10 minutes ago and open it); do that once after the
-deploy.
+Not tried yet: a `pg_dump` of the Supabase database itself, and (if the plan
+has it) a dashboard restore. Do a dump once now and keep it.

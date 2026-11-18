@@ -98,7 +98,7 @@ the queue, (doctorId) for analytics and doctor pages; prescription_medicines
 assistant_conversations, audit_logs and notice indexes (their features weren't
 in the test).
 
-**Drop candidates (confirm on Neon first):**
+**Drop candidates (confirm on Supabase first):**
 
 | index | why it looks redundant |
 |---|---|
@@ -107,7 +107,7 @@ in the test).
 
 It is tiny today, so there is no hurry.
 
-### Checking on Neon after a few weeks of real use
+### Checking on Supabase after a few weeks of real use
 
 ```sql
 SELECT s.relname AS table, s.indexrelname AS index, s.idx_scan AS scans,
@@ -124,8 +124,8 @@ its `@@index` from `schema.prisma` in the same change.
 ## Not covered
 
 - HTTP layer under concurrency (the test calls services directly; the rate
-  limiter and Nest overhead aren't in these numbers). Neon's network latency
+  limiter and Nest overhead aren't in these numbers). Supabase's network latency
   (a few ms per query from Render) adds to every read.
 - FCM delivery (push disabled in the test).
-- Neon's compute size: these timings are from a laptop; a small Neon compute
-  may be 2-3x slower.
+- Supabase's compute size: these timings are from a laptop; a small Supabase
+  compute may be 2-3x slower.

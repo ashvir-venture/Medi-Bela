@@ -2,7 +2,7 @@
 -- Generated from prisma/migrations/*, migrations_phase4a/phase4a_extra.sql
 -- and every prisma/pending-sql file, in the order of docs/release/deploy-runbook.md.
 -- Do not edit by hand: rebuild with `bash scripts/build-fresh-install.sh`.
--- Run once on a new, empty Neon database. If any statement fails, drop the
+-- Run once on a new, empty database (Supabase: the Session pooler URL). If any statement fails, drop the
 -- database, create it again and re-run; do not run it on a database with data.
 -- Afterwards: SELECT count(*) FROM divisions;  -- 8
 --             SELECT count(*) FROM districts;  -- 64
